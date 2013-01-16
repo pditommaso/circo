@@ -255,8 +255,8 @@ class ClientApp {
         def holder = new ResponseSink()
         holder.command = submit
 
-        // add 1 because for each job request we got at lest the submit ack + the job result
-        def count = (submit.sync || submit.printOutput ? numOfJobs : 1)  +1
+        // add 1 because for each job request we got at lest the submit ack + the job results
+        def count = (submit.sync || submit.printOutput ? numOfJobs+1 : 1)
         log.debug "Barrier count: ${count}"
         holder.barrier = new CountDownLatch(count)
 

@@ -139,14 +139,16 @@ class JobExecutor extends UntypedActor {
         return result
     }
 
+    static private Random rndgen = new Random()
+
     static File createWorkDir( int seed ) {
 
         final baseDir = System.getProperty("java.io.tmpdir")
 
-        int counter = 0
         long timestamp = System.currentTimeMillis()
+        int id = seed
         while( true ) {
-            int id = seed + (counter++)
+
             File tempDir = new File(baseDir, "rush-${Integer.toHexString(id)}");
             if (tempDir.mkdir()) {
                 return tempDir;
@@ -157,6 +159,7 @@ class JobExecutor extends UntypedActor {
             }
 
             Thread.sleep(50)
+            id = id + rndgen.nextInt(Integer.MAX_VALUE)
         }
 
 
@@ -172,7 +175,7 @@ class JobExecutor extends UntypedActor {
         def privateDir = null
         try {
             job.launchTime = System.currentTimeMillis()
-            job.workDir = createWorkDir(this.hashCode())
+            job.workDir = createWorkDir( job.id.hashCode() )
 
             // create the local private dir
             privateDir = createRushDir(job)
