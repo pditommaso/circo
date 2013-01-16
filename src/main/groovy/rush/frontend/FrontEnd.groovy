@@ -167,7 +167,8 @@ class FrontEnd extends UntypedActor {
         def count = 0
         if( cmdSub.times ) {
             cmdSub.times.each  { index ->
-                createAndSaveJobEntry( request, ticket, index )
+
+                createAndSaveJobEntry( request, ticket, index, cmdSub.times )
                 count++
             }
         }
@@ -190,10 +191,22 @@ class FrontEnd extends UntypedActor {
 
     }
 
-    private JobEntry createAndSaveJobEntry( JobReq request, def ticket, def index = null ) {
+    private JobEntry createAndSaveJobEntry( JobReq request, def ticket, def index = null, def range = null ) {
         assert ticket
 
         final id = new JobId( ticket, index )
+
+        // -- define some context environment variables
+        request.environment['JOB_ID'] = id.toString()
+        request.environment['JOB_NAME'] = id.ticket?.toString()
+
+        if( index != null && range != null ) {
+            // for backward compatibility with SGE use the same variable name for job arrays
+            request.environment['SGE_TASK_ID'] = index.toString()
+            request.environment['SGE_TASK_FIRST'] = range.from.toString()
+            request.environment['SGE_TASK_LAST'] = range.to.toString()
+        }
+
         final entry = new JobEntry(id, request )
         entry.sender = new WorkerRef(getSender())
         entry.status = JobStatus.NEW
