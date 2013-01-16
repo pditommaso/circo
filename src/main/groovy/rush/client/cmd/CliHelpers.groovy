@@ -111,6 +111,7 @@ class AppCommandsFactory {
         cmdParser.addCommand( new CmdSub() )
         cmdParser.addCommand( new CmdNode() )
         cmdParser.addCommand( new CmdStat() )
+        cmdParser.addCommand( new CmdClear() )
 
         return cmdParser
     }
