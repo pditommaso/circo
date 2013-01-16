@@ -80,7 +80,7 @@ class FrontEnd extends UntypedActor {
         }
 
         else if( message instanceof CmdStat ) {
-            handleCmdJob(message)
+            handleCmdStat(message)
         }
 
         else {
@@ -89,7 +89,7 @@ class FrontEnd extends UntypedActor {
 
     }
 
-    void handleCmdJob(CmdStat cmd) {
+    void handleCmdStat(CmdStat cmd) {
         assert cmd
 
         def result = new CmdStatResponse(ticket: cmd.ticket)
