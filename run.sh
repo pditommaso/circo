@@ -26,6 +26,12 @@ while [ "$*" != "" ]; do
   elif [ "$1" == '--with-jrebel' ]; then  
     JVM_ARGS="$JVM_ARGS -javaagent:$JREBEL_HOME/jrebel.jar -Drebel.log.file=./jrebel-client.log"
 
+  elif [ "$1" == '--client' ]; then
+    args+=("rush.client.ClientApp")
+
+  elif [ "$1" == '--daemon' ]; then
+    args+=("rush.ClusterNode")
+
   else
    args+=("$1")
   fi 
