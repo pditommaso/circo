@@ -78,6 +78,14 @@ class JobIdTest extends Specification {
 
     }
 
+    def 'test FromString' () {
+
+        expect:
+        new JobId('112233')  == JobId.fromString('112233')
+        new JobId('112233','89')  == JobId.fromString('112233:89')
+        new JobId('112233',89)  == JobId.fromString('112233:89')
+    }
+
     def 'test toFmtString' () {
         //TODO
     }

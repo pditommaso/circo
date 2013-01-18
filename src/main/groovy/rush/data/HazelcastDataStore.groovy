@@ -18,13 +18,12 @@
  */
 
 package rush.data
-
-import com.hazelcast.core.EntryEvent
-import com.hazelcast.core.EntryListener
-import com.hazelcast.core.Hazelcast
-import com.hazelcast.core.HazelcastInstance
-import com.hazelcast.core.IMap
+import com.hazelcast.config.ClasspathXmlConfig
+import com.hazelcast.config.MapConfig
+import com.hazelcast.config.MapStoreConfig
+import com.hazelcast.core.*
 import com.hazelcast.query.SqlPredicate
+import com.typesafe.config.Config as TypesafeConfig
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import rush.messages.JobEntry
@@ -42,7 +41,34 @@ class HazelcastDataStore extends AbstractDataStore {
 
     private HazelcastInstance hazelcast
 
-   private Map<Closure,EntryListener> listenersMap = [:]
+    private Map<Closure,EntryListener> listenersMap = [:]
+
+    def HazelcastDataStore( TypesafeConfig config ) {
+
+        // -- hazelcast configuration
+        def cfg = new ClasspathXmlConfig('hazelcast.xml')
+
+        // -- look for optional JDBC persistence configuration
+        def jdbc = config.getConfig('store.jdbc')
+        if( jdbc ) {
+            log.info "Setting up JDBC store persistence "
+            JdbcJobsMapStore.dataSource = JdbcDataSourceFactory.create(jdbc)
+
+            def mapStoreConfig =
+                    new MapStoreConfig()
+                    .setClassName( JdbcJobsMapStore.getName() )
+                    .setEnabled(true)
+
+            cfg.addMapConfig(new MapConfig('jobs').setMapStoreConfig(mapStoreConfig))
+        }
+        else {
+            log.debug "No store persistence provided"
+        }
+
+        // create the instance - and - initialize it
+        init(Hazelcast.newHazelcastInstance(cfg))
+    }
+
 
     def HazelcastDataStore( HazelcastInstance instance = null ) {
 
@@ -51,10 +77,19 @@ class HazelcastDataStore extends AbstractDataStore {
             instance = Hazelcast.newHazelcastInstance(null)
         }
 
-        hazelcast = instance
-        //idGen = hazelcast.getAtomicNumber('idGen')
-        jobsMap = hazelcast.getMap('store')
-        nodeDataMap = hazelcast.getMap('nodeInfo')
+        // initialize the data structure
+        init(instance)
+    }
+
+    protected void init( HazelcastInstance instance ) {
+
+        this.hazelcast = instance
+        this.jobsMap = hazelcast.getMap('jobs')
+        this.nodeDataMap = hazelcast.getMap('nodeInfo')
+
+        // add indexes
+        (jobsMap as IMap).addIndex("id", false)
+        (jobsMap as IMap).addIndex("status", false)
     }
 
 

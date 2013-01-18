@@ -28,6 +28,7 @@ import rush.utils.RushHelper
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
+@rush.utils.Serializable
 @EqualsAndHashCode(includes = 'id')
 @ToString(includes = 'id', includePackage = false)
 class JobEntry implements Serializable, Comparable<JobEntry> {

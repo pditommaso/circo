@@ -19,6 +19,8 @@
 
 package rush.messages
 import groovy.transform.EqualsAndHashCode
+import rush.utils.Serializable
+
 /**
  * Models a Job unique identifier
  * <p>
@@ -29,17 +31,18 @@ import groovy.transform.EqualsAndHashCode
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
+@Serializable
 @EqualsAndHashCode
-class JobId implements Serializable, Comparable<JobId> {
+class JobId implements java.io.Serializable, Comparable<JobId> {
 
     def String ticket
 
-    def index
+    def String index
 
     def JobId( def ticket, def index = null ) {
         assert ticket
         this.ticket = ticket.toString()
-        this.index = index
+        this.index = index?.toString()
     }
 
 
@@ -51,8 +54,6 @@ class JobId implements Serializable, Comparable<JobId> {
 
         result
     }
-
-    def String getIndexStr() { index?.toString() ?: null }
 
     def String toFmtString() {
 
@@ -72,6 +73,20 @@ class JobId implements Serializable, Comparable<JobId> {
     static def JobId of( def ticket, def index = null ) {
         assert ticket
         new JobId(ticket.toString(),index)
+    }
+
+    static def JobId fromString( String value ) {
+        assert value
+
+        def p = value.indexOf(':')
+        if( p != -1 ) {
+            new JobId(  value.substring(0,p), value.substring(p+1)  )
+        }
+        else {
+            new JobId( value )
+        }
+
+
     }
 
     @Override

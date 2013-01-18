@@ -24,9 +24,7 @@ import akka.actor.UntypedActorFactory
 import akka.cluster.Cluster
 import com.beust.jcommander.JCommander
 import com.beust.jcommander.ParameterException
-import com.hazelcast.config.ClasspathXmlConfig
-import com.hazelcast.config.Config as HazelcastConfig
-import com.hazelcast.core.Hazelcast
+import com.typesafe.config.ConfigFactory
 import groovy.util.logging.Slf4j
 import rush.data.DataStore
 import rush.data.HazelcastDataStore
@@ -36,7 +34,6 @@ import rush.frontend.FrontEnd
 import rush.ui.TerminalUI
 import rush.utils.CmdLine
 import rush.utils.LoggerHelper
-
 /**
  *  Launch a cluster node instance
  *
@@ -69,8 +66,7 @@ public class ClusterNode {
         }
         else {
             log.debug "Launching Hazelcast"
-            HazelcastConfig cfg = new ClasspathXmlConfig('hazelcast.xml')
-            dataStore = new HazelcastDataStore(Hazelcast.newHazelcastInstance(cfg))
+            dataStore = new HazelcastDataStore( ConfigFactory.load() )
         }
 
     }
