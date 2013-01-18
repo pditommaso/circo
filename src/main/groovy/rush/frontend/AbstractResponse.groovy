@@ -22,11 +22,13 @@ package rush.frontend
 import com.google.common.collect.LinkedListMultimap
 import com.google.common.collect.Multimap
 import groovy.transform.ToString
+import groovy.util.logging.Slf4j
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Slf4j
 @ToString(includePackage = false)
 abstract class AbstractResponse implements Serializable {
 
@@ -70,6 +72,16 @@ abstract class AbstractResponse implements Serializable {
         result << getWarn()
         result << getInfo()
         return result
+    }
+
+    def void printMessages( Level level = null ) {
+
+        if ( hasMessages() ) {
+            if ( !level || level == Level.INFO ) info.each { log.info it }
+            if ( !level || level == Level.WARN )  warn.each { log.warn "${it}" }
+            if ( !level || level == Level.ERROR )  error.each { log.error "${it}" }
+        }
+
     }
 
 

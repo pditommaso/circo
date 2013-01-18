@@ -18,10 +18,9 @@
  */
 
 package rush.frontend
-
 import groovy.transform.ToString
+import rush.data.JobsStat
 import rush.messages.JobEntry
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -30,5 +29,7 @@ import rush.messages.JobEntry
 class CmdStatResponse extends AbstractResponse {
 
     List<JobEntry> jobs
+
+    JobsStat stats
 
 }

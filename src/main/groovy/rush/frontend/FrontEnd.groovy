@@ -20,18 +20,19 @@
 
 
 package rush.frontend
+
 import akka.actor.ActorRef
 import akka.actor.UntypedActor
 import groovy.util.logging.Slf4j
 import rush.JobMaster
+import rush.client.cmd.AbstractCommand
+import rush.client.cmd.CmdPause
 import rush.client.cmd.CmdStat
 import rush.client.cmd.CmdSub
 import rush.data.DataStore
+import rush.data.NodeData
 import rush.data.WorkerRef
-import rush.messages.JobEntry
-import rush.messages.JobId
-import rush.messages.JobReq
-import rush.messages.JobStatus
+import rush.messages.*
 
 /**
  *
@@ -48,6 +49,8 @@ class FrontEnd extends UntypedActor {
 
     def DataStore dataStore
 
+    def Map<Class<? extends AbstractCommand>, Closure> dispatchTable = new HashMap<>()
+
     def FrontEnd( DataStore store ) {
         this.dataStore = store
     }
@@ -61,8 +64,30 @@ class FrontEnd extends UntypedActor {
         }
     }
 
+
     def void postStop() {
         log.debug "~~ Stopping actor ${getSelf().path()}"
+    }
+
+
+    {
+        dispatchTable[ CmdSub ] = this.&handleCmdSub
+        dispatchTable[ CmdStat ] = this.&handleCmdStat
+        dispatchTable[ CmdPause ] = this.&handleCmdPause
+        //dispatchTable[ CmdNode ] = null // TODO
+    }
+
+
+    protected boolean dispatch( def message ) {
+        assert message
+
+        def handler = dispatchTable[ message.class ]
+        if( handler ) {
+            handler.call(message)
+            return true
+        }
+
+        return false
     }
 
     /**
@@ -75,18 +100,26 @@ class FrontEnd extends UntypedActor {
     void onReceive(Object message) {
         log.debug "<- ${message}"
 
-        if( message instanceof CmdSub )  {
-            handleCmdSub(message)
-        }
-
-        else if( message instanceof CmdStat ) {
-            handleCmdStat(message)
-        }
-
-        else {
+        if ( !dispatch(message) ){
             unhandled(message)
         }
 
+    }
+
+    void handleCmdPause(CmdPause message) {
+
+        // the message to send
+        def pause = new PauseWorker(hard: message.hard)
+
+        // send the 'pause' message to all master nodes
+        def nodes = dataStore.findAllNodesData()
+        nodes.each { NodeData node ->
+            def actor = getContext().system().actorFor("${node.address}/user/${JobMaster.ACTOR_NAME}")
+            actor.tell( pause, getSelf() )
+        }
+
+        // confirm the operation
+        getSender().tell( new CmdAckResponse(), getSelf() )
     }
 
     void handleCmdStat(CmdStat cmd) {
@@ -128,18 +161,20 @@ class FrontEnd extends UntypedActor {
             list = dataStore.findJobsByStatus( cmd.status )
         }
 
+        /*
+         * The list of all the jobs (!)
+         */
         else if( cmd.all ) {
             list = dataStore.findAll()
         }
 
         /*
-         * Invalid job query
+         * return some stats
          */
         else {
-            log.warn "Invalid job command: $cmd"
-            list = []
-            result.warn('Invalid job command')
+            result.stats = dataStore.findJobsStats()
         }
+
 
         /*
          * reply back to the sender
@@ -148,7 +183,7 @@ class FrontEnd extends UntypedActor {
         result.success = true
 
         log.debug "-> ${result} TO sender: ${sender}"
-        getSender().tell( result )
+        getSender().tell( result, getSelf() )
 
     }
 

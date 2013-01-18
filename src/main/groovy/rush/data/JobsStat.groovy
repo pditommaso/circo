@@ -22,6 +22,7 @@ package rush.data
 import rush.messages.JobStatus
 
 /**
+ * Model the jobs statistics information i.e. how many jobs are for each {@code JobStatus}
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */

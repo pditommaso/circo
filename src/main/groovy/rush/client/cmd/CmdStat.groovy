@@ -23,11 +23,12 @@ import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
+import org.apache.commons.lang.exception.ExceptionUtils
 import rush.client.ClientApp
+import rush.data.JobsStat
 import rush.frontend.CmdStatResponse
 import rush.messages.JobEntry
 import rush.messages.JobStatus
-import org.apache.commons.lang.exception.ExceptionUtils
 
 /**
  *
@@ -57,10 +58,6 @@ class CmdStat extends AbstractCommand {
     @Override
     void execute(ClientApp client) {
 
-        if( !jobs && !status && !all ) {
-            status = [ JobStatus.PENDING ]
-        }
-
         log.debug "Sending $this"
         CmdStatResponse result = client.send(this)
 
@@ -69,14 +66,13 @@ class CmdStat extends AbstractCommand {
             return
         }
 
-        if ( result.hasMessages() ) {
-            result.info.each { log.info it }
-            result.warn.each { log.warn "${it}" }
-            result.error.each { log.error "${it}" }
-        }
+        result.printMessages()
 
-        if( this.jobs ) {
-            showJobsDetails( result.jobs )
+        if( result.stats ) {
+            printStats(result.stats)
+        }
+        else if( this.jobs ) {
+            printJobsDetails( result.jobs )
         }
         else {
             printJobsTable( result.jobs )
@@ -85,7 +81,20 @@ class CmdStat extends AbstractCommand {
 
     }
 
-    def static void showJobsDetails( List<JobEntry> jobs )  {
+    def static void printStats(JobsStat stats) {
+
+        println """
+        cluster status
+        --------------
+        pending : ${ stats[ JobStatus.PENDING ].toString().padLeft(4) }
+        running : ${ stats[ JobStatus.RUNNING].toString().padLeft(4)  }
+        complete: ${ stats[ JobStatus.COMPLETE].toString().padLeft(4)  }
+        failed  : ${ stats[ JobStatus.FAILED].toString().padLeft(4)  }
+        """
+        .stripIndent()
+    }
+
+    def static void printJobsDetails( List<JobEntry> jobs )  {
 
         log.debug "Print details for jobs: ${jobs}"
 

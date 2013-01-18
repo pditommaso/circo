@@ -23,6 +23,7 @@ import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import rush.messages.JobEntry
 import rush.messages.JobId
+import rush.messages.JobStatus
 
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeoutException
@@ -72,6 +73,20 @@ abstract class AbstractDataStore implements DataStore {
     }
 
     long countJobs() { jobsMap.size() }
+
+
+    JobsStat findJobsStats() {
+        def result = new JobsStat()
+
+        JobStatus.values().each { JobStatus status ->
+            int count = findJobsByStatus( status ).size()
+            result.put(status, count)
+        }
+
+        return result
+
+
+    }
 
     List<JobEntry> findAll() {
         new LinkedList<>(jobsMap.values())

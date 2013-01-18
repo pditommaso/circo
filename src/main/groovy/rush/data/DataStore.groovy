@@ -83,6 +83,11 @@ interface DataStore {
     List<JobEntry> findJobsByStatus( JobStatus... status )
 
     /**
+     * The job status statistics i.e. how many jobs for each status
+     */
+    JobsStat findJobsStats()
+
+    /**
      * Find the {@code JobEntry} instance by the specified ID, apply the specified closure and save it
      *
      * @param jobId
