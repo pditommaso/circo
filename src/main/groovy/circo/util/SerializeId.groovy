@@ -34,7 +34,7 @@ import java.lang.annotation.Target
 
 @Retention(RetentionPolicy.SOURCE)
 @Target([ElementType.TYPE])
-@GroovyASTTransformationClass("circo.utils.SerializableASTTransformation")
+@GroovyASTTransformationClass("circo.util.SerializableASTTransformation")
 public @interface SerializeId {
 
     long value() default -1L
