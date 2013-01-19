@@ -43,7 +43,7 @@ dependencies {
         transitive = true
     }
     //compile ( 'org.infinispan:infinispan-core:5.1.7.Final' )
-    compile ( 'com.hazelcast:hazelcast:2.4.1',
+    compile ( 'com.hazelcast:hazelcast:2.5',
 
               'com.typesafe.akka:akka-actor_2.10:2.1.0',
               'com.typesafe.akka:akka-remote_2.10:2.1.0',
