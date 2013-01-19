@@ -36,7 +36,7 @@ class JobExecutorTest extends Specification {
         when:
         def entry = new JobEntry(JobId.of(123), new JobReq(script: 'echo Hello world!'))
         entry.workDir = new File(System.getProperty('java.io.tmpdir'))
-        def file = JobExecutor.createRushDir(entry)
+        def file = JobExecutor.createCircoDir(entry)
 
         then:
         file.exists()

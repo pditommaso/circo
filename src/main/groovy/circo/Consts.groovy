@@ -17,24 +17,17 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.utils
+package circo
 
-import org.codehaus.groovy.transform.GroovyASTTransformationClass
-
-import java.lang.annotation.ElementType
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
-import java.lang.annotation.Target
 /**
+ * Application constants
  *
- *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+class Consts {
 
-@Retention(RetentionPolicy.SOURCE)
-@Target([ElementType.TYPE])
-@GroovyASTTransformationClass("circo.utils.SerializableASTTransformation")
-public @interface SerialVer {
+    static final String MAIN_PACKAGE = Consts.class.name.split('\\.')[0]
 
-    long ver() default -1L
+    static final String APPNAME = MAIN_PACKAGE
 
 }

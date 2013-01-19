@@ -18,16 +18,16 @@
  */
 
 package circo.data
-
 import com.mchange.v2.c3p0.ComboPooledDataSource
+import com.mchange.v2.c3p0.DataSources
 import com.typesafe.config.ConfigFactory
 import spock.lang.Specification
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 class JdbcDataSourceFactoryTest extends Specification {
+
 
     def 'test create' () {
 
@@ -38,6 +38,8 @@ class JdbcDataSourceFactoryTest extends Specification {
         noExceptionThrown()
         !ds.getConnection().isClosed()
 
+        cleanup:
+        DataSources.destroy(ds)
     }
 
     def 'test create with map ' () {
@@ -51,6 +53,9 @@ class JdbcDataSourceFactoryTest extends Specification {
         ds instanceof ComboPooledDataSource
         (ds as ComboPooledDataSource).getUser() == 'paolo'
         (ds as ComboPooledDataSource).getPassword() == 'ciao'
+
+        cleanup:
+        DataSources.destroy(ds)
 
     }
 
@@ -85,6 +90,10 @@ class JdbcDataSourceFactoryTest extends Specification {
         (ds as ComboPooledDataSource).getAcquireIncrement() == 1
         (ds as ComboPooledDataSource).getMinPoolSize() == 1
         (ds as ComboPooledDataSource).getMaxPoolSize() == 10
+
+
+        cleanup:
+        DataSources.destroy(ds)
 
     }
 

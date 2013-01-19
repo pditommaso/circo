@@ -22,15 +22,15 @@ import akka.actor.ActorRef
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import circo.data.WorkerRef
-import circo.utils.RushHelper
-import circo.utils.SerialVer
+import circo.utils.CircoHelper
+import circo.utils.SerializeId
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
-@SerialVer
+@SerializeId
 @EqualsAndHashCode(includes = 'id')
 @ToString(includes = 'id', includePackage = false)
 class JobEntry implements Serializable, Comparable<JobEntry> {
@@ -99,11 +99,11 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
      */
     def long completionTime
 
-    def String getCreationTimeFmt() { RushHelper.getSmartTimeFormat(creationTime) }
+    def String getCreationTimeFmt() { CircoHelper.getSmartTimeFormat(creationTime) }
 
-    def String getLaunchTimeFmt() { launchTime ? RushHelper.getSmartTimeFormat(launchTime) : '-' }
+    def String getLaunchTimeFmt() { launchTime ? CircoHelper.getSmartTimeFormat(launchTime) : '-' }
 
-    def String getCompletionTimeFmt() { completionTime ? RushHelper.getSmartTimeFormat(completionTime) : '-' }
+    def String getCompletionTimeFmt() { completionTime ? CircoHelper.getSmartTimeFormat(completionTime) : '-' }
 
     def JobEntry( JobId id, JobReq req ) {
         assert id

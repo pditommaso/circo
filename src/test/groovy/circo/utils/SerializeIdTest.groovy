@@ -17,17 +17,34 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.data
+package circo.utils
 
-import circo.utils.SerializeId
+import spock.lang.Specification
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
-enum NodeStatus {
+class SerializeIdTest extends  Specification {
 
-    AVAIL, PAUSED
+
+    @SerializeId()
+    static class SimpleClass {
+
+    }
+
+    @SerializeId(999L)
+    static class AnotherClass {
+
+    }
+
+    def 'test serializeId' () {
+
+        expect:
+        SimpleClass.serialVersionUID == -1
+        AnotherClass.serialVersionUID == 999
+    }
 
 }
+
+

@@ -19,6 +19,7 @@
 
 package circo.client
 import akka.actor.*
+import circo.Consts
 import com.beust.jcommander.JCommander
 import com.typesafe.config.ConfigFactory
 import groovy.util.logging.Slf4j
@@ -35,8 +36,11 @@ import sun.misc.Signal
 import sun.misc.SignalHandler
 
 import java.util.concurrent.CountDownLatch
+
 /**
- *  Client application to interact with cluster
+ *  Client application to interact with the cluster
+ *
+ *  @Author Paolo Di Tommaso
  *
  */
 @Slf4j
@@ -366,7 +370,7 @@ class ClientApp {
             print LOGO
 
             while( true ) {
-                def line = console.readLine('circo> ')
+                def line = console.readLine("${Consts.APPNAME}> ")
                 log.trace "Loop: $line"
 
                 if( !line ) {

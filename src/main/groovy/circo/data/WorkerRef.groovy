@@ -22,7 +22,7 @@ import akka.actor.*
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
-import circo.utils.SerialVer
+import circo.utils.SerializeId
 import scala.Option
 
 /**
@@ -30,7 +30,7 @@ import scala.Option
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
-@SerialVer
+@SerializeId
 @ToString(includes = 'path', includePackage = false)
 @EqualsAndHashCode(includes=['path'])
 class WorkerRef implements Serializable {

@@ -17,17 +17,26 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.data
+package circo.utils
 
-import circo.utils.SerializeId
+import org.codehaus.groovy.transform.GroovyASTTransformationClass
 
+import java.lang.annotation.ElementType
+import java.lang.annotation.Retention
+import java.lang.annotation.RetentionPolicy
+import java.lang.annotation.Target
 /**
+ * Add the field {@code serialVersionUID} required by the Java serialization
+ * mechanism to the class
  *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
-enum NodeStatus {
 
-    AVAIL, PAUSED
+@Retention(RetentionPolicy.SOURCE)
+@Target([ElementType.TYPE])
+@GroovyASTTransformationClass("circo.utils.SerializableASTTransformation")
+public @interface SerializeId {
+
+    long value() default -1L
 
 }

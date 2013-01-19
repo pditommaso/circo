@@ -25,8 +25,8 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 import circo.messages.JobId
-import circo.utils.RushHelper
-import circo.utils.SerialVer
+import circo.utils.CircoHelper
+import circo.utils.SerializeId
 
 /**
  *
@@ -34,7 +34,7 @@ import circo.utils.SerialVer
  */
 
 @Slf4j
-@SerialVer
+@SerializeId
 @EqualsAndHashCode
 @ToString(includes = ['address','queue','workers','status'], includePackage = false)
 class NodeData implements Serializable {
@@ -161,27 +161,27 @@ class NodeData implements Serializable {
         workers.clear()
     }
 
-    def String getStartTimeFmt()  {  RushHelper.getSmartTimeFormat(startTimestamp) }
+    def String getStartTimeFmt()  {  CircoHelper.getSmartTimeFormat(startTimestamp) }
 
     def String toFmtString() {
 
         // gen info
-        def addr = RushHelper.fmt(this.address)
+        def addr = CircoHelper.fmt(this.address)
         def stat = this.status?.toString()
         def uptime = this.getStartTimeFmt()
 
         // workers info
-        def procs = RushHelper.fmt( numOfWorkers(), 2 )
-        def runs = RushHelper.fmt( numOfBusyWorkers(), 2)
+        def procs = CircoHelper.fmt( numOfWorkers(), 2 )
+        def runs = CircoHelper.fmt( numOfBusyWorkers(), 2)
 
         // queue and processed jobs
-        def queue = RushHelper.fmt( numOfQueuedJobs(), 4)
-        def count = RushHelper.fmt( numOfProcessedJobs(), 4 )
+        def queue = CircoHelper.fmt( numOfQueuedJobs(), 4)
+        def count = CircoHelper.fmt( numOfProcessedJobs(), 4 )
         def failed = numOfFailedJobs()
 
         def jobs = "${queue} /${count}"
         if( failed ) {
-            jobs += ' - ' + RushHelper.fmt(failed, 2)
+            jobs += ' - ' + CircoHelper.fmt(failed, 2)
         }
 
         "${addr} ${stat} ${uptime} ${runs} /${procs} $jobs" .toString()

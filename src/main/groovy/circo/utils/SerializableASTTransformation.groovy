@@ -28,6 +28,8 @@ import org.codehaus.groovy.syntax.SyntaxException
 import org.codehaus.groovy.transform.ASTTransformation
 import org.codehaus.groovy.transform.GroovyASTTransformation
 /**
+ * Add the field {@code serialVersionUID} required by the Java serialization
+ * mechanism to the class
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
@@ -59,14 +61,14 @@ public class SerializableASTTransformation implements ASTTransformation {
         }
     }
 
-    private long getVersion( AnnotationNode annotation ) {
-        def value = annotation.getMember('ver')?.getText();
+    static private long getVersion( AnnotationNode annotation ) {
+        def value = annotation.getMember('value')?.getText();
         def result = value && value.isLong() ? Long.parseLong(value) : -1
 
         return result
     }
 
-    public void addError(String msg, ASTNode expr, SourceUnit source) {
+    static public void addError(String msg, ASTNode expr, SourceUnit source) {
         int line = expr.getLineNumber();
         int col = expr.getColumnNumber();
         source.getErrorCollector().addErrorAndContinue(

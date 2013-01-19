@@ -24,13 +24,13 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
 import circo.messages.JobId
-import circo.utils.SerialVer
+import circo.utils.SerializeId
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerialVer
+@SerializeId
 @EqualsAndHashCode
 @TupleConstructor
 @ToString(includePackage = false)

@@ -139,7 +139,7 @@ class JobExecutor extends UntypedActor {
 
     }
 
-    static File createRushDir( JobEntry job ) {
+    static File createCircoDir( JobEntry job ) {
 
         File result = new File(job.workDir, '.circo')
         if( !result.exists() && !result.mkdir() ) {
@@ -188,7 +188,7 @@ class JobExecutor extends UntypedActor {
             job.workDir = createWorkDir( job.id.hashCode() )
 
             // create the local private dir
-            privateDir = createRushDir(job)
+            privateDir = createCircoDir(job)
             // save the script to a file
             scriptFile = new File(privateDir,'script')
             Files.write( job.req.script.getBytes(), scriptFile )

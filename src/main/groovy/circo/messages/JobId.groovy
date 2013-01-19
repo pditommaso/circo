@@ -18,8 +18,9 @@
  */
 
 package circo.messages
+
 import groovy.transform.EqualsAndHashCode
-import circo.utils.SerialVer
+import circo.utils.SerializeId
 
 /**
  * Models a Job unique identifier
@@ -31,7 +32,7 @@ import circo.utils.SerialVer
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
-@SerialVer
+@SerializeId
 @EqualsAndHashCode
 class JobId implements java.io.Serializable, Comparable<JobId> {
 

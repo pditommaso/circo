@@ -26,7 +26,7 @@ import java.text.DecimalFormatSymbols
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class RushHelper {
+class CircoHelper {
 
     static DATETIME_FORMAT = "HH:mm dd/MMM/yy"
     static SHORT_DATETIME_FORMAT = "HH:mm dd/MMM"

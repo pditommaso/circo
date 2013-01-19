@@ -26,11 +26,11 @@ import ch.qos.logback.core.spi.FilterReply
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class PackageFilter extends Filter<ILoggingEvent> {
+class LoggerPackageFilter extends Filter<ILoggingEvent> {
 
     Map<String,Level> packages
 
-    PackageFilter( Map<String,Level> packages )  {
+    LoggerPackageFilter( Map<String,Level> packages )  {
         this.packages = packages
     }
 

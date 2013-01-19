@@ -26,30 +26,30 @@ import spock.lang.Specification
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class RushHelperTest extends Specification {
+class CircoHelperTest extends Specification {
 
     def 'test fmt akka address ' () {
 
         expect:
-        RushHelper.fmt( (Address)null ) == RushHelper.EMPTY
-        RushHelper.fmt( new Address('akka','def','11.22.33.44',2132)) == '11.22.33.44:2132'
+        CircoHelper.fmt( (Address)null ) == CircoHelper.EMPTY
+        CircoHelper.fmt( new Address('akka','def','11.22.33.44',2132)) == '11.22.33.44:2132'
 
-        RushHelper.fmt( new Address('akka','def','1.1.1.1',2222), 4) == '1.1.1.1:2222'
-        RushHelper.fmt( new Address('akka','def','1.1.1.1',2222), 15) == '1.1.1.1:2222   '
+        CircoHelper.fmt( new Address('akka','def','1.1.1.1',2222), 4) == '1.1.1.1:2222'
+        CircoHelper.fmt( new Address('akka','def','1.1.1.1',2222), 15) == '1.1.1.1:2222   '
 
     }
 
     def 'test fmt number' () {
         expect:
-        RushHelper.fmt( 1 ) == '1'
-        RushHelper.fmt( 100 ) == '100'
-        RushHelper.fmt( 1000 ) == "1'000"
-        RushHelper.fmt( 9_876_000 ) == "9'876'000"
+        CircoHelper.fmt( 1 ) == '1'
+        CircoHelper.fmt( 100 ) == '100'
+        CircoHelper.fmt( 1000 ) == "1'000"
+        CircoHelper.fmt( 9_876_000 ) == "9'876'000"
 
-        RushHelper.fmt( 0, 3 ) == '  0'
-        RushHelper.fmt( 123, 3 ) == '123'
-        RushHelper.fmt( 1234, 3 ) == "1'234"
-        RushHelper.fmt( 1234, 6 ) == " 1'234"
+        CircoHelper.fmt( 0, 3 ) == '  0'
+        CircoHelper.fmt( 123, 3 ) == '123'
+        CircoHelper.fmt( 1234, 3 ) == "1'234"
+        CircoHelper.fmt( 1234, 6 ) == " 1'234"
     }
 
 

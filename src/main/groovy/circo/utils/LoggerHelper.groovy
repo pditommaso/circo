@@ -122,7 +122,7 @@ class LoggerHelper {
         logConf.debug?.each { packages[it] = Level.DEBUG }
         logConf.trace?.each { packages[it] = Level.TRACE }
 
-        def filter = new PackageFilter( packages )
+        def filter = new LoggerPackageFilter( packages )
         filter.setContext(loggerContext)
         filter.start()
 

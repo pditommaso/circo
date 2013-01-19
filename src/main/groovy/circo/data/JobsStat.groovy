@@ -20,15 +20,15 @@
 package circo.data
 
 import circo.messages.JobStatus
-import circo.utils.SerialVer
+import circo.utils.SerializeId
 
 /**
  * Model the jobs statistics information i.e. how many jobs are for each {@code JobStatus}
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerialVer
-class JobsStat extends HashMap<JobStatus, Integer> {
+@SerializeId
+class JobsStat extends HashMap<JobStatus, Integer> implements Serializable {
 
     JobsStat( ) {
         super( JobStatus.values().size() )

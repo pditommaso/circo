@@ -30,7 +30,7 @@ import circo.data.DataStore
 import circo.data.NodeData
 import circo.data.WorkerRef
 import circo.messages.*
-import circo.utils.RushHelper
+import circo.utils.CircoHelper
 
 /**
  *
@@ -328,7 +328,7 @@ class FrontEnd extends UntypedActor {
         def result = []
         nodes.each { stringAddress ->
 
-            def addr = allAddresses.find { Address it -> RushHelper.fmt(it) == stringAddress }
+            def addr = allAddresses.find { Address it -> CircoHelper.fmt(it) == stringAddress }
             if ( !addr ) {
                 throw new IllegalArgumentException("Unknown node: '$stringAddress' -- command ignored")
             }
