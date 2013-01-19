@@ -1,15 +1,37 @@
 /*
- * GRADLE BUILD FILE
- * 
- * Read more here 
- * http://www.gradle.org/docs/current/userguide/groovy_plugin.html
- * http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
- * http://www.gradle.org/docs/current/userguide/dependency_management.html
- */  
-apply plugin: 'groovy'
+ * Copyright (c) 2012, the authors.
+ *
+ *    This file is part of Circo.
+ *
+ *    Circo is free software: you can redistribute it and/or modify
+ *    it under the terms of the GNU General Public License as published by
+ *    the Free Software Foundation, either version 3 of the License, or
+ *    (at your option) any later version.
+ *
+ *    Circo is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
+ */
 
+
+/*
+ * Circo application build file
+ *
+ * @author Paolo Di Tommaso
+ *
+ */
+
+apply plugin: 'groovy'
+//name = 'circo'
+version = '0.1'
+status = 'alpha'
 
 repositories {
+    flatDir(dirs: file('local-lib'))
     mavenCentral()
     maven {
         url 'https://repository.jboss.org/nexus/content/repositories/thirdparty-uploads'
@@ -56,12 +78,119 @@ dependencies {
                   'org.spockframework:spock-core:0.7-groovy-2.0')
 
 
-    //configurations.compile.files.each { dep -> println dep.absolutePath }
+}
+
+/*
+ * print out the runtime classpath
+ */
+task classpathRuntime(dependsOn: configurations.runtime) << {
+
+    String home = System.properties['user.home']
+    def libs = configurations.compile.collect {File file -> file.absolutePath ?.replace(home,'$HOME')}
+    println libs.join(':')
 
 }
 
+/*
+ * print out the compile classpath
+ */
+task classpathCompile(dependsOn: configurations.compile) << {
 
-task copyToLib(type: Copy) {
-    into "$buildDir/stage/lib"
+    String home = System.properties['user.home']
+    def libs = configurations.compile.collect {File file -> file.absolutePath ?.replace(home,'$HOME')}
+    println libs.join(':')
+
+}
+
+/*
+ * Compile sources and copies all libs to target directory
+ */
+task compile(type: Copy) {
+    dependsOn compileJava, compileGroovy
+
+    into "$buildDir/dependency-libs"
     from configurations.runtime
 }
+
+
+/*
+ * Create the distribution stage folder i.e. creates a folder containing everythinh
+ * have to be included in the distribution package
+ */
+
+task stage( type: Copy ) {
+    dependsOn jar, javadoc, groovydoc
+
+    // clean the target directory before create
+    def target = file("$buildDir/stage/circo-$version")
+    target.parentFile.deleteDir()
+    target.mkdirs()
+
+    destinationDir target
+
+    // copy the bin scripts
+    into('bin') {
+        from ('./bin') { exclude 'circo' }
+        rename { String fileName -> fileName.replace('circo.sh', 'circo') }
+    }
+
+    // copy application - and - runtime dependencies jars
+    into('libs') {
+        from "$buildDir/libs/circo-${version}.jar"
+        from configurations.runtime
+    }
+
+    // still some stuff
+    into('conf') { from './src/main/resources' }
+    into('sigar') { from 'libsigar' }
+    into('src') { from './src/main' }
+    into('docs') { from '$buildDir/docs/groovydoc/'}
+
+}
+
+/*
+ * Creates the Zip distribution file
+ */
+task distZip(type: Zip) {
+    dependsOn stage
+    from "$buildDir/stage/"
+}
+
+/*
+ * creates the Tar distribution file
+ */
+task distTar(type: Tar) {
+    dependsOn stage
+    from "$buildDir/stage/"
+}
+
+/*
+ * Print the distribution file name when distXxx task completes
+ */
+gradle.taskGraph.afterTask { Task task, TaskState state ->
+    if (task == distTar && !state.failure) { println "\n** TAR: ${relativePath(distTar.archivePath)}\n\n"}
+    if (task == distZip && !state.failure) { println "\n** ZIP: ${relativePath(distZip.archivePath)}\n\n"}
+}
+
+
+
+
+// __ useful stuff __
+//println dist.archiveName
+//println relativePath(dist.destinationDir)
+//println relativePath(dist.archivePath)
+//
+// Read more here
+// http://www.gradle.org/docs/current/userguide/groovy_plugin.html
+// http://www.gradle.org/docs/current/userguide/artifact_dependencies_tutorial.html
+// http://www.gradle.org/docs/current/userguide/dependency_management.html
+//
+// Useful links
+// http://stackoverflow.com/questions/12305191/compile-java-project-without-using-gradles-java-plugin
+// http://stackoverflow.com/questions/11428954/gradle-zip-packaging-copy-jar-file-from-repository
+//
+//
+// gradle project properties -- http://gradle.org/docs/current/userguide/writing_build_scripts.html
+//
+// -- see copy here http://gradle.org/docs/current/dsl/org.gradle.api.tasks.Copy.html
+//    http://gradle.org/docs/current/userguide/working_with_files.html

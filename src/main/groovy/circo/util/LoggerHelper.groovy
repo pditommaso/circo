@@ -22,10 +22,16 @@ import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder
+import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.ConsoleAppender
+import ch.qos.logback.core.CoreConstants
+import ch.qos.logback.core.LayoutBase
 import ch.qos.logback.core.encoder.LayoutWrappingEncoder
+import ch.qos.logback.core.filter.Filter
 import ch.qos.logback.core.rolling.RollingFileAppender
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy
+import ch.qos.logback.core.spi.FilterReply
+import circo.Consts
 import org.slf4j.LoggerFactory
 /**
  * Helper methods to setup the logging subsystem
@@ -34,11 +40,6 @@ import org.slf4j.LoggerFactory
  */
 class LoggerHelper {
 
-    private static final String MAIN_PACKAGE
-
-    static {
-        MAIN_PACKAGE = LoggerHelper.getName().split('\\.')[0]
-    }
 
     static class CliLoggingArgs {
 
@@ -117,7 +118,7 @@ class LoggerHelper {
 
         // -- define the console appender
         Map<String,Level> packages = [:]
-        packages[MAIN_PACKAGE] = Level.INFO
+        packages[Consts.MAIN_PACKAGE] = Level.INFO
         packages['akka'] = Level.WARN
         logConf.debug?.each { packages[it] = Level.DEBUG }
         logConf.trace?.each { packages[it] = Level.TRACE }
@@ -133,7 +134,7 @@ class LoggerHelper {
         consoleAppender.start()
 
         // -- the file appender
-        def fileName = ".${MAIN_PACKAGE}.log"
+        def fileName = ".${Consts.MAIN_PACKAGE}.log"
         def fileAppender = new RollingFileAppender()
         def timeBasedPolicy = new TimeBasedRollingPolicy( )
         timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
@@ -158,8 +159,8 @@ class LoggerHelper {
         root.addAppender(consoleAppender)
 
         // -- main package logger
-        def mainLevel = packages[MAIN_PACKAGE]
-        def logger = loggerContext.getLogger(MAIN_PACKAGE)
+        def mainLevel = packages[Consts.MAIN_PACKAGE]
+        def logger = loggerContext.getLogger(Consts.MAIN_PACKAGE)
         logger.setLevel( mainLevel == Level.TRACE ? Level.TRACE : Level.DEBUG )
         logger.setAdditive(false)
         logger.addAppender(fileAppender)
@@ -221,7 +222,7 @@ class LoggerHelper {
 
             appender = new RollingFileAppender()
 
-            def fileName = ".circo-daemon-${cmdLine.port}.log"
+            def fileName = ".${Consts.APPNAME}-daemon-${cmdLine.port}.log"
             def timeBasedPolicy = new TimeBasedRollingPolicy( )
             timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
             timeBasedPolicy.setContext(loggerContext)
@@ -240,7 +241,7 @@ class LoggerHelper {
         logger.setLevel(Level.INFO)
         logger.addAppender(appender)
 
-        logger = loggerContext.getLogger( MAIN_PACKAGE )
+        logger = loggerContext.getLogger( Consts.MAIN_PACKAGE )
         logger.setLevel(Level.DEBUG)
         logger.setAdditive(false)
         logger.addAppender(appender)
@@ -265,6 +266,55 @@ class LoggerHelper {
 
         }
 
+    }
+
+    /*
+     * Filters the logging event based on the level assigned to a specific 'package'
+     */
+    static class LoggerPackageFilter extends Filter<ILoggingEvent> {
+
+        Map<String,Level> packages
+
+        LoggerPackageFilter( Map<String,Level> packages )  {
+            this.packages = packages
+        }
+
+        @Override
+        FilterReply decide(ILoggingEvent event) {
+
+            if (!isStarted()) {
+                return FilterReply.NEUTRAL;
+            }
+
+            def logger = event.getLoggerName()
+            def level = event.getLevel()
+            for( def entry : packages ) {
+                if ( logger.startsWith( entry.key ) && level.isGreaterOrEqual(entry.value) ) {
+                    return FilterReply.NEUTRAL
+                }
+            }
+
+            return FilterReply.DENY
+        }
+    }
+
+    /*
+     * Do not print INFO level prefix, used to print logging information
+     * to the application stdout
+     */
+    static class PrettyConsoleLayout extends LayoutBase<ILoggingEvent> {
+
+        public String doLayout(ILoggingEvent event) {
+            StringBuilder buffer = new StringBuilder(128);
+            if( event.getLevel() != Level.INFO ) {
+                buffer.append( event.getLevel().toString() ) .append(": ")
+            }
+
+            return buffer
+                    .append(event.getFormattedMessage())
+                    .append(CoreConstants.LINE_SEPARATOR)
+                    .toString()
+        }
     }
 
 }
