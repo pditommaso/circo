@@ -33,7 +33,7 @@ import java.lang.annotation.Target
 @Retention(RetentionPolicy.SOURCE)
 @Target([ElementType.TYPE])
 @GroovyASTTransformationClass("rush.utils.SerializableASTTransformation")
-public @interface Serializable {
+public @interface SerialVer {
 
     long ver() default -1L
 

@@ -18,8 +18,11 @@
  */
 
 package rush.frontend
+
+import rush.client.cmd.CmdNode
 import rush.client.cmd.CmdStat
 import rush.client.cmd.CmdSub
+import rush.data.NodeDataTest
 import rush.messages.JobEntry
 import rush.messages.JobId
 import rush.messages.JobStatus
@@ -34,7 +37,7 @@ import static test.TestHelper.newTestActor
  */
 class FrontEndTest extends ActorSpecification {
 
-    def 'test CmdSub' () {
+    def 'test cmd sub' () {
 
         setup:
         def sender = newProbe(system)
@@ -66,14 +69,16 @@ class FrontEndTest extends ActorSpecification {
 
 
         then:
-        result.success
         result.ticket == sub.ticket
         result.messages.size() == 0
 
         entry.creationTime != null
         entry.req.maxAttempts == sub.maxAttempts
         entry.req.maxDuration == sub.maxDuration.toMillis()
-        entry.req.environment == sub.env
+        entry.req.environment.each{ k, v -> sub.env.get(k) == v }
+        entry.req.environment['JOB_ID'] == ID.toString()
+        entry.req.environment['JOB_NAME'] == ID.toString()
+        //entry.req.environment == sub.env
         entry.req.script == sub.command.join(' ')
 
         listenerEntry == entry
@@ -99,7 +104,6 @@ class FrontEndTest extends ActorSpecification {
         def result = sender.expectMsgClass(CmdStatResponse)
 
         then:
-        result.success
         result.jobs == [ job1, job2 ]
         result.warn == ["Cannot find any job for id: '3'"]
         result.error.size() == 0
@@ -107,7 +111,7 @@ class FrontEndTest extends ActorSpecification {
 
     }
 
-    def 'test CmdJob By Status' () {
+    def 'test cmd stat' () {
 
         setup:
         final job1 = new JobEntry(1,'echo 1')
@@ -130,11 +134,35 @@ class FrontEndTest extends ActorSpecification {
         def result = sender.expectMsgClass(CmdStatResponse)
 
         then:
-        result.success
         result.jobs.sort() == [ job2, job4 ]
         result.error.size() == 0
         result.warn.size() == 0
         result.info.size() == 0
+
+    }
+
+
+    def 'test cmd node' () {
+
+        setup:
+        def node1 =  NodeDataTest.create('1.1.1.1:2551', 'w1,w2')
+        def node2 =  NodeDataTest.create('1.1.2.2:2555', 't0,t1,t2')
+
+        dataStore.putNodeData(node1)
+        dataStore.putNodeData(node2)
+
+        def sender = newProbe(system)
+        def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
+        def cmd = new CmdNode(ticket: '7832')
+
+        when:
+        frontend.tell( cmd, sender.getRef() )
+        def response = sender.expectMsgClass(CmdNodeResponse)
+
+        then:
+        response.nodes.size() == 2
+        response.nodes.contains( node1 )
+        response.nodes.contains( node1 )
 
     }
 

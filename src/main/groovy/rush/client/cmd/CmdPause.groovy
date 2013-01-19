@@ -24,16 +24,18 @@ import com.beust.jcommander.Parameters
 import rush.client.ClientApp
 
 /**
+ * Pause the cluster execution
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@Parameters(commandNames='stop', commandDescription = 'Stop the current ' )
+@Parameters(commandNames='pause', commandDescription = 'Pause the cluster execution ' )
 class CmdPause extends AbstractCommand {
 
-    @Parameter(names='--HARD', description = )
+    @Parameter(names='--HARD', description = 'Kill all the jobs in RUNNING status')
     boolean hard
 
     @Override
     void execute(ClientApp client) throws IllegalArgumentException {
+        client.send(this)
     }
 }

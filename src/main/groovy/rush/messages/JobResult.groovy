@@ -38,11 +38,11 @@ class JobResult implements Serializable {
     /** The program output */
     String output
 
-    /** Complete successfully of with error */
-    boolean success
-
     /** The exception raised, in any */
     Throwable failure
+
+    /** Whenever the job terminated by a user 'cancel' request */
+    boolean cancelled
 
 
 }

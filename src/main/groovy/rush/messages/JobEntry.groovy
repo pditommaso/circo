@@ -23,12 +23,14 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import rush.data.WorkerRef
 import rush.utils.RushHelper
+import rush.utils.SerialVer
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
-@rush.utils.Serializable
+@SerialVer
 @EqualsAndHashCode(includes = 'id')
 @ToString(includes = 'id', includePackage = false)
 class JobEntry implements Serializable, Comparable<JobEntry> {
@@ -68,6 +70,9 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
      * The number of time this jobs has tried to be executed
      */
     def int attempts
+
+    /** Number of times this jobs has been cancelled by the user */
+    def int cancelled
 
     /**
      * The worker that raised a failure processing the job
@@ -146,9 +151,27 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
 
     }
 
+    /**
+     * Conditions to be satisfied to be a success terminated job
+     * 1) the result obj exist
+     * 2) the job hasn't cancelled by the user
+     * 3) the job terminated with a 'valid' exit code, as defined by {@code #isValidExitCode}
+     */
+    def boolean isSuccess() {
+        result != null && !result.cancelled && isValidExitCode(result.exitCode)
+    }
+
+    def boolean isFailed() {
+        result != null && !result.cancelled && !isValidExitCode(result.exitCode)
+    }
+
+    def boolean isCancelled() {
+        result != null && result.cancelled
+    }
+
 
     def boolean retryIsRequired() {
-        (attempts < req.maxAttempts || req.maxAttempts == 0) && ( result == null || !result.success )
+        (attempts-cancelled < req.maxAttempts || req.maxAttempts <= 0) && !isSuccess()
     }
 
     @Override
@@ -188,6 +211,28 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
             getCreationTimeFmt()
         }
 
+    }
+
+    /**
+     * Note, when a resutl object is specified, some job properties are modified accordingly the
+     * provided result
+     *
+     * @param result
+     */
+    def void setResult( JobResult result ) {
+        this.result = result
+        if( result ) {
+            // increment the number of times this job has been cancelled
+            if ( result.cancelled ) this.cancelled++
+
+            if( isSuccess() ) {
+                setStatus(JobStatus.COMPLETE)
+            }
+            else if ( !retryIsRequired() ) {
+                setStatus(JobStatus.FAILED)
+            }
+
+        }
     }
 
 }

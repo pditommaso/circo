@@ -17,17 +17,18 @@
  *    along with RUSH.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package rush.data
+package rush.frontend
 
-import rush.utils.SerialVer
+import groovy.transform.InheritConstructors
+import rush.data.NodeData
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerialVer
-enum NodeStatus {
+@InheritConstructors
+class CmdNodeResponse extends AbstractResponse {
 
-    AVAIL, PAUSED
+    def List<NodeData> nodes
 
 }

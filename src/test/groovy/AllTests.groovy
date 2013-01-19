@@ -1,7 +1,12 @@
 import rush.JobExecutorTest
 import rush.JobMasterTest
+import rush.client.cmd.CmdNodeTest
 import rush.client.cmd.CmdStatTest
+import rush.client.cmd.CmdSubTest
 import rush.client.cmd.CommandParserTest
+import rush.data.DataStoreTest
+import rush.data.JdbcDataSourceFactoryTest
+import rush.data.JdbcJobsMapStoreTest
 import rush.data.NodeDataTest
 import rush.data.WorkerDataTest
 import rush.frontend.AbstractCmdResultTest
@@ -12,6 +17,8 @@ import rush.messages.JobStatusTest
 import rush.ui.*
 import org.junit.runner.RunWith
 import org.junit.runners.Suite
+import rush.utils.RushHelperTest
+
 /*
  * Copyright (c) 2012, the authors.
  *
@@ -51,9 +58,15 @@ import org.junit.runners.Suite
     ClusterRendererTest,
     DataHolderTest,
     ScreenRendererTest,
-    CmdStatTest,
     JobStatusTest,
-    CommandParserTest
+    DataStoreTest,
+    JdbcDataSourceFactoryTest,
+    JdbcJobsMapStoreTest,
+    CmdSubTest,
+    CmdNodeTest,
+    CmdStatTest,
+    CommandParserTest,
+    RushHelperTest
 
     ])
 class AllTests {

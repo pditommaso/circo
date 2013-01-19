@@ -24,6 +24,7 @@ import com.hazelcast.config.MapStoreConfig
 import com.hazelcast.core.*
 import com.hazelcast.query.SqlPredicate
 import com.typesafe.config.Config as TypesafeConfig
+import com.typesafe.config.ConfigException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 import rush.messages.JobEntry
@@ -49,19 +50,20 @@ class HazelcastDataStore extends AbstractDataStore {
         def cfg = new ClasspathXmlConfig('hazelcast.xml')
 
         // -- look for optional JDBC persistence configuration
-        def jdbc = config.getConfig('store.jdbc')
-        if( jdbc ) {
-            log.info "Setting up JDBC store persistence "
-            JdbcJobsMapStore.dataSource = JdbcDataSourceFactory.create(jdbc)
+        try {
+            def storeConfig = config.getConfig('store.jdbc')
+            log.info "Setting up JDBC store persistence"
+            JdbcJobsMapStore.dataSource = JdbcDataSourceFactory.create(storeConfig)
 
             def mapStoreConfig =
-                    new MapStoreConfig()
-                    .setClassName( JdbcJobsMapStore.getName() )
-                    .setEnabled(true)
+                new MapStoreConfig()
+                        .setClassName( JdbcJobsMapStore.getName() )
+                        .setEnabled(true)
 
             cfg.addMapConfig(new MapConfig('jobs').setMapStoreConfig(mapStoreConfig))
+
         }
-        else {
+        catch( ConfigException.Missing e ) {
             log.debug "No store persistence provided"
         }
 
@@ -86,10 +88,10 @@ class HazelcastDataStore extends AbstractDataStore {
         this.hazelcast = instance
         this.jobsMap = hazelcast.getMap('jobs')
         this.nodeDataMap = hazelcast.getMap('nodeInfo')
-
-        // add indexes
-        (jobsMap as IMap).addIndex("id", false)
-        (jobsMap as IMap).addIndex("status", false)
+//TODO ++ index can be added only at the very first instance
+//        // add indexes
+//        (jobsMap as IMap).addIndex("id", false)
+//        (jobsMap as IMap).addIndex("status", false)
     }
 
 

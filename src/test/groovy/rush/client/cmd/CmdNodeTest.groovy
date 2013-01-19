@@ -17,17 +17,21 @@
  *    along with RUSH.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package rush.data
+package rush.client.cmd
 
-import rush.utils.SerialVer
-
+import spock.lang.Specification
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerialVer
-enum NodeStatus {
+class CmdNodeTest extends Specification {
 
-    AVAIL, PAUSED
+    def 'test printNodes' () {
 
+        //TODO
+        expect:
+        true
+
+
+    }
 }

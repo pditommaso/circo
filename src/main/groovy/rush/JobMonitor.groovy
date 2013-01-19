@@ -23,8 +23,8 @@ import akka.actor.Cancellable
 import akka.actor.Terminated
 import akka.actor.UntypedActor
 import groovy.util.logging.Slf4j
-import rush.messages.ProcessDestroy
 import rush.messages.ProcessIsAlive
+import rush.messages.ProcessKill
 import rush.messages.ProcessStarted
 import rush.messages.WorkComplete
 import scala.concurrent.duration.FiniteDuration
@@ -61,12 +61,12 @@ class JobMonitor extends UntypedActor {
 
     @Override
     def void onReceive(def message) {
+        log.debug "<- ${message}"
 
         /*
          * Process execution has started, so begin to monitor the job
          */
         if( message instanceof ProcessStarted ) {
-            log.debug "<- ${message}"
             final job = message.jobEntry
 
             if( job.req.maxInactive ) {
@@ -82,7 +82,6 @@ class JobMonitor extends UntypedActor {
          * The executor notify the job is going on
          */
         else if ( message instanceof ProcessIsAlive && inactiveTimeout ) {
-            log.trace "-> ${message}"
             restartWatchDog(inactiveTimeout)
         }
 
@@ -90,8 +89,7 @@ class JobMonitor extends UntypedActor {
         /*
          * The watchdog timeout has exceeded, destroy the process
          */
-        else if ( message instanceof  ProcessDestroy ) {
-            log.debug "<- ${message}"
+        else if ( message instanceof  ProcessKill ) {
             log.debug "-> ${message} to executor actor"
 
             executor.forward(message, getContext())
@@ -103,10 +101,7 @@ class JobMonitor extends UntypedActor {
          * Work has completed, stop monitoring and notify parent supervisor
          */
         else if( message instanceof WorkComplete ) {
-            log.debug("<- ${message}")
-
             clearWatchDog()
-
             log.debug "-> ${message} to parent "
             getContext().parent().forward(message, getContext())
         }
@@ -115,7 +110,6 @@ class JobMonitor extends UntypedActor {
          * The 'executor' has stopped -- so the 'monitor' stop itself
          */
         else if ( message instanceof Terminated ) {
-            log.debug "<- ${message}"
             getContext().stop(getSelf())
         }
 
@@ -131,7 +125,7 @@ class JobMonitor extends UntypedActor {
     void startWatchDog( long timeoutInMillis ) {
 
         FiniteDuration duration = new FiniteDuration( timeoutInMillis, TimeUnit.MILLISECONDS )
-        watchDog = getContext().system().scheduler().scheduleOnce(duration, getSelf(), ProcessDestroy.getInstance(), getContext().dispatcher())
+        watchDog = getContext().system().scheduler().scheduleOnce(duration, getSelf(), new ProcessKill(), getContext().dispatcher())
 
     }
 

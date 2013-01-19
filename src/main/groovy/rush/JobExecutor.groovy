@@ -63,19 +63,27 @@ class JobExecutor extends UntypedActor {
 
     private StringBuilder output
 
+    private boolean cancelRequest
+
     @Override
     def void onReceive(def message) {
+        log.debug "<- $message"
 
         /*
          * Received a message to execute a new job
          */
         if( message instanceof ProcessToRun ) {
-            log.debug "<- $message"
-            def job = message.jobEntry
+            final job = message.jobEntry
+
+            // check if there's another job running
             if( process ) {
                 throw new IllegalStateException("A process is still running: ${process} -- cannot launch job: ${job}")
             }
 
+            // eventually reset the 'cancelRequest' flag
+            cancelRequest = false
+
+            // launch the process
             processJobAndNotifyResult(job)
 
         }
@@ -83,10 +91,12 @@ class JobExecutor extends UntypedActor {
         /*
          * The process exceeded the timeout, destroy it
          */
-        else if( message instanceof ProcessDestroy ) {
-            log.debug "<- ${message}"
+        else if( message instanceof ProcessKill ) {
             if( process ) {
-                log.debug "Destroying process ${process}"
+                log.debug "Destroying process: ${process}"
+                // mark if it is 'cancel' job request
+                cancelRequest = message.cancel
+                // kill the process
                 process.destroy()
             }
             else {
@@ -195,7 +205,7 @@ class JobExecutor extends UntypedActor {
                     .command( job.req.shell, scriptFile.toString() )
                     .redirectErrorStream(true)
 
-            // -- configure the job enviroment
+            // -- configure the job environment
             if( job.req.environment ) {
                 builder.environment().putAll(job.req.environment)
             }
@@ -234,8 +244,7 @@ class JobExecutor extends UntypedActor {
                 Thread.sleep(slow * 1000)
             }
 
-            def isSuccess = job.isValidExitCode(exitCode)
-            result = new JobResult( jobId: job.id, exitCode: exitCode, output: output.toString(), success: isSuccess )
+            result = new JobResult( jobId: job.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest)
 
         }
         finally {
@@ -252,7 +261,7 @@ class JobExecutor extends UntypedActor {
             process = null
 
             if( !result ) {
-                new JobResult( jobId: job.id, exitCode: exitCode, output: output.toString()  )
+                new JobResult( jobId: job.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest  )
             }
 
             return result

@@ -18,6 +18,8 @@
  */
 
 package rush.frontend
+
+import groovy.transform.InheritConstructors
 import groovy.transform.ToString
 import rush.data.JobsStat
 import rush.messages.JobEntry
@@ -25,11 +27,13 @@ import rush.messages.JobEntry
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@InheritConstructors
 @ToString(includePackage = false, includeSuper = true)
 class CmdStatResponse extends AbstractResponse {
 
     List<JobEntry> jobs
 
     JobsStat stats
+
 
 }

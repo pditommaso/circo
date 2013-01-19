@@ -19,21 +19,75 @@
 
 package rush.client.cmd
 
+import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
+import groovy.util.logging.Slf4j
 import rush.client.ClientApp
-
+import rush.data.NodeData
+import rush.frontend.CmdNodeResponse
 /**
+ * Manage cluster nodes
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@ToString(includePackage = false)
+@Slf4j
+@ToString(includePackage = false, includeSuper = true, includeNames = true)
 @Parameters(commandNames='node', commandDescription='List nodes available in the cluster')
 class CmdNode extends AbstractCommand {
 
+    @Parameter(names='--pause', description="The list of nodes to pause, enter 'ALL' to pause all cluster nodes")
+    List<String> pause
+
+    @Parameter(names='--HARD', description = "Used with the 'pause' force all current jobs to stop immediately")
+    boolean hard
+
+    @Parameter(names='--resume', description="Resume the computation in the listed nodes, use 'ALL' to resume all cluster nodes")
+    List<String> resume
 
     @Override
     void execute(ClientApp client) {
-       println "TODO -- "
+
+        if( pause && resume ) {
+            throw new IllegalArgumentException("Cannot be specified '--pause' and '--resume' together")
+        }
+
+        // send the command and wait for a reply
+        CmdNodeResponse response = client.send( this )
+
+        if ( !response ) {
+            log.error "Oops! Missing response object -- command aborted"
+            return
+        }
+
+        response.printMessages()
+
+        if ( response.nodes ) {
+            printNodes( response.nodes )
+        }
+        else if ( (pause || resume) && !response.hasMessages()) {
+            println "done"
+        }
+
+    }
+
+
+    static void printNodes( List<NodeData> nodes ) {
+        assert nodes != null
+
+        println """\
+        address     status  up time  procs  jobs
+        -----------------------------------------"""
+        .stripIndent()
+
+        if ( !nodes ) { println "--"; return }
+
+        nodes.each { NodeData node ->
+
+            println node.toFmtString()
+
+        }
+
+
     }
 }

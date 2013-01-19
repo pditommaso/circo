@@ -19,6 +19,7 @@
 
 package rush.data
 
+import akka.actor.Address
 import rush.messages.JobId
 import spock.lang.Specification
 
@@ -215,5 +216,51 @@ class NodeDataTest extends Specification {
         then:
         count == 6
 
+    }
+
+
+    def "test toStringFmt"() {
+
+        setup:
+        def worker1 = new WorkerRefMock('/w1')
+        def worker2 = new WorkerRefMock('/w2')
+        def worker3 = new WorkerRefMock('/w3')
+
+        def node = new NodeData()
+        node.address = new Address('akka','def','192.44.12.1', 2551)
+        node.status = NodeStatus.AVAIL
+        node.putWorkerData( WorkerData.of(worker1) { it.processed=1 } )
+        node.putWorkerData( WorkerData.of(worker2) { it.processed=2 } )
+        node.putWorkerData( WorkerData.of(worker3) { it.processed=3 } )
+
+        when:
+        def count = 0
+        node.eachWorker { WorkerData data -> count += data.processed }
+
+        println node.toFmtString()
+
+        then:
+        node.toFmtString()
+
+    }
+
+    /**
+     * Helper method to create a {@code NodeData} instance for test purpose
+     *
+     * @param address The node address e.g. 2.2.2.2:2551
+     * @param workers Comma separated list of worker names
+     * @param status
+     * @return
+     */
+    static NodeData create( String address, String workers, NodeStatus status = NodeStatus.AVAIL ) {
+
+        def addrSplices = address.split('\\:')
+        def node = new NodeData()
+        node.address = new Address('akka','def', addrSplices[0] , addrSplices.size()>1 ? addrSplices[1].toInteger() : 2551 )
+        node.status = status
+
+        workers?.split('\\,')?.each { IT -> node.putWorkerData( WorkerData.of( new WorkerRefMock( IT ) )) }
+
+        return node
     }
 }

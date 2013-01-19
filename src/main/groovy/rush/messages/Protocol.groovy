@@ -123,4 +123,19 @@ class WorkerFailure implements Serializable {
 
 }
 
+@ToString(includePackage = false)
+@EqualsAndHashCode
+class PauseWorker implements Serializable {
+
+    /** Hard pause -- all running jobs will be killed */
+    boolean hard
+
+}
+
+@ToString(includePackage = false)
+@EqualsAndHashCode
+class ResumeWorker implements Serializable {
+
+}
+
 

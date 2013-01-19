@@ -37,11 +37,11 @@ abstract class AbstractResponse implements Serializable {
     Multimap<Level, String> messages = LinkedListMultimap.create()
 
     /** The ticket (i.e. unique id) of the request that originated this result */
-    def String ticket
+    final String ticket
 
-    /** Whenever the request has been processed successfully of with errors */
-    def boolean success
-
+    def AbstractResponse( String ticket ) {
+        this.ticket = ticket
+    }
 
     def AbstractResponse error( String msg ) {
         messages.put(Level.ERROR, msg)
@@ -65,6 +65,12 @@ abstract class AbstractResponse implements Serializable {
     def Collection<String> getError() { messages.get(Level.ERROR) }
 
     def boolean hasMessages() { messages.size()>0 }
+
+    def boolean hasWarn() { getWarn()?.size()>0 }
+
+    def boolean hasError() { getError()?.size()>0 }
+
+    def boolean hasInfo() { getInfo()?.size()>0 }
 
     Collection<String> getAllMessages() {
         def result = []

@@ -31,6 +31,7 @@ import rush.client.ClientApp
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@ToString(includes = 'ticket', includePackage = false, includeNames = true)
 public abstract class AbstractCommand implements Serializable {
 
     /**

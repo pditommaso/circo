@@ -20,19 +20,17 @@
 
 
 package rush.frontend
-
 import akka.actor.ActorRef
+import akka.actor.Address
 import akka.actor.UntypedActor
 import groovy.util.logging.Slf4j
 import rush.JobMaster
-import rush.client.cmd.AbstractCommand
-import rush.client.cmd.CmdPause
-import rush.client.cmd.CmdStat
-import rush.client.cmd.CmdSub
+import rush.client.cmd.*
 import rush.data.DataStore
 import rush.data.NodeData
 import rush.data.WorkerRef
 import rush.messages.*
+import rush.utils.RushHelper
 
 /**
  *
@@ -74,7 +72,7 @@ class FrontEnd extends UntypedActor {
         dispatchTable[ CmdSub ] = this.&handleCmdSub
         dispatchTable[ CmdStat ] = this.&handleCmdStat
         dispatchTable[ CmdPause ] = this.&handleCmdPause
-        //dispatchTable[ CmdNode ] = null // TODO
+        dispatchTable[ CmdNode ] = this.&handleCmdNode
     }
 
 
@@ -108,35 +106,29 @@ class FrontEnd extends UntypedActor {
 
     void handleCmdPause(CmdPause message) {
 
-        // the message to send
-        def pause = new PauseWorker(hard: message.hard)
-
         // send the 'pause' message to all master nodes
-        def nodes = dataStore.findAllNodesData()
-        nodes.each { NodeData node ->
-            def actor = getContext().system().actorFor("${node.address}/user/${JobMaster.ACTOR_NAME}")
-            actor.tell( pause, getSelf() )
-        }
+        //pause(dataStore.findAllNodesData()?.collect{ NodeData node -> node.address } )
+        throw IllegalAccessException('TODO')
 
         // confirm the operation
-        getSender().tell( new CmdAckResponse(), getSelf() )
+        getSender().tell( new CmdAckResponse(message.ticket), getSelf() )
     }
 
-    void handleCmdStat(CmdStat cmd) {
-        assert cmd
+    void handleCmdStat(CmdStat command) {
+        assert command
 
-        def result = new CmdStatResponse(ticket: cmd.ticket)
+        def result = new CmdStatResponse(command.ticket)
         List<JobEntry> list = null
 
         /*
          * Return all JobEntry which IDs have been specified by teh command
          */
-        if( cmd.jobs ) {
+        if( command.jobs ) {
 
             list = new LinkedList<>()
-            log.debug "Get job info for ${cmd.jobs}"
+            log.debug "Get job info for ${command.jobs}"
 
-            cmd.jobs.each { String it ->
+            command.jobs.each { String it ->
                 try {
                     def found = dataStore.findJobsById(it)
                     if( found ) {
@@ -157,14 +149,14 @@ class FrontEnd extends UntypedActor {
         /*
          * find by status
          */
-        else if ( cmd.status ) {
-            list = dataStore.findJobsByStatus( cmd.status )
+        else if ( command.status ) {
+            list = dataStore.findJobsByStatus( command.status )
         }
 
         /*
          * The list of all the jobs (!)
          */
-        else if( cmd.all ) {
+        else if( command.all ) {
             list = dataStore.findAll()
         }
 
@@ -180,7 +172,6 @@ class FrontEnd extends UntypedActor {
          * reply back to the sender
          */
         result.jobs = list
-        result.success = true
 
         log.debug "-> ${result} TO sender: ${sender}"
         getSender().tell( result, getSelf() )
@@ -219,8 +210,10 @@ class FrontEnd extends UntypedActor {
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
             log.debug "-> ${ticket} TO sender: ${getSender()}"
 
-            def result = new CmdSubResponse(ticket: ticket, success: true, numOfJobs: count)
-            getSender().tell( result )
+            def result = new CmdSubResponse(ticket)
+            result.numOfJobs = count
+
+            getSender().tell( result, getSelf() )
         }
 
 
@@ -249,4 +242,106 @@ class FrontEnd extends UntypedActor {
 
         return entry
     }
+
+    /**
+     * Reply to a command 'node'
+     *
+     * @param command
+     */
+    private void handleCmdNode( CmdNode command ) {
+
+        def reply = new CmdNodeResponse(command.ticket)
+
+        /*
+         * apply the PAUSE for the specified nodes
+         */
+        if( command.pause ) {
+
+            try {
+                tellToNodes( command.pause, new PauseWorker( hard: command.hard ) )
+            }
+            catch( Exception e ) {
+                log.error("Cannot pause nodes: ${command.pause}", e )
+                reply.error << e.getMessage()
+            }
+
+        }
+
+        /*
+         * apply the 'RESUME' for the specified nodes
+         */
+        else if ( command.resume ) {
+
+            try {
+                tellToNodes( command.resume, new ResumeWorker() )
+            }
+            catch( Exception e ) {
+                reply.error << e.getMessage()
+            }
+
+        }
+
+        /*
+         * just return the 'stats' for the nodes
+         */
+        else {
+            reply.nodes = dataStore.findAllNodesData()
+        }
+
+
+        getSender().tell(reply, getSelf())
+    }
+
+
+    private tellToNodes ( List<String> nodes, def message ) {
+        assert message
+
+        List<Address> targetNodes
+
+        /*
+         * fetch all the address
+         */
+        if ( nodes == ['ALL'] ) {
+            targetNodes = allNodesAddresses()
+        }
+
+        /*
+         * Translate the user entered string node address to real address object
+         * When bad nodes are entered do not apply teh operation
+         */
+        else {
+            targetNodes = stringToAddress( nodes )
+        }
+
+        targetNodes.each { Address address ->
+            def actor = getContext().system().actorFor("${address}/user/${JobMaster.ACTOR_NAME}")
+            actor.tell( message, getSelf() )
+        }
+
+    }
+
+
+
+    private List<Address> stringToAddress( List<String> nodes ) {
+
+        def allAddresses = allNodesAddresses()
+        def result = []
+        nodes.each { stringAddress ->
+
+            def addr = allAddresses.find { Address it -> RushHelper.fmt(it) == stringAddress }
+            if ( !addr ) {
+                throw new IllegalArgumentException("Unknown node: '$stringAddress' -- command ignored")
+            }
+
+            result << addr
+        }
+
+        return result
+    }
+
+    private List<Address> allNodesAddresses() {
+        dataStore.findAllNodesData()?.collect { NodeData node -> node.address } ?: []
+    }
+
+
 }

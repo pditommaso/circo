@@ -141,6 +141,7 @@ class JobProcessor extends UntypedActor {
 
             }
 
+
         }
     }
 
@@ -163,20 +164,22 @@ class JobProcessor extends UntypedActor {
             else if( message instanceof WorkComplete ) {
                 log.debug("[working] <- ${message} -- Work is complete")
 
-                if( !message.result.success ) {
-                    // notify the master of the failure
-                    log.debug "-> WorkerFailure to $master"
-                    master.tell( new WorkerFailure(getSelf()) )
-                }
+                final result = message.result as JobResult
 
                 // -- update the state of the JobEntry
-                final jobId = message.result?.jobId
+                final jobId = result.jobId
                 final worker = new WorkerRef(getSelf())
                 final job = store.getJob(jobId)
                 job.worker = worker
-                job.result = message.result
-                job.status = message.result.success ? JobStatus.COMPLETE : JobStatus.FAILED
+                // -- setting the job result update the job flags as well
+                job.result = result
                 store.saveJob(job)
+
+                // -- notify the master of the failure
+                if( job.failed ) {
+                    log.debug "-> WorkerFailure to $master"
+                    master.tell( new WorkerFailure(getSelf()) )
+                }
 
                 // -- clear the current jobId
                 currentJobId = null
@@ -193,6 +196,13 @@ class JobProcessor extends UntypedActor {
                 // We're idle now
                 log.debug("[working] => [idle]")
                 getContext().become(idle)
+            }
+
+            /*
+             * kill to current job
+             */
+            else if( message instanceof PauseWorker ) {
+                monitor.tell( new ProcessKill(cancel: true), getSelf() )
             }
 
         }

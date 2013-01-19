@@ -19,7 +19,7 @@
 
 package rush.messages
 import groovy.transform.EqualsAndHashCode
-import rush.utils.Serializable
+import rush.utils.SerialVer
 
 /**
  * Models a Job unique identifier
@@ -31,7 +31,7 @@ import rush.utils.Serializable
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
-@Serializable
+@SerialVer
 @EqualsAndHashCode
 class JobId implements java.io.Serializable, Comparable<JobId> {
 

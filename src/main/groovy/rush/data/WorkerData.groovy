@@ -24,10 +24,13 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
 import rush.messages.JobId
+import rush.utils.SerialVer
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@SerialVer
 @EqualsAndHashCode
 @TupleConstructor
 @ToString(includePackage = false)

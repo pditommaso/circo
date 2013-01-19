@@ -25,9 +25,9 @@ import groovy.transform.TupleConstructor
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@ToString
 @TupleConstructor
 @EqualsAndHashCode
+@ToString(includePackage = false)
 class ProcessStarted implements Serializable {
 
     final JobEntry jobEntry
@@ -35,17 +35,24 @@ class ProcessStarted implements Serializable {
 }
 
 
-@ToString
-@Singleton
-class ProcessDestroy implements Serializable { }
+@ToString(includePackage = false)
+class ProcessKill implements Serializable {
+
+    /** Whenever the job is killed by a user requested 'pause' operation */
+    boolean cancel
+
+}
 
 
-@ToString
 @Singleton
-class ProcessIsAlive implements Serializable {}
+@ToString(includePackage = false)
+class ProcessIsAlive implements Serializable {
+
+}
 
 @TupleConstructor
 @EqualsAndHashCode
+@ToString(includePackage = false)
 class ProcessToRun implements Serializable {
 
     final JobEntry jobEntry

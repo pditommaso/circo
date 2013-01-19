@@ -37,6 +37,7 @@ import akka.cluster.ClusterEvent.MemberEvent
 import groovy.util.logging.Slf4j
 import rush.data.DataStore
 import rush.data.NodeData
+import rush.data.NodeStatus
 import rush.data.WorkerData
 import rush.data.WorkerRef
 import rush.messages.*
@@ -65,6 +66,7 @@ class JobMaster extends UntypedActor  {
     Random random = new Random()
 
     Map<Address,ActorRef> members = new HashMap<>()
+
 
 
     /*
@@ -99,6 +101,8 @@ class JobMaster extends UntypedActor  {
         node = store.getNodeData(selfAddress)
         if( !node ) {
             node = new NodeData()
+            //node.name = InetAddress.getLocalHost()?.getHostName()
+            node.status = NodeStatus.AVAIL
             node.address = cluster.selfAddress()
             node.startTimestamp = getContext().system().startTime()
             store.putNodeData(node)
@@ -134,6 +138,11 @@ class JobMaster extends UntypedActor  {
 
         if( node.queue.isEmpty() ) {
             log.debug "Empty queue -- nothing to notify"
+            return
+        }
+
+        if ( node.status == NodeStatus.PAUSED ) {
+            log.debug "Node pause -- worker wont be notified"
             return
         }
 
@@ -222,6 +231,11 @@ class JobMaster extends UntypedActor  {
         else if( message instanceof WorkerRequestsWork ) {
             log.debug "<- ${message}"
             final worker = message.worker
+
+            if( node.status == NodeStatus.PAUSED ) {
+                log.debug "Node paused -- Worker request for work ignored"
+                return
+            }
 
             // dequeue a new jobId to be processed
             // assign to the worker a new job to be processed
@@ -324,7 +338,6 @@ class JobMaster extends UntypedActor  {
             log.debug "Removing worker: ${worker} from availables workers"
             node.removeWorkerData(worker)
 
-
         }
 
         /*
@@ -334,6 +347,28 @@ class JobMaster extends UntypedActor  {
             log.debug "<- ${message}"
             final worker = message.worker
             node.failureInc(worker)
+        }
+
+
+        /*
+         * pause the node and stop all workers
+         */
+        else if ( message instanceof PauseWorker ) {
+            log.debug "Pausing node: $selfAddress"
+
+            // set the node in 'PAUSED' status
+            node.status = NodeStatus.PAUSED
+
+            // -- stop as well all running jobs
+            if ( message.hard ) {
+                node.workers.keySet().each { WorkerRef ref ->  ref.tell(message) }
+            }
+        }
+
+        else if( message instanceof  ResumeWorker ) {
+            log.debug "Resuming node: $selfAddress"
+            node.status = NodeStatus.AVAIL
+            notifyWorkers()
         }
 
 
@@ -414,7 +449,7 @@ class JobMaster extends UntypedActor  {
 
     protected boolean putAddress( Address address ) {
         log.debug "Putting address: ${address} in the members map"
-        def actor = getContext().system().actorFor("${address}/user/Master")
+        def actor = getContext().system().actorFor("${address}/user/${JobMaster.ACTOR_NAME}")
         members.put( address, actor)
         return true
     }

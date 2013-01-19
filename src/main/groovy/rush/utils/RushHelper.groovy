@@ -18,6 +18,10 @@
  */
 
 package rush.utils
+import akka.actor.Address as AkkaAddress
+
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -27,6 +31,51 @@ class RushHelper {
     static DATETIME_FORMAT = "HH:mm dd/MMM/yy"
     static SHORT_DATETIME_FORMAT = "HH:mm dd/MMM"
     static TIME_FORMAT = "HH:mm:ss"
+
+    static final EMPTY = '-'
+
+    static final DecimalFormatSymbols SYMBOLS = new DecimalFormatSymbols()
+
+    static {
+        SYMBOLS.setGroupingSeparator("'" as char)
+    }
+
+    static String fmt( Number value, Integer len = null ) {
+        String result
+        if ( !value ) {
+            result = EMPTY
+        }
+
+        DecimalFormat fmt = new DecimalFormat('#,##0', SYMBOLS)
+        fmt.getDecimalFormatSymbols().setGroupingSeparator(" " as char)
+        result = fmt.format(value)
+
+        if ( len != null ) {
+            result = result.padLeft( len )
+        }
+
+        result
+    }
+
+
+    static String fmt( AkkaAddress address, Integer pad = null ) {
+        String result
+        if ( !address ) {
+            result = EMPTY
+        }
+        else {
+            result = address.toString()
+            int pos = result.indexOf('@')
+            result = pos != 1 ? result.substring(pos+1) : result
+        }
+
+        if ( pad ) {
+            result = result.padRight(pad)
+        }
+
+        result
+    }
+
 
     static String getSmartTimeFormat( long millis ) {
         getSmartTimeFormat(new Date(millis))
@@ -48,7 +97,6 @@ class RushHelper {
             timestamp.format(DATETIME_FORMAT)
         }
 
-
     }
 
 
@@ -60,4 +108,6 @@ class RushHelper {
 
         new GregorianCalendar(year, month, day)
     }
+
+
 }

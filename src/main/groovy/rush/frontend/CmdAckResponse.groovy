@@ -19,11 +19,14 @@
 
 package rush.frontend
 
+import groovy.transform.InheritConstructors
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@InheritConstructors
 class CmdAckResponse extends AbstractResponse {
 
-    { success=true }
+
 }

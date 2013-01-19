@@ -22,6 +22,7 @@ import akka.actor.*
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
+import rush.utils.SerialVer
 import scala.Option
 
 /**
@@ -29,6 +30,7 @@ import scala.Option
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
+@SerialVer
 @ToString(includes = 'path', includePackage = false)
 @EqualsAndHashCode(includes=['path'])
 class WorkerRef implements Serializable {

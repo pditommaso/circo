@@ -18,14 +18,18 @@
  */
 
 package rush.frontend
+
+import groovy.transform.InheritConstructors
 import groovy.transform.ToString
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@InheritConstructors
 @ToString(includePackage = false, includeSuper = true)
 class CmdSubResponse extends AbstractResponse {
 
     int numOfJobs = 1
+
 
 }
