@@ -17,31 +17,31 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.frontend
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
 import spock.lang.Specification
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+class AbstractCmdResultTest extends Specification {
 
-    static ActorSystem system
+    def testMessages() {
 
-    static DataStore dataStore
+        when:
+        def cmd = new AbstractResponse() {}
+        cmd.info("info 1")
+        cmd.warn("warn 1")
+        cmd.warn("warn 2")
+        cmd.error("error 1")
+        cmd.error("error 2")
+        cmd.error("error 3")
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+
+        then:
+        cmd.messages.get(AbstractResponse.Level.INFO) == ['info 1']
+        cmd.messages.get(AbstractResponse.Level.WARN) == ['warn 1', 'warn 2']
+        cmd.messages.get(AbstractResponse.Level.ERROR) == ['error 1', 'error 2', 'error 3']
     }
-
-    def void cleanup () {
-        system.shutdown()
-    }
-
 }

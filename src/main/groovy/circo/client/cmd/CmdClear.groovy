@@ -17,31 +17,31 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.client.cmd
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
-
+import com.beust.jcommander.Parameters
+import groovy.util.logging.Slf4j
+import circo.client.ClientApp
 /**
- *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+@Slf4j
+@Parameters(commandNames='clear', commandDescription = 'Clear the terminal screen')
+public class CmdClear extends AbstractCommand {
 
-    static ActorSystem system
 
-    static DataStore dataStore
+    /**
+     * Implements the client interaction
+     *
+     * @param client The {@code ClientApp} instance
+     * @throws IllegalArgumentException When the provided command argument are not valid
+     */
+    @Override
+    public void execute(ClientApp client)  {
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+        // that's all
+        client.getConsole().clearScreen()
+
+
     }
-
-    def void cleanup () {
-        system.shutdown()
-    }
-
 }

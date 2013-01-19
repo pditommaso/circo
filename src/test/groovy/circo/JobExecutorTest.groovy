@@ -17,31 +17,52 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
+import circo.messages.JobEntry
+import circo.messages.JobId
+import circo.messages.JobReq
 import spock.lang.Specification
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+class JobExecutorTest extends Specification {
 
-    static ActorSystem system
 
-    static DataStore dataStore
+    def "test createRushDir" () {
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+        when:
+        def entry = new JobEntry(JobId.of(123), new JobReq(script: 'echo Hello world!'))
+        entry.workDir = new File(System.getProperty('java.io.tmpdir'))
+        def file = JobExecutor.createRushDir(entry)
+
+        then:
+        file.exists()
+        file.isDirectory()
+        file.name == '.circo'
+
+        cleanup:
+        file.delete()
+
     }
 
-    def void cleanup () {
-        system.shutdown()
+
+    def "test createWorkDir" () {
+
+        when:
+        def path = JobExecutor.createWorkDir(123554)
+        println path
+
+        then:
+        path.exists()
+        path.isDirectory()
+
+        cleanup:
+        path.delete()
     }
+
+
 
 }

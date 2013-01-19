@@ -17,31 +17,29 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.utils
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.CoreConstants
+import ch.qos.logback.core.LayoutBase
 
 /**
  *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ * @author  Paolo Di Tommaso
  */
-abstract class ActorSpecification extends Specification {
+class PrettyConsoleLayout extends LayoutBase<ILoggingEvent> {
 
-    static ActorSystem system
 
-    static DataStore dataStore
+    public String doLayout(ILoggingEvent event) {
+        StringBuilder buffer = new StringBuilder(128);
+        if( event.getLevel() != Level.INFO ) {
+            buffer.append( event.getLevel().toString() ) .append(": ")
+        }
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+        return buffer
+                .append(event.getFormattedMessage())
+                .append(CoreConstants.LINE_SEPARATOR)
+                .toString()
     }
-
-    def void cleanup () {
-        system.shutdown()
-    }
-
 }

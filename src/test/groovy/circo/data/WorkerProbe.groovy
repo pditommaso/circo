@@ -17,31 +17,31 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.data
 
+import akka.actor.ActorRef
 import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
+import akka.testkit.JavaTestKit
+
+import static test.TestHelper.newProbe
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+class WorkerProbe extends WorkerRef {
 
-    static ActorSystem system
+    def JavaTestKit probe
 
-    static DataStore dataStore
-
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+    private WorkerProbe(ActorRef actor) {
+        super(actor)
     }
 
-    def void cleanup () {
-        system.shutdown()
-    }
+    static create( ActorSystem system ) {
 
+        def probe = newProbe(system)
+        def result = new WorkerProbe(probe.getRef())
+        result.probe = probe
+        return result
+    }
 }

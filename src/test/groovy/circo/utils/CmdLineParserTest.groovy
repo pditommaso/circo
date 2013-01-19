@@ -17,31 +17,28 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.utils
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
 import spock.lang.Specification
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+@Deprecated
+class CmdLineParserTest extends Specification {
 
-    static ActorSystem system
+    def testParse() {
 
-    static DataStore dataStore
+        when:
+        def parser = new CmdLineParser('Hola')
+        def opt = parser.parse('-i', '--debug', '--trace', 'a', 'b', 'c')
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+        then:
+        opt.interactive == true
+        opt.debug == true
+        opt.help == false
+        opt.trace == ['a', 'b', 'c']
+
     }
-
-    def void cleanup () {
-        system.shutdown()
-    }
-
 }

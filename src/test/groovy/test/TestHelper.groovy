@@ -1,20 +1,20 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Rush.
+ *    This file is part of Circo.
  *
- *    Rush is free software: you can redistribute it and/or modify
+ *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation, either version 3 of the License, or
  *    (at your option) any later version.
  *
- *    Rush is distributed in the hope that it will be useful,
+ *    Circo is distributed in the hope that it will be useful,
  *    but WITHOUT ANY WARRANTY; without even the implied warranty of
  *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *    GNU General Public License for more details.
  *
  *    You should have received a copy of the GNU General Public License
- *    along with Rush.  If not, see <http://www.gnu.org/licenses/>.
+ *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package test
@@ -22,7 +22,7 @@ import akka.actor.*
 import akka.testkit.JavaTestKit
 import akka.testkit.TestActorRef
 import groovy.util.logging.Slf4j
-import rush.data.WorkerProbe
+import circo.data.WorkerProbe
 
 /**
  *
@@ -136,7 +136,7 @@ class TestHelper {
 
     static void updateJavaLibPath() {
 
-        def libPath = new File( System.properties['user.home'] as String, 'workspace/rush/lib' )
+        def libPath = new File( System.properties['user.home'] as String, 'workspace/circo/lib' )
         def javaLibPath = System.properties['java.library.path']
         javaLibPath += ":" + libPath.absolutePath
         log.debug "Setting 'java.lib.path' to ${javaLibPath}"

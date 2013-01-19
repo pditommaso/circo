@@ -17,31 +17,27 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.ui
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
 import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
+import test.TestHelper
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
 
-    static ActorSystem system
+class TerminalUIMock extends TerminalUI {
 
-    static DataStore dataStore
-
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+    public TerminalUIMock(DataStore dataStore, String address ) {
+        super(dataStore)
+        selfAddress = TestHelper.addr(address)
     }
 
-    def void cleanup () {
-        system.shutdown()
-    }
+    @Override
+    def void preStart() {  }
+
+    @Override
+    def void postStop() { }
 
 }

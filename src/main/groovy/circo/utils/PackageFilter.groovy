@@ -17,31 +17,38 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
-
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
-
+package circo.utils
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.filter.Filter
+import ch.qos.logback.core.spi.FilterReply
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+class PackageFilter extends Filter<ILoggingEvent> {
 
-    static ActorSystem system
+    Map<String,Level> packages
 
-    static DataStore dataStore
-
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+    PackageFilter( Map<String,Level> packages )  {
+        this.packages = packages
     }
 
-    def void cleanup () {
-        system.shutdown()
-    }
+    @Override
+    FilterReply decide(ILoggingEvent event) {
 
+        if (!isStarted()) {
+            return FilterReply.NEUTRAL;
+        }
+
+        def logger = event.getLoggerName()
+        def level = event.getLevel()
+        for( def entry : packages ) {
+            if ( logger.startsWith( entry.key ) && level.isGreaterOrEqual(entry.value) ) {
+                return FilterReply.NEUTRAL
+            }
+        }
+
+        return FilterReply.DENY
+    }
 }

@@ -1,5 +1,5 @@
-RUSH
-====
+CIRCO
+=====
 
 Distributed cluster engine for the cloud.
 
@@ -7,7 +7,7 @@ Distributed cluster engine for the cloud.
 License
 -------
 
-The *Rush* framework source code is released under the GNU GPL3 License.
+The *Circo* framework source code is released under the GNU GPL3 License.
 
 Contact
 -------

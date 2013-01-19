@@ -6,8 +6,8 @@ set -o errexit
 #
 # CLASSPATH definition 
 #
-CLASSPATH="./out/production/rush"
-CLASSPATH="${CLASSPATH}:./out/test/rush"
+CLASSPATH="./out/production/circo"
+CLASSPATH="${CLASSPATH}:./out/test/circo"
 for file in ./build/stage/lib/*.jar; do
   CLASSPATH="${CLASSPATH}:$file";
 done
@@ -27,10 +27,10 @@ while [ "$*" != "" ]; do
     JVM_ARGS="$JVM_ARGS -javaagent:$JREBEL_HOME/jrebel.jar -Drebel.log.file=./jrebel-client.log"
 
   elif [ "$1" == '--client' ]; then
-    args+=("rush.client.ClientApp")
+    args+=("circo.client.ClientApp")
 
   elif [ "$1" == '--daemon' ]; then
-    args+=("rush.ClusterNode")
+    args+=("circo.ClusterNode")
 
   else
    args+=("$1")

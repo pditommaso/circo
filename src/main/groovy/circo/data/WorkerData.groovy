@@ -17,31 +17,46 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.data
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
+import akka.actor.ActorRef
+import groovy.transform.EqualsAndHashCode
+import groovy.transform.ToString
+import groovy.transform.TupleConstructor
+import circo.messages.JobId
+import circo.utils.SerialVer
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+@SerialVer
+@EqualsAndHashCode
+@TupleConstructor
+@ToString(includePackage = false)
+class WorkerData implements Serializable {
 
-    static ActorSystem system
+    final WorkerRef worker
 
-    static DataStore dataStore
+    def JobId currentJobId
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+    def long processed
+
+    def long failed
+
+
+    static WorkerData of( WorkerRef worker) {
+        new WorkerData(worker)
     }
 
-    def void cleanup () {
-        system.shutdown()
+    static WorkerData of( WorkerRef worker, Closure closure ) {
+        def result = new WorkerData(worker)
+        closure.call(result)
+        return result
+    }
+
+    static WorkerData of( ActorRef actor ) {
+        new WorkerData(new WorkerRef(actor))
     }
 
 }

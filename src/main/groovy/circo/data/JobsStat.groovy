@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,31 +17,20 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.data
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
+import circo.messages.JobStatus
+import circo.utils.SerialVer
 
 /**
+ * Model the jobs statistics information i.e. how many jobs are for each {@code JobStatus}
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+@SerialVer
+class JobsStat extends HashMap<JobStatus, Integer> {
 
-    static ActorSystem system
-
-    static DataStore dataStore
-
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+    JobsStat( ) {
+        super( JobStatus.values().size() )
     }
-
-    def void cleanup () {
-        system.shutdown()
-    }
-
 }

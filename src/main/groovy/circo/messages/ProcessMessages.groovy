@@ -17,31 +17,44 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
-
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
-
+package circo.messages
+import groovy.transform.EqualsAndHashCode
+import groovy.transform.ToString
+import groovy.transform.TupleConstructor
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+@TupleConstructor
+@EqualsAndHashCode
+@ToString(includePackage = false)
+class ProcessStarted implements Serializable {
 
-    static ActorSystem system
+    final JobEntry jobEntry
 
-    static DataStore dataStore
+}
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
-    }
 
-    def void cleanup () {
-        system.shutdown()
-    }
+@ToString(includePackage = false)
+class ProcessKill implements Serializable {
+
+    /** Whenever the job is killed by a user requested 'pause' operation */
+    boolean cancel
+
+}
+
+
+@Singleton
+@ToString(includePackage = false)
+class ProcessIsAlive implements Serializable {
+
+}
+
+@TupleConstructor
+@EqualsAndHashCode
+@ToString(includePackage = false)
+class ProcessToRun implements Serializable {
+
+    final JobEntry jobEntry
 
 }

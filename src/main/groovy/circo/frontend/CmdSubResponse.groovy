@@ -17,31 +17,19 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.frontend
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
-
+import groovy.transform.InheritConstructors
+import groovy.transform.ToString
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+@InheritConstructors
+@ToString(includePackage = false, includeSuper = true)
+class CmdSubResponse extends AbstractResponse {
 
-    static ActorSystem system
+    int numOfJobs = 1
 
-    static DataStore dataStore
-
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
-    }
-
-    def void cleanup () {
-        system.shutdown()
-    }
 
 }

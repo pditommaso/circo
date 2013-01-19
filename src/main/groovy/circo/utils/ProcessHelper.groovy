@@ -17,31 +17,31 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
+package circo.utils
 
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
+import groovy.transform.CompileStatic
+
+import java.lang.reflect.Field
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+@CompileStatic
+class ProcessHelper {
 
-    static ActorSystem system
+    static int getPid(Process process) {
 
-    static DataStore dataStore
+        assert process
+        assert process.class.name == "java.lang.UNIXProcess"
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
-    }
 
-    def void cleanup () {
-        system.shutdown()
+        Class proc = process.getClass();
+        Field field = proc.getDeclaredField("pid");
+        field.setAccessible(true);
+        Object pid = field.get(process);
+        return (Integer) pid;
+
     }
 
 }

@@ -17,31 +17,32 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
-
-import akka.actor.ActorSystem
-import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
-import spock.lang.Specification
-
+package circo.messages
+import groovy.transform.EqualsAndHashCode
+import groovy.transform.ToString
 /**
  *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
 
-    static ActorSystem system
+@EqualsAndHashCode
+@ToString(includes=['jobId','exitCode','success'], includePackage = false)
+class JobResult implements Serializable {
 
-    static DataStore dataStore
+    /** The Job of this job */
+    JobId jobId
 
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
-    }
+    /** The exitcode as returned by the system */
+    int exitCode
 
-    def void cleanup () {
-        system.shutdown()
-    }
+    /** The program output */
+    String output
+
+    /** The exception raised, in any */
+    Throwable failure
+
+    /** Whenever the job terminated by a user 'cancel' request */
+    boolean cancelled
+
 
 }

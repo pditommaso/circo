@@ -17,31 +17,43 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package test
-
+package circo.data
 import akka.actor.ActorSystem
+import akka.testkit.JavaTestKit
 import com.typesafe.config.ConfigFactory
-import circo.data.DataStore
-import circo.data.LocalDataStore
+import circo.messages.JobId
 import spock.lang.Specification
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class ActorSpecification extends Specification {
+class WorkerDataTest extends Specification  {
 
-    static ActorSystem system
+    ActorSystem system
 
-    static DataStore dataStore
-
-    def void setup () {
-        system = ActorSystem.create( 'default', ConfigFactory.empty() )
-        dataStore = new LocalDataStore()
+    def setup() {
+        system = ActorSystem.create('default', ConfigFactory.empty())
     }
 
-    def void cleanup () {
+    def cleanup() {
         system.shutdown()
     }
 
+    def 'test equalsAndHashCode' () {
+
+        when:
+        def ref = new WorkerRef(new JavaTestKit(system).getRef())
+        def worker1 = WorkerData.of(ref) { it.currentJobId=JobId.of(74893) }
+        def worker2 = WorkerData.of(ref) { it.currentJobId=JobId.of(74893) }
+        def worker3 = WorkerData.of(ref) { it.currentJobId=JobId.of(12345) }
+
+        then:
+        worker1 == worker2
+        worker1 != worker3
+
+        worker1.hashCode() == worker2.hashCode()
+        worker1.hashCode() != worker3.hashCode()
+
+
+    }
 }
