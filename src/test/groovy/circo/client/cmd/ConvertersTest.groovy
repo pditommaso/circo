@@ -57,13 +57,6 @@ class ConvertersTest extends Specification {
 
     def 'test times illegal 2' () {
         when:
-        new IntRangeConverter().convert('123')
-        then:
-        thrown(IllegalArgumentException)
-    }
-
-    def 'test times illegal 3' () {
-        when:
         new IntRangeConverter().convert('-1-4')
         then:
         thrown(IllegalArgumentException)

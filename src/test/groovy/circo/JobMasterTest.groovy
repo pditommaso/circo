@@ -346,7 +346,7 @@ class JobMasterTest extends ActorSpecification {
         setup:
         final jobId = JobId.of( '123' )
         final entry = new JobEntry( jobId, new JobReq() )
-        entry.result = new JobResult(success: true)
+        entry.result = new JobResult()
 
         final master = newTestActor(system, JobMasterMock)
 
@@ -406,13 +406,13 @@ class JobMasterTest extends ActorSpecification {
         def result1
         def job1 = new JobEntry( JobId.of('1'), new JobReq(script: '1') )
         job1.setSender(senderProbe.getRef())
-        job1.result = result1 =  new JobResult(success:true, jobId:job1.id)
+        job1.result = result1 =  new JobResult(jobId:job1.id)
 
         // this is FAILED, it must be rescheduled
         def result2
         def job2 = new JobEntry( JobId.of('2'), new JobReq(script: '2') )
         job2.setSender(senderProbe.getRef())
-        job2.result = result2 = new JobResult(success: false, jobId:job2.id)
+        job2.result = result2 = new JobResult(jobId:job2.id)
 
         // this is FAILED, BUT th number of attempts exceeded the maxAttempts,
         // so it must be notified to the sender
@@ -420,7 +420,7 @@ class JobMasterTest extends ActorSpecification {
         def job3 = new JobEntry( JobId.of('3'), new JobReq(script: '3', maxAttempts: 2) )
         job3.attempts = 3
         job3.setSender(senderProbe.getRef())
-        job3.result = result3 = new JobResult(success: false, jobId:job3.id)
+        job3.result = result3 = new JobResult(jobId:job3.id)
 
 
         dataStore.saveJob(job1)

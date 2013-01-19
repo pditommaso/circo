@@ -30,7 +30,7 @@ class AbstractCmdResultTest extends Specification {
     def testMessages() {
 
         when:
-        def cmd = new AbstractResponse() {}
+        def cmd = new AbstractResponse('123') {}
         cmd.info("info 1")
         cmd.warn("warn 1")
         cmd.warn("warn 2")
@@ -43,5 +43,42 @@ class AbstractCmdResultTest extends Specification {
         cmd.messages.get(AbstractResponse.Level.INFO) == ['info 1']
         cmd.messages.get(AbstractResponse.Level.WARN) == ['warn 1', 'warn 2']
         cmd.messages.get(AbstractResponse.Level.ERROR) == ['error 1', 'error 2', 'error 3']
+
+
+    }
+
+    def 'test getter' () {
+        when:
+        def cmd0 = new AbstractResponse('111') {}
+        def cmd1 = new AbstractResponse('222') {}
+        cmd1.info << 'ciao'
+        def cmd2 = new AbstractResponse('333') {}
+        cmd2.warn << 'hola'
+
+        def cmd3 = new AbstractResponse('444') {}
+        cmd3.error << 'hi'
+
+        then:
+        cmd0.ticket == '111'
+        !cmd0.hasMessages()
+        !cmd0.hasInfo()
+        !cmd0.hasWarn()
+        !cmd0.hasError()
+
+        cmd1.hasMessages()
+        cmd1.hasInfo()
+        !cmd1.hasWarn()
+        !cmd1.hasError()
+
+        cmd2.hasMessages()
+        !cmd2.hasInfo()
+        cmd2.hasWarn()
+        !cmd2.hasError()
+
+        cmd3.hasMessages()
+        !cmd3.hasInfo()
+        !cmd3.hasWarn()
+        cmd3.hasError()
+
     }
 }
