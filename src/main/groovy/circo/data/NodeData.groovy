@@ -25,8 +25,8 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 import circo.messages.JobId
-import circo.utils.CircoHelper
-import circo.utils.SerializeId
+import circo.util.CircoHelper
+import circo.util.SerializeId
 
 /**
  *

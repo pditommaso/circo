@@ -17,7 +17,7 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.utils
+package circo.util
 import akka.actor.Address as AkkaAddress
 
 import java.text.DecimalFormat

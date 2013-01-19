@@ -32,8 +32,8 @@ import circo.data.LocalDataStore
 import circo.data.WorkerRef
 import circo.frontend.FrontEnd
 import circo.ui.TerminalUI
-import circo.utils.CmdLine
-import circo.utils.LoggerHelper
+import circo.util.CmdLine
+import circo.util.LoggerHelper
 /**
  *  Launch a cluster node instance
  *

@@ -22,8 +22,8 @@ import akka.actor.ActorRef
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import circo.data.WorkerRef
-import circo.utils.CircoHelper
-import circo.utils.SerializeId
+import circo.util.CircoHelper
+import circo.util.SerializeId
 
 /**
  *

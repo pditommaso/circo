@@ -20,7 +20,7 @@
 package circo.data
 
 import circo.messages.JobStatus
-import circo.utils.SerializeId
+import circo.util.SerializeId
 
 /**
  * Model the jobs statistics information i.e. how many jobs are for each {@code JobStatus}

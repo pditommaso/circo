@@ -17,7 +17,7 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.utils
+package circo.util
 
 import org.apache.commons.lang.StringUtils
 

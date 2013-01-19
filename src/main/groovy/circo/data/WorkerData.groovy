@@ -24,7 +24,7 @@ import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
 import circo.messages.JobId
-import circo.utils.SerializeId
+import circo.util.SerializeId
 
 /**
  *

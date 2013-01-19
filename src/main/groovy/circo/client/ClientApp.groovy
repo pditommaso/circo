@@ -31,7 +31,7 @@ import circo.frontend.AbstractResponse
 import circo.frontend.CmdSubResponse
 import circo.frontend.FrontEnd
 import circo.messages.JobResult
-import circo.utils.LoggerHelper
+import circo.util.LoggerHelper
 import sun.misc.Signal
 import sun.misc.SignalHandler
 

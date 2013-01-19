@@ -17,7 +17,7 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.utils
+package circo.util
 
 /**
  * Split a string into literal tokens i.e. sequence of chars that does not contain a blank

@@ -20,7 +20,7 @@
 package circo.messages
 
 import groovy.transform.EqualsAndHashCode
-import circo.utils.SerializeId
+import circo.util.SerializeId
 
 /**
  * Models a Job unique identifier

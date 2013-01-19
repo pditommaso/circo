@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,28 +17,26 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.utils
+package circo.util
 
-import spock.lang.Specification
+import org.codehaus.groovy.transform.GroovyASTTransformationClass
 
+import java.lang.annotation.ElementType
+import java.lang.annotation.Retention
+import java.lang.annotation.RetentionPolicy
+import java.lang.annotation.Target
 /**
+ * Add the field {@code serialVersionUID} required by the Java serialization
+ * mechanism to the class
  *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@Deprecated
-class CmdLineParserTest extends Specification {
 
-    def testParse() {
+@Retention(RetentionPolicy.SOURCE)
+@Target([ElementType.TYPE])
+@GroovyASTTransformationClass("circo.utils.SerializableASTTransformation")
+public @interface SerializeId {
 
-        when:
-        def parser = new CmdLineParser('Hola')
-        def opt = parser.parse('-i', '--debug', '--trace', 'a', 'b', 'c')
+    long value() default -1L
 
-        then:
-        opt.interactive == true
-        opt.debug == true
-        opt.help == false
-        opt.trace == ['a', 'b', 'c']
-
-    }
 }

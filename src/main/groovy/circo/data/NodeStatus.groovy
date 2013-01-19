@@ -19,7 +19,7 @@
 
 package circo.data
 
-import circo.utils.SerializeId
+import circo.util.SerializeId
 
 /**
  *

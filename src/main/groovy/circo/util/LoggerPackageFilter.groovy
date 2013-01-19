@@ -17,29 +17,38 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.utils
-
+package circo.util
 import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.spi.ILoggingEvent
-import ch.qos.logback.core.CoreConstants
-import ch.qos.logback.core.LayoutBase
-
+import ch.qos.logback.core.filter.Filter
+import ch.qos.logback.core.spi.FilterReply
 /**
  *
- * @author  Paolo Di Tommaso
+ * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class PrettyConsoleLayout extends LayoutBase<ILoggingEvent> {
+class LoggerPackageFilter extends Filter<ILoggingEvent> {
 
+    Map<String,Level> packages
 
-    public String doLayout(ILoggingEvent event) {
-        StringBuilder buffer = new StringBuilder(128);
-        if( event.getLevel() != Level.INFO ) {
-            buffer.append( event.getLevel().toString() ) .append(": ")
+    LoggerPackageFilter( Map<String,Level> packages )  {
+        this.packages = packages
+    }
+
+    @Override
+    FilterReply decide(ILoggingEvent event) {
+
+        if (!isStarted()) {
+            return FilterReply.NEUTRAL;
         }
 
-        return buffer
-                .append(event.getFormattedMessage())
-                .append(CoreConstants.LINE_SEPARATOR)
-                .toString()
+        def logger = event.getLoggerName()
+        def level = event.getLevel()
+        for( def entry : packages ) {
+            if ( logger.startsWith( entry.key ) && level.isGreaterOrEqual(entry.value) ) {
+                return FilterReply.NEUTRAL
+            }
+        }
+
+        return FilterReply.DENY
     }
 }

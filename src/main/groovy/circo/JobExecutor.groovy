@@ -26,7 +26,7 @@ import com.google.common.io.Files
 import groovy.util.logging.Slf4j
 import circo.data.DataStore
 import circo.messages.*
-import circo.utils.ProcessHelper
+import circo.util.ProcessHelper
 
 import java.util.concurrent.Callable
 /**

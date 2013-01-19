@@ -22,7 +22,7 @@ import com.beust.jcommander.JCommander
 import com.beust.jcommander.ParameterException
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
-import circo.utils.CmdLineHelper
+import circo.util.CmdLineHelper
 
 
 /**

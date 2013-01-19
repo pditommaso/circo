@@ -22,7 +22,7 @@ import akka.actor.*
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
-import circo.utils.SerializeId
+import circo.util.SerializeId
 import scala.Option
 
 /**

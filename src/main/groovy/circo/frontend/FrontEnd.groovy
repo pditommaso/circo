@@ -30,7 +30,7 @@ import circo.data.DataStore
 import circo.data.NodeData
 import circo.data.WorkerRef
 import circo.messages.*
-import circo.utils.CircoHelper
+import circo.util.CircoHelper
 
 /**
  *

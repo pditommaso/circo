@@ -1,4 +1,4 @@
-package circo.utils;
+package circo.util;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
