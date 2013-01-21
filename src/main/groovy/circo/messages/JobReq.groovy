@@ -56,6 +56,11 @@ class JobReq implements Serializable {
      */
     def int maxAttempts = 2
 
+    /**
+     * The user who submitted the request
+     */
+    def String user
+
 
 
 }

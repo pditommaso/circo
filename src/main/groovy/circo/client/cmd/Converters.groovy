@@ -74,12 +74,14 @@ class DurationConverter implements IStringConverter<Duration> {
  *      </pre>
  */
 @Slf4j
-class IntRangeConverter implements IStringConverter<Range<Integer>> {
+class IntRangeConverter implements IStringConverter<IntRangeSerializable> {
 
     @Override
-    Range<Integer> convert(final String value) {
-        log.debug "Converting value '$value' to a IntRange"
-        if ( !value ) return null
+    IntRangeSerializable convert(final String value) {
+        log.trace "Converting value '$value' to a IntRange"
+        if ( !value ) {
+            return null
+        }
 
         def str = value
         int step = 1
@@ -97,27 +99,27 @@ class IntRangeConverter implements IStringConverter<Range<Integer>> {
         if( pos != -1 ) {
             def min = Integer.parseInt(str.substring(0,pos))
             def max = Integer.parseInt(str.substring(pos+2))
-            result = new IntRangeSerializable(min,max)
+            result = new IntRangeSerializable(min,max,step)
         }
 
         if ( !result && (pos = str.indexOf('-')) != -1 ) {
             def min = Integer.parseInt(str.substring(0,pos))
             def max = Integer.parseInt(str.substring(pos+1))
-            result = new IntRangeSerializable(min,max)
+            result = new IntRangeSerializable(min,max,step)
         }
 
         if ( !result ) {
             def val = Integer.parseInt(str)
             if ( val > 0 ) {
-                result = new IntRangeSerializable(1,val)
+                result = new IntRangeSerializable(1,val,step)
             }
             else {
                 throw new IllegalArgumentException("Not a valid range value: $str")
             }
         }
 
-        result.step(step)
         return result
+
     }
 
 }
@@ -128,21 +130,81 @@ class IntRangeConverter implements IStringConverter<Range<Integer>> {
 class IntRangeSerializable implements Serializable {
 
     @Delegate
-    transient private IntRange target
+    transient private IntRange fTarget
 
-    private int step = 1
+    private int fStep = 1
 
     IntRangeSerializable(int from, int to, int step = 1 ) {
-        target = new IntRange(from, to)
-        this.step = step
-        if ( this.step != 1 ) {
-            target.step(step)
-        }
+        this.fTarget = new IntRange(from, to)
+        this.fStep = step
     }
 
     def List<Integer> step(int step) {
-        this.step = step
-        target.step(step)
+        fTarget.step(step)
+    }
+
+    def List<Integer> withStep() {
+        return fTarget.step(fStep)
+    }
+
+    def void step( int step, Closure callback ) {
+        throw new IllegalAccessException('Method not supported')
+    }
+
+    /**
+     * Save the state of the <tt>ArrayList</tt> instance to a stream (that
+     * is, serialize it).
+     *
+     * @serialData The length of the array backing the <tt>ArrayList</tt>
+     *             instance is emitted (int), followed by all of its elements
+     *             (each an <tt>Object</tt>) in the proper order.
+     */
+    private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException
+    {
+        out.writeInt(fTarget.getFromInt())
+        out.writeInt(fTarget.getToInt())
+        out.writeInt(fStep)
+    }
+
+    /**
+     * Reconstitute the <tt>ArrayList</tt> instance from a stream (that is,
+     * deserialize it).
+     */
+    private void readObject(java.io.ObjectInputStream input) throws java.io.IOException, ClassNotFoundException {
+
+        def from = input.readInt()
+        def to = input.readInt()
+        this.fStep = input.readInt()
+        this.fTarget = new IntRange(from,to)
+
+    }
+
+
+}
+
+
+@Slf4j
+@ToString(includes = 'from,to,step', includePackage = false)
+class StringRangeSerializable implements Serializable {
+
+    @Delegate
+    transient private Range<String> fTarget
+
+    private int fStep = 1
+
+    StringRangeSerializable(String from, String to, int step = 1 ) {
+        assert from
+        assert to
+        this.fTarget = new ObjectRange(from, to)
+        this.fStep = step
+    }
+
+    def List withStep() {
+        fTarget.step(fStep)
+    }
+
+    def List step(int step) {
+        fTarget.step(step)
     }
 
     def void step( int step, Closure callback ) {
@@ -160,9 +222,9 @@ class IntRangeSerializable implements Serializable {
      */
     private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException
     {
-        out.writeInt(target.getFromInt())
-        out.writeInt(target.getToInt())
-        out.writeInt(step)
+        out.writeObject(fTarget.getFrom())
+        out.writeObject(fTarget.getTo())
+        out.writeInt(fStep)
     }
 
     /**
@@ -171,14 +233,37 @@ class IntRangeSerializable implements Serializable {
      */
     private void readObject(java.io.ObjectInputStream input) throws java.io.IOException, ClassNotFoundException {
 
-        def from = input.readInt()
-        def to = input.readInt()
-        this.step = input.readInt()
+        def from = input.readObject()
+        def to = input.readObject()
+        this.fStep = input.readInt()
+        this.fTarget = new ObjectRange(from?.toString(),to?.toString())
+    }
 
 
-        this.target = new IntRange(from,to)
-        if ( step != 1 ) {
-            target.step(step)
+}
+
+class EachConverter implements IStringConverter<List> {
+
+    @Override
+    List convert(String value) {
+
+        if ( !value ) return []
+
+        if( value.contains(',') && value.contains('..') ) { throw new IllegalArgumentException("Specify either a collection (comma separated) or a range") }
+
+        int p = value.indexOf('..')
+        if ( p != -1 ) {
+            String alpha = value.substring(0,p)
+            String omega = value.substring(p+2)
+            if( alpha.isInteger() && omega.isInteger() ) {
+                return new IntRangeSerializable(alpha.toInteger(),omega.toInteger())
+            }
+            else {
+                return new StringRangeSerializable(alpha,omega)
+            }
+        }
+        else {
+            return value.split(',')?.collect { it?.trim() } as List<String>
         }
 
     }

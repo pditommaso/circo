@@ -29,10 +29,12 @@ import spock.lang.Specification
  */
 class ConvertersTest extends Specification {
 
+
+
     def 'test times converted' () {
 
         expect:
-        new IntRangeConverter().convert(times) == range
+        new IntRangeConverter().convert(times).withStep() == range
 
         where:
         times       | range
@@ -57,22 +59,14 @@ class ConvertersTest extends Specification {
 
     def 'test times illegal 2' () {
         when:
-        new IntRangeConverter().convert('123')
-        then:
-        thrown(IllegalArgumentException)
-    }
-
-    def 'test times illegal 3' () {
-        when:
         new IntRangeConverter().convert('-1-4')
         then:
         thrown(IllegalArgumentException)
     }
 
-    static Range range( int min, int max, int step = 1 ) {
+    static List<String> range( int min, int max, int step = 1 ) {
         def range = new IntRange(min,max)
         range.step(step)
-        return range
     }
 
     def 'test StatusConverter' () {
@@ -94,11 +88,12 @@ class ConvertersTest extends Specification {
         new CommaSeparatedListConverter().convert('a,b b,c') == ['a','b b', 'c']
     }
 
-    def 'test range serialize-deserialize' () {
+    def 'test IntRange serialize-deserialize' () {
 
         when:
         IntRangeSerializable range1 = new IntRangeSerializable( 1, 10 )
         IntRangeSerializable range2 = new IntRangeSerializable( 3, 33, 5 )
+        IntRangeSerializable range3 = new IntRangeSerializable( 1, 10, 5 )
 
         IntRangeSerializable copy1 = SerializationUtils.clone(range1) as IntRangeSerializable
         IntRangeSerializable copy2 = SerializationUtils.clone(range2) as IntRangeSerializable
@@ -106,19 +101,38 @@ class ConvertersTest extends Specification {
         then:
         range1 == copy1
         range2 == copy2
-
         range1 != range2
 
-//        range1.getFromInt() == 1
-//        range1.getToInt() == 10
-//        range1.size() == 10
-//
-//        copy1.getFrom() == 1
-//        copy1.getTo() == 10
-//        copy1.size() == 10
-//
+    }
 
+    def 'test StringRange serialize-deserialize' () {
 
+        when:
+        StringRangeSerializable range1 = new StringRangeSerializable( 'b', 'e' )
+        StringRangeSerializable range2 = new StringRangeSerializable( 'a', 'f', 2 )
+
+        StringRangeSerializable copy1 = SerializationUtils.clone(range1) as StringRangeSerializable
+        StringRangeSerializable copy2 = SerializationUtils.clone(range2) as StringRangeSerializable
+
+        then:
+        range1 == copy1
+        range2 == copy2
+        range1 != range2
+        range2.withStep() == ['a','c','e']
+    }
+
+    def 'test each converter' () {
+        expect:
+        new EachConverter().convert(str) == list
+
+        where:
+        str         |  list
+        null        | []
+        ''          | []
+        'a'         | ['a']
+        'a, b, z'   | ['a','b','z']
+        'b..f'      | ['b','c','d','e','f']
+        '1..4'      | [1,2,3,4]
 
     }
 

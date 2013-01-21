@@ -64,6 +64,21 @@ class CmdSubTest extends Specification {
 
     }
 
+    def 'test parse cmd sub each' () {
+
+        when:
+        def times
+        def parser = CommandParser.parse( 'sub --each a,b,c' )
+        CmdSub cmd = parser.getCommand()
+
+
+        then:
+        !parser.hasFailure()
+        !parser.isHelp()
+        cmd.each == ['a','b','c']
+
+    }
+
 
 
 }

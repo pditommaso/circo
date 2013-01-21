@@ -192,9 +192,17 @@ class FrontEnd extends UntypedActor {
          */
         def count = 0
         if( cmdSub.times ) {
-            cmdSub.times.each  { index ->
-
+            cmdSub.times.withStep().each  { index ->
                 createAndSaveJobEntry( request, ticket, index, cmdSub.times )
+                count++
+            }
+        }
+        /*
+         * Creare a job for each entry in the 'eachList'
+         */
+        else if ( cmdSub.getEachList() ) {
+            cmdSub.getEachList().each  { index ->
+                createAndSaveJobEntry( request, ticket, index )
                 count++
             }
         }
@@ -219,7 +227,7 @@ class FrontEnd extends UntypedActor {
 
     }
 
-    private JobEntry createAndSaveJobEntry( JobReq request, def ticket, def index = null, def range = null ) {
+    private JobEntry createAndSaveJobEntry( JobReq request, def ticket, def index = null, Range range = null ) {
         assert ticket
 
         final id = new JobId( ticket, index )
