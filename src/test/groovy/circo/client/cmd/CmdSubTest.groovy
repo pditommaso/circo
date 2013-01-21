@@ -52,7 +52,7 @@ class CmdSubTest extends Specification {
 
         when:
         def times
-        def parser = CommandParser.parse( 'sub --times 1-10 ' )
+        def parser = CommandParser.parse( 'sub --times 1-10:2' )
         CmdSub cmd = parser.getCommand()
 
         if( parser.failure ) parser.failure.printStackTrace()
@@ -61,6 +61,7 @@ class CmdSubTest extends Specification {
         !parser.hasFailure()
         !parser.isHelp()
         cmd.times == new IntRange(1,10)
+        cmd.count() == 5
 
     }
 
@@ -75,7 +76,8 @@ class CmdSubTest extends Specification {
         then:
         !parser.hasFailure()
         !parser.isHelp()
-        cmd.each == ['a','b','c']
+        cmd.eachList == ['a','b','c']
+        cmd.count() == 3
 
     }
 
