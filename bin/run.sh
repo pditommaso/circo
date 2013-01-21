@@ -85,7 +85,7 @@ while [ "$*" != "" ]; do
     MAIN_CLASS='circo.client.ClientApp'
 
   elif [ "$1" == '--daemon' ]; then
-    MAIN_CLASS='circo.ClusterNode'
+    MAIN_CLASS='circo.ClusterDaemon'
 
   else
    args+=("$1")

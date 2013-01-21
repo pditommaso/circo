@@ -42,7 +42,7 @@ import circo.util.LoggerHelper
 
 
 @Slf4j
-public class ClusterNode {
+public class ClusterDaemon {
 
     def ActorSystem system
     def DataStore dataStore
@@ -54,7 +54,7 @@ public class ClusterNode {
      *
      * @param cmdLine A object containing the parse CLI parsed arguments
      */
-    def ClusterNode(CmdLine cmdLine) {
+    def ClusterDaemon(CmdLine cmdLine) {
         this.cmdLine = cmdLine
 
         System.setProperty("akka.remote.netty.port", String.valueOf(cmdLine.port));
@@ -177,7 +177,7 @@ public class ClusterNode {
         LoggerHelper.configureDaemonLogger(cmdLine)
 
         log.debug ">> Launching RushServer"
-        def node = new ClusterNode(cmdLine)
+        def node = new ClusterDaemon(cmdLine)
         try {
             node.run()
         }

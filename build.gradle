@@ -161,6 +161,8 @@ task distZip(type: Zip) {
  */
 task distTar(type: Tar) {
     dependsOn stage
+    compression = Compression.GZIP
+
     from "$buildDir/stage/"
 }
 
@@ -170,6 +172,13 @@ task distTar(type: Tar) {
 gradle.taskGraph.afterTask { Task task, TaskState state ->
     if (task == distTar && !state.failure) { println "\n** TAR: ${relativePath(distTar.archivePath)}\n\n"}
     if (task == distZip && !state.failure) { println "\n** ZIP: ${relativePath(distZip.archivePath)}\n\n"}
+}
+
+task s3publish(type: Exec) {
+    dependsOn distTar
+
+    commandLine "s3cmd --acl-public -rr --disable-multipart put ${buildDir}/distributions/circo-${version}.tgz s3://cbcrg-eu".split(' ')
+
 }
 
 
