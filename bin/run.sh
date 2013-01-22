@@ -47,18 +47,19 @@ JVM_ARGS+=" -Djava.awt.headless=true -Dsigar.lib.path=$base_dir/libsigar"
 #
 if [ -e "$base_dir/build/classes/main" ]; then
   CLASSPATH="$base_dir/build/classes/main"
-  CLASSPATH="$CLASSPATH:$base_dir/build/classes/test"
-  CLASSPATH="$CLASSPATH:$base_dir/build/resources/main"
+  CLASSPATH+=":$base_dir/build/classes/test"
+  CLASSPATH+=":$base_dir/build/resources/main"
   for file in $base_dir/build/dependency-libs/*.jar; do
-    CLASSPATH="${CLASSPATH}:$file";
+    CLASSPATH+=":$file";
   done
 
 #
 # deployed application class -- only jar in the libs folder
 #
 elif [ -e $base_dir/libs ]; then
+  CLASSPATH="$base_dir/conf"
   for file in $base_dir/libs/*.jar; do
-    CLASSPATH="${CLASSPATH}:$file";
+    CLASSPATH+=":$file";
   done
 
 else
@@ -72,7 +73,6 @@ fi
 #
 while [ "$*" != "" ]; do
   if [[ "$1" == '--debug' || "$1" == '--trace' ]]; then
-    DEBUG='-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=8010'
     args+=("$1")
 
   elif [ "$1" == '--with-jrebel' ]; then
@@ -87,6 +87,9 @@ while [ "$*" != "" ]; do
 
   elif [ "$1" == '--daemon' ]; then
     MAIN_CLASS='circo.ClusterDaemon'
+
+  elif [ "$1" == '--remote-debugger' ]; then
+    DEBUG='-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=8010'
 
   else
    args+=("$1")

@@ -146,8 +146,8 @@ public class ClusterDaemon {
             this.dataStore = new LocalDataStore()
         }
         else {
-            log.debug "Launching Hazelcast"
             List<String> members = nodes.collect { Address it -> it.host().get() }
+            log.debug "Launching Hazelcast - ${members}"
             def itself = cluster.selfAddress().host().get()
             if ( !members.contains(itself)) { members.add(itself) }
             dataStore = new HazelcastDataStore( ConfigFactory.load(), members )
@@ -161,7 +161,7 @@ public class ClusterDaemon {
     def void joinNodes( Cluster cluster ) {
         if ( !nodes ) { return }
 
-        def list = nodes
+        def list = new ArrayList<Address>(nodes)
         while( list ) {
             def addr = list.remove( new Random().nextInt( list.size() )  )
             try {

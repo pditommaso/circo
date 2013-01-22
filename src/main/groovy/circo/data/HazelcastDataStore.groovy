@@ -18,9 +18,10 @@
  */
 
 package circo.data
+
 import circo.messages.JobEntry
 import circo.messages.JobStatus
-import com.hazelcast.config.Config as HazelcastConfig
+import com.hazelcast.config.ClasspathXmlConfig
 import com.hazelcast.config.MapConfig
 import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.config.MapStoreConfig
@@ -32,6 +33,7 @@ import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 
 import java.util.concurrent.locks.Lock
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -64,28 +66,24 @@ class HazelcastDataStore extends AbstractDataStore {
     private HazelcastInstance createInstance(TypesafeConfig appConfig, List<String> clusterMembers) {
 
         /*
-         * general hazelcost configuration
+         * general hazelcast configuration
          */
-        def cfg = new HazelcastConfig()
+        def cfg = new ClasspathXmlConfig("hazelcast.xml")
         cfg.setProperty("hazelcast.logging.type", "slf4j")
 
         /*
          * network conf
          */
-        def join = cfg.getNetworkConfig().getJoin()
         if ( clusterMembers ) {
-            log.debug "Hazelcast -- enabling tcp config"
-            join.getMulticastConfig().setEnabled(false)
-            join.getTcpIpConfig().setEnabled(true)
             log.debug "Hazelcast -- adding members: $clusterMembers"
+            def tcp = cfg.getNetworkConfig().getJoin().getTcpIpConfig()
             clusterMembers.each { String it ->
-                join.getTcpIpConfig().addMember( it )
+                tcp.addMember( it )
             }
         }
 
-
         /*
-         * configure the JDBC persistance if provided in the configuration file
+         * configure the JDBC persistence if provided in the configuration file
          */
         def mapStoreConfig = null
         try {
