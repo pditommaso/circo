@@ -18,44 +18,35 @@
  */
 
 package circo
-
 import akka.actor.Address
-import circo.util.CmdLine
 import spock.lang.Shared
 import spock.lang.Specification
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 class ClusterDaemonTest extends Specification{
 
-    @Shared
-    def cli = new CmdLine()
 
     @Shared
-    def port = cli.port
-    
-    @Shared
-    def name = new ClusterDaemon(cli).CLUSTER_NAME
+    def defName = Consts.DEFAULT_AKKA_SYSTEM
 
-    
+    @Shared
+    def defPort = Consts.DEFAULT_AKKA_PORT
     
     def 'test parseAddresses' () {
 
-        setup:
-        def cli = new CmdLine()
 
         expect:
-        new ClusterDaemon(cli).parseAddresses(addreass) == list
+        ClusterDaemon.parseAddresses(addreass) == list
 
         where:
         addreass            | list
-        null                | []
-        ''                  | []
-        '1.1.1.1'           | [new Address('akka',name,'1.1.1.1',port)]
-        '2.2.2.2:4455'      | [new Address('akka',name,'2.2.2.2',4455)]
-        '1.1.1.1:11,3.3.3.3:33\n4.4.4.4:44\n5.5.5.5,6.6.6.6'  | [new Address('akka',name,'1.1.1.1',11),new Address('akka',name,'3.3.3.3',33),new Address('akka',name,'4.4.4.4',44),new Address('akka',name,'5.5.5.5',port),new Address('akka',name,'6.6.6.6',port)]
+//        null                | []
+//        ''                  | []
+//        '1.1.1.1'           | [new Address('akka',defName, '1.1.1.1', defPort)]
+//        '2.2.2.2:4455'      | [new Address('akka',defName,'2.2.2.2',4455)]
+        '1.1.1.1:11,3.3.3.3:33\n4.4.4.4:44\n5.5.5.5,6.6.6.6'  | [new Address('akka',defName,'1.1.1.1',11),new Address('akka',defName,'3.3.3.3',33),new Address('akka',defName,'4.4.4.4',44),new Address('akka',defName,'5.5.5.5',defPort),new Address('akka',defName,'6.6.6.6',defPort)]
 
     }
 }

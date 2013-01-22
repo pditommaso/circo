@@ -46,8 +46,6 @@ import groovy.util.logging.Slf4j
 @Slf4j
 public class ClusterDaemon {
 
-    final String CLUSTER_NAME = "circo"
-
     private ActorSystem system
 
     private Cluster cluster
@@ -88,13 +86,13 @@ public class ClusterDaemon {
 
     }
 
-    private List<Address> parseAddresses( String addresses ) {
+    static private List<Address> parseAddresses( String addresses ) {
         def result  = []
 
         if( !addresses ) return result
 
         addresses.eachLine { String line ->
-            line.split(', ').each { String it -> (Address)CircoHelper.fromString(it) }
+            line.split('[,\b]').each { String it -> result << (Address)CircoHelper.fromString(it) }
         }
 
         return result
@@ -133,7 +131,7 @@ public class ClusterDaemon {
         /*
          * Create the Akka system
          */
-        system = ActorSystem.create(CLUSTER_NAME);
+        system = ActorSystem.create(Consts.DEFAULT_AKKA_SYSTEM);
         cluster = Cluster.get(system)
         selfAddress = cluster.selfAddress()
         joinNodes(cluster)

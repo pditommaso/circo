@@ -389,7 +389,7 @@ class JobMasterTest extends ActorSpecification {
     }
 
     /*
-     * When a member goes down unpredictably, check peding jobs that need
+     * When a member goes down unpredictably, check pending jobs that need
      * to be rescheduled
      */
     def void "test resumeJobs" () {
@@ -412,21 +412,19 @@ class JobMasterTest extends ActorSpecification {
         def result2
         def job2 = new JobEntry( JobId.of('2'), new JobReq(script: '2') )
         job2.setSender(senderProbe.getRef())
-        job2.result = result2 = new JobResult(jobId:job2.id)
+        job2.result = result2 = new JobResult(jobId:job2.id, exitCode: 127) // <-- the error condition
 
-        // this is FAILED, BUT th number of attempts exceeded the maxAttempts,
+        // this is FAILED, BUT the number of attempts exceeded the maxAttempts,
         // so it must be notified to the sender
         def result3
         def job3 = new JobEntry( JobId.of('3'), new JobReq(script: '3', maxAttempts: 2) )
         job3.attempts = 3
         job3.setSender(senderProbe.getRef())
-        job3.result = result3 = new JobResult(jobId:job3.id)
-
+        job3.result = result3 = new JobResult(jobId:job3.id, exitCode: 127) // <-- the error condition
 
         dataStore.saveJob(job1)
         dataStore.saveJob(job2)
         dataStore.saveJob(job3)
-
 
         def node = new NodeData(address:addr('1.1.1.1'))
         node.createWorkerData( worker1.getRef() )
@@ -443,7 +441,7 @@ class JobMasterTest extends ActorSpecification {
         master.underlyingActor().resumeJobs( addr('1.1.1.1') )
 
         then:
-        // the NodeData for the dead node has been remove
+        // the NodeData for the dead node has been removed
         // so, getNodeData returns null
         dataStore.getNodeData(addr('1.1.1.1')) == null
 

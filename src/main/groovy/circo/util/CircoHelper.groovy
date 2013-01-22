@@ -21,6 +21,7 @@ package circo.util
 import akka.actor.Address
 import akka.actor.Address as AkkaAddress
 import circo.Consts
+import groovy.util.logging.Slf4j
 
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -28,6 +29,7 @@ import java.text.DecimalFormatSymbols
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Slf4j
 class CircoHelper {
 
     static DATETIME_FORMAT = "HH:mm dd/MMM/yy"
