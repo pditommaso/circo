@@ -35,6 +35,14 @@ if test -n "$JAVA_HOME"; then
 fi
 
 #
+# Variable definition
+#
+declare -a args=()
+DEBUG=''
+MAIN_CLASS=${MAIN_CLASS:-$1}
+JVM_ARGS+=" -Djava.awt.headless=true -Dsigar.lib.path=$base_dir/libsigar"
+
+#
 # classpath when the application is compiled with gradle 
 #
 if [ -e "$base_dir/build/classes/main" ]; then
@@ -58,13 +66,6 @@ else
   exit 1
 fi  
 
-#
-# Variable definition  
-#
-declare -a args=()
-JVM_ARGS="-Djava.awt.headless=true"
-DEBUG=''
-MAIN_CLASS=${MAIN_CLASS:-$1}
 
 #
 # Handle special program cli options 
@@ -76,7 +77,7 @@ while [ "$*" != "" ]; do
 
   elif [ "$1" == '--with-jrebel' ]; then
     if [ "$JREBEL_HOME" ]; then
-    JVM_ARGS="$JVM_ARGS -javaagent:$JREBEL_HOME/jrebel.jar -Drebel.log.file=./jrebel-client.log"
+    JVM_ARGS+=" -javaagent:$JREBEL_HOME/jrebel.jar -Drebel.log.file=./jrebel-client.log"
     else
     echo "WARN: To use JReber define the JREBEL_HOME variable in environment"
     fi
