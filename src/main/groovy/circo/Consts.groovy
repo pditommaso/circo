@@ -26,9 +26,25 @@ package circo
  */
 class Consts {
 
+    /**
+     * The ascii art logo, displayed on start
+     */
+    def static LOGO = """\
+       ___ _
+      / __(_)_ _ __ ___
+     | (__| | '_/ _/ _ \\
+      \\___|_|_| \\__\\___/   ver ${APPVER}
+
+    """
+    .stripIndent()
+
     static final String MAIN_PACKAGE = Consts.class.name.split('\\.')[0]
 
     static final String APPNAME = MAIN_PACKAGE
+
+    static final String APPVER = "0.1.1"
+
+    static final long APPTIMESTAMP = 1358861466595
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 

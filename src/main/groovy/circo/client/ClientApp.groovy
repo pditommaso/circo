@@ -210,6 +210,14 @@ class ClientApp {
         if( parsedCommand.help ) {
             throw new AppHelpException(parsedCommand)
         }
+        if ( options.version ) {
+            println CircoHelper.version()
+            System.exit(0)
+        }
+        else if ( options.fullVersion ) {
+            println CircoHelper.version(true)
+            System.exit(0)
+        }
 
         // NOW -- the real program initialization
         def akkaConf = """
@@ -397,7 +405,7 @@ class ClientApp {
         else {
             log.debug "Entering interactive mode"
 
-            print LOGO
+            print Consts.LOGO
 
             while( true ) {
                 def line = console.readLine("${Consts.APPNAME}> ")
@@ -506,17 +514,6 @@ class ClientApp {
         }
     }
 
-    /**
-     * The ascii art logo, displayed on start
-     */
-    def static LOGO = """\
-       ___ _
-      / __(_)_ _ __ ___
-     | (__| | '_/ _/ _ \\
-      \\___|_|_| \\__\\___/
-
-    """
-    .stripIndent()
 
 
     /**

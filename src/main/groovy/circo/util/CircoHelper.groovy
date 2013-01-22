@@ -61,6 +61,13 @@ class CircoHelper {
         result
     }
 
+    static String fmt( Date date ) {
+        if( !date ) return EMPTY
+
+        date.format(DATETIME_FORMAT)
+
+    }
+
 
     static String fmt( AkkaAddress address, Integer pad = null ) {
         String result
@@ -152,6 +159,18 @@ class CircoHelper {
         }
 
         new Address(protocol,system,host,port)
+    }
+
+
+    static def String version(boolean full=false) {
+
+        def result = "${Consts.APPVER}"
+
+        if( full ) {
+            result += " - ${CircoHelper.fmt(new Date(Consts.APPTIMESTAMP))}"
+        }
+
+        return result
     }
 
 }

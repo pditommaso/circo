@@ -27,7 +27,7 @@
 
 apply plugin: 'groovy'
 //name = 'circo'
-version = '0.1'
+version = '0.1.1'
 status = 'alpha'
 
 repositories {
@@ -102,11 +102,23 @@ task classpathCompile(dependsOn: configurations.compile) << {
 
 }
 
+
+/*
+ * Update the build timestamp in the source source file
+ */
+task stampBuildInfo << {
+    def file = new File('./src/main/groovy/circo/Consts.groovy')
+    def src = file.text
+    src = src.replaceAll('APPVER *= *"[0-9\\.]+"', "APPVER = \"${version}\"" as String)
+    src = src.replaceAll('APPTIMESTAMP *= *[0-9]*', "APPTIMESTAMP = ${System.currentTimeMillis()}" as String)
+    file.text = src
+}
+
 /*
  * Compile sources and copies all libs to target directory
  */
 task compile(type: Copy) {
-    dependsOn compileJava, compileGroovy, processResources
+    dependsOn stampBuildInfo, compileJava, compileGroovy, processResources
 
     into "$buildDir/dependency-libs"
     from configurations.runtime

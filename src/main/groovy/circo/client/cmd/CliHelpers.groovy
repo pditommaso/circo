@@ -118,6 +118,12 @@ class AppOptions {
     @Parameter(names='--port', description = 'TCP port used by the client, if not specified will be chosen a free port automatically')
     int port
 
+    @Parameter(names=['-v'], description = 'Prints the version number')
+    boolean version
+
+    @Parameter(names=['--version'], description = 'Prints the version number with build information')
+    boolean fullVersion
+
     def AppOptions() { }
 
     def AppOptions( AppOptions that ) {
