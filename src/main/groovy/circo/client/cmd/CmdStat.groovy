@@ -112,6 +112,7 @@ class CmdStat extends AbstractCommand {
             tmpdir    : ${job.workDir}
             linux pid : ${job.pid}
             attempts  : ${job.attempts}
+            user      : ${job?.req?.user}
             created   : ${job.getCreationTimeFmt()}
             launched  : ${job.getLaunchTimeFmt()}
             completed : ${job.getCompletionTimeFmt()}

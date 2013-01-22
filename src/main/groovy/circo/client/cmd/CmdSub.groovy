@@ -61,6 +61,13 @@ class CmdSub extends AbstractCommand  {
     @Parameter(names='--print', description = 'Wait for the job completion and print out the result to the stdout')
     boolean printOutput
 
+
+    @Parameter(names='--each', description = 'Submit the command for each entry in the specified collection', converter = EachConverter)
+    private eachList
+
+    def List getEachList() { return eachList }
+
+
     /**
      * The command will be submitted the number of times specified the range
      *
@@ -71,18 +78,26 @@ class CmdSub extends AbstractCommand  {
     @Parameter(names=['-t','--times'], arity = 1, description = 'Number of times this request has to be submitted', converter = IntRangeConverter)
     private times
 
-    def Range getTimes() {  times as Range }
+    def IntRangeSerializable getTimes() {  times as IntRangeSerializable }
+
+    //--- non command option parameters
+
+
+    /** The user who submitted the request */
+    private String user
 
 
 
-    private initEnv() {
-        if( exportAllEnvironment ) {
+    private init() {
+        if( this.exportAllEnvironment ) {
             def copy = new HashMap<>(env)
             env = new HashMap<>( System.getenv() )
             if( copy ) {
                 env.putAll(copy)
             }
         }
+
+        this.user = System.properties['user.name']
     }
 
     /**
@@ -102,16 +117,35 @@ class CmdSub extends AbstractCommand  {
             result.maxInactive = maxInactive.toMillis()
         }
 
+        result.user = this.user
+
         return result
     }
 
+    def int count() {
 
+        if ( getTimes() ) {
+            getTimes().withStep().size()
+        }
+        else if ( getEachList() ) {
+            getEachList().size()
+        }
+        else {
+            1
+        }
+
+
+    }
 
 
     @Override
     void execute(ClientApp client) {
 
-        initEnv()
+        if( times && eachList ) {
+            throw new IllegalArgumentException("Options '--times' and '--each' cannot be used together")
+        }
+
+        init()
 
         if( !command ) {
             println "no command to submit provided -- nothing to do"

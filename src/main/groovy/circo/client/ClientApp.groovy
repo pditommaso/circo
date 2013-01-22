@@ -279,7 +279,7 @@ class ClientApp {
         assert submit
         assert submit.ticket
 
-        def numOfJobs = submit.times?.size() ?: 1
+        def numOfJobs = submit.count()
         log.debug "Sub expected numOfJobs: $numOfJobs"
 
         def holder = new ResponseSink()

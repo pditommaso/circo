@@ -106,7 +106,7 @@ task classpathCompile(dependsOn: configurations.compile) << {
  * Compile sources and copies all libs to target directory
  */
 task compile(type: Copy) {
-    dependsOn compileJava, compileGroovy
+    dependsOn compileJava, compileGroovy, processResources
 
     into "$buildDir/dependency-libs"
     from configurations.runtime
