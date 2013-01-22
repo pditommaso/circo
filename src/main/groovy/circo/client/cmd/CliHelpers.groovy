@@ -61,12 +61,38 @@ class AppOptionsException extends Exception {
 
     CommandParser parsedCommand
 
+    String message
+
+
+    def String getMessage() {
+
+        def result = new StringBuilder()
+        if ( message ) {
+            result << message << '\n'
+        }
+
+        def failure = parsedCommand?.getFailureMessage()
+        if ( failure ) {
+            result << failure
+        }
+        else if ( !message ) {
+            result = '(unknown error)'
+        }
+
+        result.toString()
+    }
+
 }
 
 @TupleConstructor
 class AppHelpException extends Exception {
 
     CommandParser parsedCommand
+
+
+    def String getMessage() {
+        parsedCommand?.getHelp() ?: "Command syntax error"
+    }
 
 }
 
@@ -83,6 +109,14 @@ class AppOptions {
     @Parameter(names=['-h','--help'], help=true)
     boolean help
 
+    @Parameter(names='--host', description='The remote cluster to which connect')
+    String remoteHost
+
+    @Parameter(names='--local', description = 'Run in local-only mode')
+    boolean local
+
+    @Parameter(names='--port', description = 'TCP port used by the client, if not specified will be chosen a free port automatically')
+    int port
 
     def AppOptions() { }
 

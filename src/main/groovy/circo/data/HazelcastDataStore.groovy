@@ -18,8 +18,11 @@
  */
 
 package circo.data
-import com.hazelcast.config.ClasspathXmlConfig
+import circo.messages.JobEntry
+import circo.messages.JobStatus
+import com.hazelcast.config.Config as HazelcastConfig
 import com.hazelcast.config.MapConfig
+import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.config.MapStoreConfig
 import com.hazelcast.core.*
 import com.hazelcast.query.SqlPredicate
@@ -27,8 +30,6 @@ import com.typesafe.config.Config as TypesafeConfig
 import com.typesafe.config.ConfigException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-import circo.messages.JobEntry
-import circo.messages.JobStatus
 
 import java.util.concurrent.locks.Lock
 /**
@@ -44,34 +45,89 @@ class HazelcastDataStore extends AbstractDataStore {
 
     private Map<Closure,EntryListener> listenersMap = [:]
 
-    def HazelcastDataStore( TypesafeConfig config ) {
 
-        // -- hazelcast configuration
-        def cfg = new ClasspathXmlConfig('hazelcast.xml')
+    /**
+     * Create an {@code com.hazelcast.core.HazelcastInstance} with configuration
+     * properties provided by the 'application.conf' settings
+     *
+     */
+    def HazelcastDataStore( TypesafeConfig appConfig, List<String> clusterMembers = null ) {
 
-        // -- look for optional JDBC persistence configuration
+        init(createInstance(appConfig, clusterMembers))
+
+    }
+
+    /*
+     * Parse the configuration settings and create the
+     * {@code com.hazelcast.core.HazelcastInstance}  accordingly
+     */
+    private HazelcastInstance createInstance(TypesafeConfig appConfig, List<String> clusterMembers) {
+
+        /*
+         * general hazelcost configuration
+         */
+        def cfg = new HazelcastConfig()
+        cfg.setProperty("hazelcast.logging.type", "slf4j")
+
+        /*
+         * network conf
+         */
+        def join = cfg.getNetworkConfig().getJoin()
+        if ( clusterMembers ) {
+            log.debug "Hazelcast -- enabling tcp config"
+            join.getMulticastConfig().setEnabled(false)
+            join.getTcpIpConfig().setEnabled(true)
+            log.debug "Hazelcast -- adding members: $clusterMembers"
+            clusterMembers.each { String it ->
+                join.getTcpIpConfig().addMember( it )
+            }
+        }
+
+
+        /*
+         * configure the JDBC persistance if provided in the configuration file
+         */
+        def mapStoreConfig = null
         try {
-            def storeConfig = config.getConfig('store.jdbc')
+            def storeConfig = appConfig.getConfig('store.jdbc')
             log.info "Setting up JDBC store persistence"
             JdbcJobsMapStore.dataSource = JdbcDataSourceFactory.create(storeConfig)
 
-            def mapStoreConfig =
-                new MapStoreConfig()
-                        .setClassName( JdbcJobsMapStore.getName() )
-                        .setEnabled(true)
-
-            cfg.addMapConfig(new MapConfig('jobs').setMapStoreConfig(mapStoreConfig))
+            mapStoreConfig = new MapStoreConfig()
+                    .setClassName( JdbcJobsMapStore.getName() )
+                    .setEnabled(true)
 
         }
         catch( ConfigException.Missing e ) {
             log.debug "No store persistence provided"
         }
 
-        // create the instance - and - initialize it
-        init(Hazelcast.newHazelcastInstance(cfg))
+        /*
+         * JOBS map configuration
+         */
+
+
+        def jobsConfig = new MapConfig('jobs')
+                .addMapIndexConfig( new MapIndexConfig('id',false) )
+                .addMapIndexConfig( new MapIndexConfig('status',false) )
+
+        if ( mapStoreConfig ) {
+            jobsConfig.setMapStoreConfig(mapStoreConfig)
+        }
+
+        cfg.addMapConfig(jobsConfig)
+
+
+        /*
+         * let's create the Hazelcast instance obj
+         */
+        Hazelcast.newHazelcastInstance(cfg)
     }
 
-
+    /**
+     * Create a datastore with the provided {@code HazelcastInstance}
+     * -- specify {@code null} for a local instance, useful for testing purpose
+     */
     def HazelcastDataStore( HazelcastInstance instance = null ) {
 
         if( !instance ) {
@@ -88,10 +144,7 @@ class HazelcastDataStore extends AbstractDataStore {
         this.hazelcast = instance
         this.jobsMap = hazelcast.getMap('jobs')
         this.nodeDataMap = hazelcast.getMap('nodeInfo')
-//TODO ++ index can be added only at the very first instance
-//        // add indexes
-//        (jobsMap as IMap).addIndex("id", false)
-//        (jobsMap as IMap).addIndex("status", false)
+
     }
 
 

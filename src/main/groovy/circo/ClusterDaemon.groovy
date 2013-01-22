@@ -19,21 +19,23 @@
 
 package circo
 import akka.actor.ActorSystem
+import akka.actor.Address
 import akka.actor.Props
 import akka.actor.UntypedActorFactory
 import akka.cluster.Cluster
-import com.beust.jcommander.JCommander
-import com.beust.jcommander.ParameterException
-import com.typesafe.config.ConfigFactory
-import groovy.util.logging.Slf4j
 import circo.data.DataStore
 import circo.data.HazelcastDataStore
 import circo.data.LocalDataStore
 import circo.data.WorkerRef
 import circo.frontend.FrontEnd
 import circo.ui.TerminalUI
+import circo.util.CircoHelper
 import circo.util.CmdLine
 import circo.util.LoggerHelper
+import com.beust.jcommander.JCommander
+import com.beust.jcommander.ParameterException
+import com.typesafe.config.ConfigFactory
+import groovy.util.logging.Slf4j
 /**
  *  Launch a cluster node instance
  *
@@ -44,10 +46,24 @@ import circo.util.LoggerHelper
 @Slf4j
 public class ClusterDaemon {
 
-    def ActorSystem system
-    def DataStore dataStore
+    final String CLUSTER_NAME = "circo"
+
+    private ActorSystem system
+
+    private Cluster cluster
+
+    private DataStore dataStore
 
     protected CmdLine cmdLine
+
+    List<Address> nodes
+
+    Address selfAddress
+
+    boolean stopped
+
+    def boolean isStopped() { stopped }
+
 
     /**
      * The cluster node constructor
@@ -57,29 +73,118 @@ public class ClusterDaemon {
     def ClusterDaemon(CmdLine cmdLine) {
         this.cmdLine = cmdLine
 
-        System.setProperty("akka.remote.netty.port", String.valueOf(cmdLine.port));
-        System.setProperty("akka.remote.netty.hostname", cmdLine.server)
+        if ( cmdLine.join ) {
+            if ( cmdLine.local ) {
+                nodes = parseAddresses(Consts.LOCAL_ADDRESS)
+            }
+            else if( cmdLine.join?.toLowerCase() in  ['local','localhost'] ) {
+                nodes = parseAddresses( InetAddress.getLocalHost().getHostAddress() )
+            }
+            else {
+                nodes = parseAddresses( cmdLine.join )
+            }
+        }
 
+
+    }
+
+    private List<Address> parseAddresses( String addresses ) {
+        def result  = []
+
+        if( !addresses ) return result
+
+        addresses.eachLine { String line ->
+            line.split(', ').each { String it -> (Address)CircoHelper.fromString(it) }
+        }
+
+        return result
+    }
+
+    /*
+     * Initialize the Akka system and the Hazelcast data container
+     *
+     */
+    def void init() {
+
+        def daemonAddress = cmdLine.local ? Consts.LOCAL_ADDRESS : cmdLine.host
+        log.debug "Configuring host: ${daemonAddress}:${cmdLine.port}"
+
+        /*
+         * sets some Akka properties
+         */
+        System.setProperty("akka.remote.netty.port", String.valueOf(cmdLine.port));
+        System.setProperty("akka.remote.netty.hostname", daemonAddress )
+        System.setProperty('akka.cluster.auto-join','off')
+
+        /*
+         * set the Sigar library path
+         */
+        String sigarPath = System.properties['sigar.lib.path']
+        if ( sigarPath ) {
+            log.debug "Setting Sigar libs path to: '$sigarPath'"
+            def libsPath = System.properties['java.library.path']
+            libsPath = libsPath ? "$libsPath:${new File(sigarPath).absolutePath}" : new File(sigarPath).absolutePath
+            System.setProperty('java.library.path', libsPath)
+        }
+        else {
+            log.warn( "Missing Sigar libraries path -- Make sure run script define the Java property 'sigar.lib.path'" )
+        }
+
+        /*
+         * Create the Akka system
+         */
+        system = ActorSystem.create(CLUSTER_NAME);
+        cluster = Cluster.get(system)
+        selfAddress = cluster.selfAddress()
+        joinNodes(cluster)
+        WorkerRef.init(system, selfAddress)
+
+
+        /*
+         * Create the in-mem data store
+         */
         if( cmdLine.local ) {
             log.info "Running in local mode (no distributed data structures)"
             this.dataStore = new LocalDataStore()
         }
         else {
             log.debug "Launching Hazelcast"
-            dataStore = new HazelcastDataStore( ConfigFactory.load() )
+            List<String> members = nodes.collect { Address it -> it.host().get() }
+            def itself = cluster.selfAddress().host().get()
+            if ( !members.contains(itself)) { members.add(itself) }
+            dataStore = new HazelcastDataStore( ConfigFactory.load(), members )
         }
 
     }
+
+    /*
+     * try to join a random node in the cluster
+     */
+    def void joinNodes( Cluster cluster ) {
+        if ( !nodes ) { return }
+
+        def list = nodes
+        while( list ) {
+            def addr = list.remove( new Random().nextInt( list.size() )  )
+            try {
+                log.info "Joining cluster node: $addr"
+                cluster.join(addr)
+                break
+            }
+            catch( Exception e ) {
+                log.error "Failed to join cluster at node: $addr", e
+                sleep(1000)
+            }
+        }
+
+    }
+
 
     /*
      * The node run method
      */
     def void run () {
         log.debug "++ Entering run method"
-        system = ActorSystem.create("ClusterSystem");
-        Cluster cluster = Cluster.get(system)
-        def address = cluster.selfAddress()
-        WorkerRef.init(system, address)
 
         // -- create the required actors
         createMasterActor()
@@ -90,7 +195,7 @@ public class ClusterDaemon {
             createTerminalUI()
         }
 
-        log.info "Circo started [${address}]"
+        log.info "Circo node started [${cluster.selfAddress()}]"
     }
 
 
@@ -121,8 +226,12 @@ public class ClusterDaemon {
      * Stop everything
      */
     def stop() {
+        if( stopped ) return
+        stopped = true
 
-        if( system ) try {
+        if( !system ) return
+
+        try {
             system.shutdown()
         }
         catch( Throwable e ) {
@@ -176,9 +285,9 @@ public class ClusterDaemon {
         // configure the loggers based on the cli arguments
         LoggerHelper.configureDaemonLogger(cmdLine)
 
-        log.debug ">> Launching RushServer"
         def node = new ClusterDaemon(cmdLine)
         try {
+            node.init()
             node.run()
         }
         catch( Throwable e ) {
@@ -187,6 +296,34 @@ public class ClusterDaemon {
             System.exit(1)
         }
 
+    }
+
+    static ClusterDaemon start( String[] args ) {
+
+
+        // parse the command line
+        def cmdLine = parseCmdLine(args)
+        def daemon = new ClusterDaemon(cmdLine)
+        try {
+            println "Starting daemon"
+            daemon.init()
+            Thread thread = new Thread( {
+                try { daemon.run() }
+                catch ( Exception e ) { log.error("Unable to run daemon", e); daemon.stop() }
+            } as Runnable )
+            thread.setName('local-daemon')
+            thread.setDaemon(false)
+            thread.run()
+
+            sleep(1000)
+        }
+
+        catch( Throwable e ) {
+            daemon.stop()
+            throw new RuntimeException("Unable to start local daemon", e)
+        }
+
+        return daemon
     }
 
 }

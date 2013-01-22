@@ -30,4 +30,13 @@ class Consts {
 
     static final String APPNAME = MAIN_PACKAGE
 
+    static final String LOCAL_ADDRESS = '127.0.0.1'
+
+    static final int DEFAULT_AKKA_PORT = 2551
+
+    static final String DEFAULT_AKKA_PROTOCOL = 'akka'
+
+    static final String DEFAULT_AKKA_SYSTEM = 'circo'
+
+
 }

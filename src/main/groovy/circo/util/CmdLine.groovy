@@ -19,8 +19,8 @@
 
 package circo.util
 
+import circo.Consts
 import com.beust.jcommander.Parameter
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -31,11 +31,7 @@ class CmdLine {
     def List<String> args
 
     @Parameter(names=['--port'], description='TCP port to use to run this node instance')
-    def int port = 2551
-
-    //InetAddress.getLocalHost().getHostAddress()
-    @Parameter(names=['-S','--server'], description='TCP address to use to tun this instance')
-    def String server = '127.0.0.1'
+    def int port = Consts.DEFAULT_AKKA_PORT
 
     @Parameter(names=['-i','--interactive'], description='Run this node in interactive mode, showing stats information')
     def boolean interactive = false
@@ -54,6 +50,12 @@ class CmdLine {
 
     @Parameter(names='--local', description='Run in local mode', hidden = true)
     def boolean local
+
+    @Parameter(names='--join', description = 'Join the nodes specified ')
+    def String join
+
+    @Parameter(names='--host', description = 'Host name/address for this node')
+    def String host = InetAddress.getLocalHost().getHostAddress()
 
     @Parameter(names='--slow', description = 'Add an extra overhead on job execution to simulation slow node', hidden = true)
     def int slow = 0

@@ -20,6 +20,7 @@
 package circo.util
 
 import akka.actor.Address
+import circo.Consts
 import spock.lang.Specification
 
 /**
@@ -50,6 +51,21 @@ class CircoHelperTest extends Specification {
         CircoHelper.fmt( 123, 3 ) == '123'
         CircoHelper.fmt( 1234, 3 ) == "1'234"
         CircoHelper.fmt( 1234, 6 ) == " 1'234"
+    }
+
+
+    def 'test address fromAddress' () {
+
+        expect:
+        address as Address == CircoHelper.fromString(str)
+
+        where:
+        str                             |  address
+        '1.1.1.1'                       | new Address( 'akka', Consts.DEFAULT_AKKA_SYSTEM, '1.1.1.1', Consts.DEFAULT_AKKA_PORT )
+        '2.2.2.2:33'                    | new Address( 'akka', Consts.DEFAULT_AKKA_SYSTEM, '2.2.2.2', 33 )
+        'sys@3.3.3.3'                   | new Address( 'akka', 'sys', '3.3.3.3', Consts.DEFAULT_AKKA_PORT )
+        'http://xyz@192.168.0.1:5700'   | new Address( 'http', 'xyz', '192.168.0.1', 5700 )
+
     }
 
 

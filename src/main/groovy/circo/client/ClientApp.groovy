@@ -19,24 +19,25 @@
 
 package circo.client
 import akka.actor.*
+import circo.ClusterDaemon
 import circo.Consts
-import com.beust.jcommander.JCommander
-import com.typesafe.config.ConfigFactory
-import groovy.util.logging.Slf4j
-import jline.console.ConsoleReader
-import jline.console.history.FileHistory
 import circo.client.cmd.*
 import circo.data.WorkerRef
 import circo.frontend.AbstractResponse
 import circo.frontend.CmdSubResponse
 import circo.frontend.FrontEnd
 import circo.messages.JobResult
+import circo.util.CircoHelper
 import circo.util.LoggerHelper
+import com.beust.jcommander.JCommander
+import com.typesafe.config.ConfigFactory
+import groovy.util.logging.Slf4j
+import jline.console.ConsoleReader
+import jline.console.history.FileHistory
 import sun.misc.Signal
 import sun.misc.SignalHandler
 
 import java.util.concurrent.CountDownLatch
-
 /**
  *  Client application to interact with the cluster
  *
@@ -49,7 +50,7 @@ class ClientApp {
     static final File MOKE_HOME
 
     static {
-        MOKE_HOME = new File( System.getProperty("user.home"), ".circo" )
+        MOKE_HOME = new File( System.getProperty("user.home"), ".${Consts.APPNAME}" )
         if( !MOKE_HOME.exists() && !MOKE_HOME.mkdir() ) {
             throw new IllegalStateException("Cannot create path '${MOKE_HOME}' -- Check the file sytem access permission")
         }
@@ -175,6 +176,8 @@ class ClientApp {
 
     private ConsoleReader console
 
+    private ClusterDaemon localDaemon
+
     ConsoleReader getConsole() { console }
 
 
@@ -212,15 +215,38 @@ class ClientApp {
         def akkaConf = """
             akka.event-handlers = ["akka.event.slf4j.Slf4jEventHandler"]
             akka.actor.provider: akka.remote.RemoteActorRefProvider
-            akka.remote.netty.port: 0
+            akka.remote.netty.port: ${options.port}
         """
 
-        system = ActorSystem.create("Client", ConfigFactory.parseString( akkaConf ) )
+        system = ActorSystem.create("CircoClient", ConfigFactory.parseString(akkaConf) )
         WorkerRef.init(system)
 
-        def path = "akka://ClusterSystem@127.0.0.1:2551/user/${FrontEnd.ACTOR_NAME}"
-        frontEnd = system.actorFor(path)
+        def host = options.remoteHost?.toLowerCase() ?: System.getenv('CIRCO_HOST')
+        if( host?.toLowerCase() in ['local','localhost']) {
+            host = InetAddress.getLocalHost().getHostAddress()
+        }
+
+        /*
+         * if running in local mode, run a local cluster daemon
+         */
+        if( options.local ) {
+            localDaemon = ClusterDaemon.start('--local', '-p', '2')
+            host = CircoHelper.fmt(localDaemon.getSelfAddress())
+        }
+
+        if ( !host ) {
+            throw new AppOptionsException( parsedCommand, 'Please specify the remote cluster to which connect using the --host cli option' )
+        }
+
+        Address remoteAddress = CircoHelper.fromString(host)
+        log.debug "Connecting remote cluster at '$remoteAddress'"
+
+        String remoteActor = "${remoteAddress}/user/${FrontEnd.ACTOR_NAME}"
+        log.debug "Remote front-end actor path: $remoteActor"
+
+        frontEnd = system.actorFor(remoteActor)
         client = system.actorOf( new Props( { new ClientActor(this) } as UntypedActorFactory ) )
+
 
         installSignalHandlerForCtrl_C()
     }
@@ -349,6 +375,10 @@ class ClientApp {
         }
         // shutdown Akka
         system.shutdown()
+
+        // local daemon
+        if ( localDaemon ) localDaemon.stop()
+
         // .. bye
         System.exit(exitCode)
     }
@@ -507,14 +537,14 @@ class ClientApp {
         }
         catch( AppHelpException failure ) {
             // show the program usage text description
-            println failure?.parsedCommand?.getHelp()
+            println failure.getMessage()
         }
 
         catch( AppOptionsException failure ) {
             // report an error code
             exitCode = 1
             // print the error message
-            log.error(failure?.parsedCommand?.getFailureMessage() ?: '(unknown error)')
+            log.error(failure.getMessage())
         }
 
         catch( Exception failure ) {
@@ -526,7 +556,7 @@ class ClientApp {
             if(app) app.close()
         }
 
-        log.debug "<exitcode: $exitCode>"
+        log.debug ">> exitcode: $exitCode <<"
         System.exit(exitCode)
 
     }

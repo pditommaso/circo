@@ -18,7 +18,9 @@
  */
 
 package circo.util
+import akka.actor.Address
 import akka.actor.Address as AkkaAddress
+import circo.Consts
 
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -99,7 +101,6 @@ class CircoHelper {
 
     }
 
-
     static Calendar today() {
         def now = Calendar.getInstance()
         def year = now.get( Calendar.YEAR )
@@ -109,5 +110,46 @@ class CircoHelper {
         new GregorianCalendar(year, month, day)
     }
 
+    /**
+     * Convert a string to an {@code Address} instance
+     *
+     * @param str The akka address in following the syntax {@code [protocol://system@]host:port
+     * @param port The TCP port to use if it is not specified by the string value. Default {@code Consts#DEFAULT_AKKA_PORT}
+     * @param system The akka system name to be used if it not specified by the string value. Default {@code Consts#DEFAULT_AKKA_SYSTEM}
+     * @param protocol The akka protocol to be used if it is not specified by the string value. Default {@code Consts#DEFAULT_AKKA_PROTOCOL}
+     * @return
+     */
+    def static Address fromString(String str, int port = Consts.DEFAULT_AKKA_PORT, String system = Consts.DEFAULT_AKKA_SYSTEM, String protocol = Consts.DEFAULT_AKKA_PROTOCOL) {
+        assert str
+
+        int p = str.indexOf('@')
+
+        if ( p != -1 ) {
+            def meta = str.substring(0,p)
+            str = str.substring(p+1)
+
+
+            p = meta.indexOf('://')
+            if( p != -1 ) {
+                protocol = meta.substring(0,p)
+                system = meta.substring(p+3)
+            }
+            else {
+                system = meta
+            }
+        }
+
+        def host
+        p = str.indexOf(':')
+        if ( p != -1 ) {
+            host = str.substring(0,p)
+            port = str.substring(p+1).toInteger()
+        }
+        else {
+            host = str
+        }
+
+        new Address(protocol,system,host,port)
+    }
 
 }
