@@ -142,7 +142,7 @@ task stage( type: Copy ) {
 
     // still some stuff
     into('conf') { from './src/main/resources' }
-    into('sigar') { from 'libsigar' }
+    into('libsigar') { from 'libsigar' }
     into('src') { from './src/main' }
     into('docs') { from '$buildDir/docs/groovydoc/'}
 
