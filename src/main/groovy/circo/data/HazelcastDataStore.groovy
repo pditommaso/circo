@@ -18,12 +18,10 @@
  */
 
 package circo.data
+
 import circo.messages.JobEntry
 import circo.messages.JobStatus
-import com.hazelcast.config.Config as HazelcastConfig
-import com.hazelcast.config.MapConfig
-import com.hazelcast.config.MapIndexConfig
-import com.hazelcast.config.MapStoreConfig
+import com.hazelcast.config.*
 import com.hazelcast.core.*
 import com.hazelcast.query.SqlPredicate
 import com.typesafe.config.Config as TypesafeConfig
@@ -32,6 +30,7 @@ import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 
 import java.util.concurrent.locks.Lock
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -51,9 +50,9 @@ class HazelcastDataStore extends AbstractDataStore {
      * properties provided by the 'application.conf' settings
      *
      */
-    def HazelcastDataStore( TypesafeConfig appConfig, List<String> clusterMembers = null ) {
+    def HazelcastDataStore( TypesafeConfig appConfig, List<String> clusterMembers = null, boolean multiCast = false ) {
 
-        init(createInstance(appConfig, clusterMembers))
+        init(createInstance(appConfig, clusterMembers, multiCast))
 
     }
 
@@ -61,31 +60,40 @@ class HazelcastDataStore extends AbstractDataStore {
      * Parse the configuration settings and create the
      * {@code com.hazelcast.core.HazelcastInstance}  accordingly
      */
-    private HazelcastInstance createInstance(TypesafeConfig appConfig, List<String> clusterMembers) {
+    private HazelcastInstance createInstance(TypesafeConfig appConfig, List<String> clusterMembers, boolean multiCast ) {
 
         /*
-         * general hazelcost configuration
+         * general hazelcast configuration
          */
-        def cfg = new HazelcastConfig()
+        def cfg
+        try {
+            cfg = new ClasspathXmlConfig("hazelcast.xml")
+            log.debug "Using Hazelcast configuration found on classpath"
+        }
+        catch( Exception e ) {
+            cfg = new Config()
+        }
         cfg.setProperty("hazelcast.logging.type", "slf4j")
 
         /*
          * network conf
          */
-        def join = cfg.getNetworkConfig().getJoin()
+        def Join join = cfg.getNetworkConfig().getJoin()
+        if( multiCast ) {
+            log.debug "Hazelcast -- enabling multicast"
+            join.getTcpIpConfig().setEnabled(false)
+            join.getMulticastConfig().setEnabled(true)
+        }
+
         if ( clusterMembers ) {
-            log.debug "Hazelcast -- enabling tcp config"
-            join.getMulticastConfig().setEnabled(false)
-            join.getTcpIpConfig().setEnabled(true)
-            log.debug "Hazelcast -- adding members: $clusterMembers"
+            log.debug "Hazelcast -- adding TCP members: $clusterMembers"
             clusterMembers.each { String it ->
                 join.getTcpIpConfig().addMember( it )
             }
         }
 
-
         /*
-         * configure the JDBC persistance if provided in the configuration file
+         * configure the JDBC persistence if provided in the configuration file
          */
         def mapStoreConfig = null
         try {

@@ -52,7 +52,7 @@ class CmdLine {
     def boolean local
 
     @Parameter(names='--join', description = 'Join the nodes specified ')
-    def String join
+    def String join = "auto"
 
     @Parameter(names='--host', description = 'Host name/address for this node')
     def String host = InetAddress.getLocalHost().getHostAddress()

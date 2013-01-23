@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 set -u
-
+env | sort
+echo === begin circo bootstrap ===
 #
 # Make sure that the AWS credentials are defined by the following variables
 # - CIRCO_CLUSTER
@@ -14,7 +15,7 @@ set -u
 #
 
 CIRCO_CLUSTER=${CIRCO_CLUSTER:-circotest1}
-CIRCO_NAME=${CIRCO_NAME:-circo-0.1.1}
+CIRCO_NAME=${CIRCO_NAME:-circo-0.1.3}
 CIRCO_TAR=${CIRCO_TAR:-http://cbcrg-eu.s3.amazonaws.com/$CIRCO_NAME.tgz}
 CIRCO_PORT=${CIRCO_PORT:-2551}
 CIRCO_USER=${CIRCO_USER:-$USER}

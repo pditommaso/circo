@@ -219,6 +219,12 @@ class ClientApp {
             System.exit(0)
         }
 
+        // print the logo only when it will enter in interactive mode
+        if ( !parsedCommand.hasCommand() ) {
+            print Consts.LOGO
+        }
+
+
         // NOW -- the real program initialization
         def akkaConf = """
             akka.event-handlers = ["akka.event.slf4j.Slf4jEventHandler"]
@@ -230,7 +236,7 @@ class ClientApp {
         WorkerRef.init(system)
 
         def host = options.remoteHost?.toLowerCase() ?: System.getenv('CIRCO_HOST')
-        if( host?.toLowerCase() in ['local','localhost']) {
+        if( host?.toLowerCase() in Consts.LOCAL_NAMES || !host ) {
             host = InetAddress.getLocalHost().getHostAddress()
         }
 
@@ -242,12 +248,9 @@ class ClientApp {
             host = CircoHelper.fmt(localDaemon.getSelfAddress())
         }
 
-        if ( !host ) {
-            throw new AppOptionsException( parsedCommand, 'Please specify the remote cluster to which connect using the --host cli option' )
-        }
 
         Address remoteAddress = CircoHelper.fromString(host)
-        log.debug "Connecting remote cluster at '$remoteAddress'"
+        log.info "Connecting to cluster at ${CircoHelper.fmt(remoteAddress)}"
 
         String remoteActor = "${remoteAddress}/user/${FrontEnd.ACTOR_NAME}"
         log.debug "Remote front-end actor path: $remoteActor"
@@ -404,8 +407,7 @@ class ClientApp {
         // that means wait the user to enter a command and execute it
         else {
             log.debug "Entering interactive mode"
-
-            print Consts.LOGO
+            println ""
 
             while( true ) {
                 def line = console.readLine("${Consts.APPNAME}> ")

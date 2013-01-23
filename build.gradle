@@ -27,7 +27,7 @@
 
 apply plugin: 'groovy'
 //name = 'circo'
-version = '0.1.1'
+version = '0.1.3'
 status = 'alpha'
 
 repositories {
@@ -106,7 +106,7 @@ task classpathCompile(dependsOn: configurations.compile) << {
 /*
  * Update the build timestamp in the source source file
  */
-task stampBuildInfo << {
+task buildInfo << {
     def file = new File('./src/main/groovy/circo/Consts.groovy')
     def src = file.text
     src = src.replaceAll('APPVER *= *"[0-9\\.]+"', "APPVER = \"${version}\"" as String)
@@ -118,7 +118,7 @@ task stampBuildInfo << {
  * Compile sources and copies all libs to target directory
  */
 task compile(type: Copy) {
-    dependsOn stampBuildInfo, compileJava, compileGroovy, processResources
+    dependsOn buildInfo, compileJava, compileGroovy, processResources
 
     into "$buildDir/dependency-libs"
     from configurations.runtime
@@ -174,8 +174,11 @@ task distZip(type: Zip) {
 task distTar(type: Tar) {
     dependsOn stage
     compression = Compression.GZIP
-
     from "$buildDir/stage/"
+}
+
+task dist() {
+    dependsOn distZip, distTar
 }
 
 /*
@@ -187,7 +190,7 @@ gradle.taskGraph.afterTask { Task task, TaskState state ->
 }
 
 task s3publish(type: Exec) {
-    dependsOn distTar
+    dependsOn dist
 
     commandLine "s3cmd --acl-public -rr --disable-multipart put ${buildDir}/distributions/circo-${version}.tgz s3://cbcrg-eu".split(' ')
 

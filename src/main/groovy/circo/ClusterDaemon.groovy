@@ -62,6 +62,9 @@ public class ClusterDaemon {
 
     def boolean isStopped() { stopped }
 
+    private multiCast = false
+
+
 
     /**
      * The cluster node constructor
@@ -71,18 +74,27 @@ public class ClusterDaemon {
     def ClusterDaemon(CmdLine cmdLine) {
         this.cmdLine = cmdLine
 
-        if ( cmdLine.join ) {
-            if ( cmdLine.local ) {
-                nodes = parseAddresses(Consts.LOCAL_ADDRESS)
-            }
-            else if( cmdLine.join?.toLowerCase() in  ['local','localhost'] ) {
-                nodes = parseAddresses( InetAddress.getLocalHost().getHostAddress() )
-            }
-            else {
-                nodes = parseAddresses( cmdLine.join )
-            }
+        if( cmdLine.local ) {
+            log.debug "Using local mode"
+            multiCast = true
+            nodes = parseAddresses(Consts.LOCAL_ADDRESS)
         }
 
+        else if ( cmdLine.join ) {
+            log.debug "Using join mode: ${cmdLine?.join}"
+
+            if ( cmdLine?.join == 'auto') {
+                nodes = parseAddresses( InetAddress.getLocalHost().getHostAddress() )
+                multiCast = true
+            }
+            else if( cmdLine?.join?.startsWith('auto:') ) {
+                multiCast = true
+                nodes = parseAddresses(cmdLine.join.substring('auto:'.size()))
+            }
+            else {
+                nodes = parseAddresses(cmdLine.join)
+            }
+        }
 
     }
 
@@ -146,11 +158,12 @@ public class ClusterDaemon {
             this.dataStore = new LocalDataStore()
         }
         else {
-            log.debug "Launching Hazelcast"
+            log.debug "Launching Hazelcast (1) -- multicast: ${multiCast} - nodes: $nodes"
             List<String> members = nodes.collect { Address it -> it.host().get() }
             def itself = cluster.selfAddress().host().get()
             if ( !members.contains(itself)) { members.add(itself) }
-            dataStore = new HazelcastDataStore( ConfigFactory.load(), members )
+            log.debug "Launching Hazelcast (2) -- members: ${members}"
+            dataStore = new HazelcastDataStore( ConfigFactory.load(), members, multiCast )
         }
 
     }
@@ -161,9 +174,14 @@ public class ClusterDaemon {
     def void joinNodes( Cluster cluster ) {
         if ( !nodes ) { return }
 
-        def list = nodes
+        def list = new ArrayList<Address>(nodes)
         while( list ) {
             def addr = list.remove( new Random().nextInt( list.size() )  )
+            if( addr == selfAddress) {
+                log.debug "Skipping joining to itself"
+                continue
+            }
+
             try {
                 log.info "Joining cluster node: $addr"
                 cluster.join(addr)
