@@ -26,7 +26,7 @@ import groovy.util.logging.Slf4j
 import org.apache.commons.lang.exception.ExceptionUtils
 import circo.client.ClientApp
 import circo.data.JobsStat
-import circo.frontend.CmdStatResponse
+import circo.reply.StatReply
 import circo.messages.JobEntry
 import circo.messages.JobStatus
 
@@ -59,7 +59,7 @@ class CmdStat extends AbstractCommand {
     void execute(ClientApp client) {
 
         log.debug "Sending $this"
-        CmdStatResponse result = client.send(this)
+        StatReply result = client.send(this)
 
         if( !result ) {
             log.error "Unknown error -- missing result object"

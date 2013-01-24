@@ -18,14 +18,13 @@
  */
 
 package circo.client.cmd
+import circo.client.ClientApp
+import circo.messages.JobReq
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
-import circo.client.ClientApp
-import circo.frontend.CmdSubResponse
-import circo.messages.JobReq
 import scala.concurrent.duration.Duration
 /**
  *
@@ -41,7 +40,7 @@ class CmdSub extends AbstractCommand  {
     List<String> command
 
     @Parameter(names = ['-sync','--sync'], description = "Causes the 'sub' command to wait for  the  job  to  complete before  exiting")
-    boolean sync
+    boolean syncOutput
 
     @DynamicParameter(names = "-v", description = "Expands the list of environment variables that are exported to the job")
     Map<String, String> env = new HashMap<String, String>();
@@ -100,6 +99,16 @@ class CmdSub extends AbstractCommand  {
         this.user = System.properties['user.name']
     }
 
+    def int expectedReplies() {
+        if( this.syncOutput || this.printOutput ) {
+            return count() +1
+        }
+
+        // it should at least the command acknowledge
+        return 1
+    }
+
+
     /**
      * @return Convert this job submit command to a valid {@code JobReq} instance
      */
@@ -152,8 +161,9 @@ class CmdSub extends AbstractCommand  {
             return
         }
 
-        CmdSubResponse result = client.send(this)
+        def result = client.send(this)
 
+        result.printMessages()
 
     }
 

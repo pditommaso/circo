@@ -159,7 +159,7 @@ class JobMaster extends UntypedActor  {
 
     @Override
     def void onReceive( def message ) {
-
+        log.debug "<- $message"
 
         if( message instanceof MemberEvent ) {
             handleMemberEvent(message)
@@ -180,7 +180,6 @@ class JobMaster extends UntypedActor  {
          *    It is appended to the list of jobs
          */
         if( message instanceof WorkToSpool ) {
-            log.debug "<- ${message}"
             final jobId = message.JobId
 
             // -- verify than an entry exists in the db
@@ -216,7 +215,6 @@ class JobMaster extends UntypedActor  {
          * death, and let him know if there's work to be done
          */
         else if( message instanceof WorkerCreated ) {
-            log.debug "<- ${message}"
             def worker = message.worker
             context.watch(worker.actor)
 
@@ -229,7 +227,6 @@ class JobMaster extends UntypedActor  {
          * give it to him.
          */
         else if( message instanceof WorkerRequestsWork ) {
-            log.debug "<- ${message}"
             final worker = message.worker
 
             if( node.status == NodeStatus.PAUSED ) {
@@ -290,32 +287,19 @@ class JobMaster extends UntypedActor  {
                 // re-queue the jobId that was unable to manage
                 someoneElse().tell( WorkToSpool.of(jobId) )
             }
-
         }
 
         /*
          * Worker has completed its work and we can clear it out
          */
         else if( message instanceof WorkIsDone ) {
-            log.debug "<- ${message}"
 
             final worker = message.worker
-            final job = message.job
 
             if( !node.removeJobId(worker) ) {
                 log.error("Blurgh! ${message.worker} said it's done work but we didn't know about him")
             }
 
-            // -- notify the sender the result
-            if( job.retryIsRequired() ) {
-                def master = someoneElse()
-                log.debug "Job ${job.id} failed -- retry submitting to ${master}"
-                master.tell( WorkToSpool.of(job.id) )
-            }
-            else if( job.sender ) {
-                log.debug "Reply job result to sender -- ${job.result}"
-                job.sender.tell ( job.result, worker )
-            }
 
         }
 
@@ -325,7 +309,6 @@ class JobMaster extends UntypedActor  {
          * master and let things progress as usual
          */
         else if( message instanceof Terminated ) {
-            log.debug "<- Terminated actor: ${message.getActor}"
 
             def worker = new WorkerRef(message.actor)
 
@@ -344,7 +327,6 @@ class JobMaster extends UntypedActor  {
          * A worker send a 'WorkerFailure' message to notify an error condition
          */
         else if ( message instanceof WorkerFailure ) {
-            log.debug "<- ${message}"
             final worker = message.worker
             node.failureInc(worker)
         }
@@ -391,25 +373,23 @@ class JobMaster extends UntypedActor  {
         if (message instanceof CurrentClusterState) {
             def state = (CurrentClusterState) message;
             leaderAddress = state.getLeader()
-            log.debug "<- ${message} - leaderAddres: ${leaderAddress} "
+            log.debug "leaderAddres: ${leaderAddress} "
         }
 
         else if (message instanceof LeaderChanged) {
             def leaderChanged = (LeaderChanged) message;
             leaderAddress = leaderChanged.getLeader()
-            log.debug "<- ${message} - leaderAddres: ${leaderAddress} "
+            log.debug "leaderAddres: ${leaderAddress} "
         }
 
 
         // member - IN - message
 
         else if ( message instanceof MemberJoined ) {
-            log.debug "<- ${message}"
             putAddress( message.member().address() )
         }
 
         else if( message instanceof MemberUp  ) {
-            log.debug "<- ${message}"
             putAddress( message.member().address() )
         }
 
@@ -417,25 +397,21 @@ class JobMaster extends UntypedActor  {
         // member 'out' messages
 
         else if ( message instanceof MemberExited ) {
-            log.debug "<- ${message}"
             removeAddress( message.member().address() )
             resumeJobs( message.member().address() )
         }
 
         else if(message instanceof MemberDowned  ) {
-            log.debug "<- ${message}"
             removeAddress( message.member().address() )
             resumeJobs( message.member().address() )
         }
 
         else if ( message instanceof MemberRemoved ) {
-            log.debug "<- ${message}"
             removeAddress( message.member().address() )
             resumeJobs( message.member().address() )
         }
 
         else if( message instanceof MemberLeft ) {
-            log.debug "<- ${message}"
             removeAddress( message.member().address() )
             resumeJobs( message.member().address() )
         }

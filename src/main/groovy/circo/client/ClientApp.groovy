@@ -23,10 +23,10 @@ import circo.ClusterDaemon
 import circo.Consts
 import circo.client.cmd.*
 import circo.data.WorkerRef
-import circo.frontend.AbstractResponse
-import circo.frontend.CmdSubResponse
 import circo.frontend.FrontEnd
-import circo.messages.JobResult
+import circo.reply.AbstractReply
+import circo.reply.ResultReply
+import circo.reply.SubReply
 import circo.util.CircoHelper
 import circo.util.LoggerHelper
 import com.beust.jcommander.JCommander
@@ -74,17 +74,24 @@ class ClientApp {
             /*
              * print the Submit response to the stdout
              */
-            if( message instanceof CmdSubResponse ) {
-                log.info "Your job ${message.ticket} has been submitted"
+            if( message instanceof SubReply ) {
+                log.info "Your job '${message.ticket}' has been submitted"
             }
 
             // -- handle a generic command response
-            if( message instanceof AbstractResponse ) {
-                final response = message as AbstractResponse
-                final sink = responseSinks [ response.ticket  ]
+            if( message instanceof AbstractReply ) {
+                final response = message as AbstractReply
+                final sink = responseSinks[ response.ticket ]
                 if( !sink ) {
                     log.error "Missing response sink for req: ${response.ticket}"
                     return
+                }
+
+                /*
+                 * special handling for the ResultReply
+                 */
+                if( message.class == ResultReply ) {
+                    handleResultReply(message as ResultReply, sink)
                 }
 
                 // assign this response to the associated sink obj -- maintains the
@@ -92,36 +99,29 @@ class ClientApp {
                 sink.response = response
                 sink.countDown()
                 log.debug "Counting down, remaining: ${sink.getCount()} "
+
+
             }
-
-            /**
-             * Collect all the job result for a specific request
-             */
-            else if( message instanceof JobResult ) {
-                final jobResult = message as JobResult
-                final ticket = jobResult.jobId.ticket
-                log.debug "Result ticket: $ticket"
-                final sink = responseSinks[ ticket ]
-                if( !sink ) {
-                    log.error "Missing holder for ticket: ${ticket}"
-                    return
-                }
-
-                // -- print out the job result as requested by the user on the cmdline
-                if( sink.command instanceof CmdSub && (sink.command as CmdSub).printOutput ) {
-                   print jobResult.output
-                }
-
-                // notify the acquired result
-                sink.countDown()
-                log.debug "Counting down, remaining: ${sink.getCount()} "
-            }
-
 
             else {
                 log.debug "<!! unhandled message: $message"
             }
 
+        }
+
+        def void handleResultReply( ResultReply reply, def sink ) {
+            def clazz = sink.command?.class
+            def output = reply.result?.output
+
+            if( !output ) return
+
+            if( clazz == CmdGet ) {
+                print output
+            }
+            // -- print out the job result as requested by the user on the cmdline
+            else if( clazz == CmdSub && (sink.command as CmdSub).printOutput ) {
+                print output
+            }
         }
 
     }
@@ -135,7 +135,7 @@ class ClientApp {
 
         AbstractCommand command
 
-        AbstractResponse response
+        AbstractReply response
 
         @Delegate
         CountDownLatch barrier
@@ -269,58 +269,32 @@ class ClientApp {
      * @param expectedReply
      * @return
      */
-    private ResponseSink createSink( AbstractCommand command, int expectedReply = 1 ) {
-        log.debug "Creating new $command"
-        assert command
-        assert command.ticket
+    private ResponseSink createSinkForCommand( AbstractCommand cmd ) {
+        assert cmd
+        assert cmd.ticket
 
-        def result = new ResponseSink()
-        result.command = command
-        result.barrier = expectedReply ? new CountDownLatch(expectedReply) : null
-
-        this.responseSinks.put( command.ticket, result )
-        return result
-    }
-
-
-    /**
-     * Create a new Submit command request
-     */
-    private ResponseSink createSinkForSubmit( CmdSub submit ) {
-        assert submit
-        assert submit.ticket
-
-        def numOfJobs = submit.count()
-        log.debug "Sub expected numOfJobs: $numOfJobs"
+        def numOfReplies = cmd.expectedReplies()
+        log.debug "Sub expected numOfReplies: $numOfReplies"
 
         def holder = new ResponseSink()
-        holder.command = submit
+        holder.command = cmd
 
-        // add 1 because for each job request we got at lest the submit ack + the job results
-        def count = (submit.sync || submit.printOutput ? numOfJobs+1 : 1)
-        log.debug "Barrier count: ${count}"
-        holder.barrier = new CountDownLatch(count)
+        holder.barrier = new CountDownLatch(numOfReplies)
 
-        this.responseSinks.put( submit.ticket, holder )
+        this.responseSinks.put( cmd.ticket, holder )
         return holder
     }
 
     /**
      * Send a command request and await for the reply
      */
-    def <R extends AbstractResponse, T extends AbstractCommand> R send( T command ) {
+    def <R extends AbstractReply, T extends AbstractCommand> R send( T command ) {
 
         // -- assign to this request a UUID
         command.ticket = UUID.randomUUID().toString()
 
         // -- create the request
-        def holder
-        if( command instanceof CmdSub ) {
-            holder = createSinkForSubmit(command as CmdSub)
-        }
-        else {
-            holder = createSink(command)
-        }
+        def holder = createSinkForCommand(command)
 
         // -- submit it - and - reply to the client actor
         frontEnd.tell( command, client )

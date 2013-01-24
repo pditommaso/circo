@@ -26,6 +26,9 @@ import circo.data.NodeDataTest
 import circo.messages.JobEntry
 import circo.messages.JobId
 import circo.messages.JobStatus
+import circo.reply.NodeReply
+import circo.reply.StatReply
+import circo.reply.SubReply
 import scala.concurrent.duration.Duration
 import test.ActorSpecification
 
@@ -63,7 +66,7 @@ class FrontEndTest extends ActorSpecification {
 
         when:
         frontend.tell(sub, sender.getRef())
-        def result = sender.expectMsgClass(CmdSubResponse)
+        def result = sender.expectMsgClass(SubReply)
         def entry = dataStore.getJob(ID)
 
 
@@ -101,7 +104,7 @@ class FrontEndTest extends ActorSpecification {
 
         when:
         frontend.tell( cmd, sender.getRef() )
-        def result = sender.expectMsgClass(CmdStatResponse)
+        def result = sender.expectMsgClass(StatReply)
 
         then:
         result.jobs == [ job1, job2 ]
@@ -131,7 +134,7 @@ class FrontEndTest extends ActorSpecification {
 
         when:
         frontend.tell( cmd, sender.getRef() )
-        def result = sender.expectMsgClass(CmdStatResponse)
+        def result = sender.expectMsgClass(StatReply)
 
         then:
         result.jobs.sort() == [ job2, job4 ]
@@ -157,7 +160,7 @@ class FrontEndTest extends ActorSpecification {
 
         when:
         frontend.tell( cmd, sender.getRef() )
-        def response = sender.expectMsgClass(CmdNodeResponse)
+        def response = sender.expectMsgClass(NodeReply)
 
         then:
         response.nodes.size() == 2

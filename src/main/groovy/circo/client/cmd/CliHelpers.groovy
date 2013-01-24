@@ -53,6 +53,13 @@ public abstract class AbstractCommand implements Serializable {
      */
     def abstract void execute( ClientApp client ) throws IllegalArgumentException
 
+
+    /*
+     * Number of replies other than the default message request ack
+     */
+    def int expectedReplies() { 1 }
+
+
 }
 
 
@@ -153,6 +160,7 @@ class AppCommandsFactory {
         cmdParser.addCommand( new CmdNode() )
         cmdParser.addCommand( new CmdStat() )
         cmdParser.addCommand( new CmdClear() )
+        cmdParser.addCommand( new CmdGet() )
 
         return cmdParser
     }

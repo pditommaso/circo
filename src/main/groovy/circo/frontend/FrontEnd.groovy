@@ -23,15 +23,18 @@ package circo.frontend
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.UntypedActor
-import groovy.util.logging.Slf4j
 import circo.JobMaster
 import circo.client.cmd.*
 import circo.data.DataStore
 import circo.data.NodeData
 import circo.data.WorkerRef
 import circo.messages.*
+import circo.reply.NodeReply
+import circo.reply.ResultReply
+import circo.reply.StatReply
+import circo.reply.SubReply
 import circo.util.CircoHelper
-
+import groovy.util.logging.Slf4j
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -71,8 +74,8 @@ class FrontEnd extends UntypedActor {
     {
         dispatchTable[ CmdSub ] = this.&handleCmdSub
         dispatchTable[ CmdStat ] = this.&handleCmdStat
-        dispatchTable[ CmdPause ] = this.&handleCmdPause
         dispatchTable[ CmdNode ] = this.&handleCmdNode
+        dispatchTable[ CmdGet ] = this.&handleCmdGet
     }
 
 
@@ -101,23 +104,44 @@ class FrontEnd extends UntypedActor {
         if ( !dispatch(message) ){
             unhandled(message)
         }
-
     }
 
-    void handleCmdPause(CmdPause message) {
+    /**
+     * Handle the {@code CmdGet}
+     *
+     * @param command The {@code CmdGet} instance
+     */
+    void handleCmdGet( CmdGet command ) {
+        assert command
 
-        // send the 'pause' message to all master nodes
-        //pause(dataStore.findAllNodesData()?.collect{ NodeData node -> node.address } )
-        throw IllegalAccessException('TODO')
+        command.listOfIds?.each { String value ->
 
-        // confirm the operation
-        getSender().tell( new CmdAckResponse(message.ticket), getSelf() )
+            def reply = new ResultReply(command.ticket)
+            try {
+                def entry = dataStore.getJob(JobId.fromString(value))
+                if( entry ) {
+                    reply.result = entry.result
+                }
+                else {
+                    reply.warn << "Unable to retrieve result for id: '$value'"
+                }
+            }
+            catch( Exception e ) {
+                log.error "Error retrieving result for id: '$value'", e
+                reply.error << "Error retrieving result for id: '$value'"
+            }
+
+            // reply back
+            getSender().tell(reply, getSelf())
+        }
     }
+
+
 
     void handleCmdStat(CmdStat command) {
         assert command
 
-        def result = new CmdStatResponse(command.ticket)
+        def result = new StatReply(command.ticket)
         List<JobEntry> list = null
 
         /*
@@ -218,7 +242,7 @@ class FrontEnd extends UntypedActor {
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
             log.debug "-> ${ticket} TO sender: ${getSender()}"
 
-            def result = new CmdSubResponse(ticket)
+            def result = new SubReply(ticket)
             result.numOfJobs = count
 
             getSender().tell( result, getSelf() )
@@ -258,7 +282,7 @@ class FrontEnd extends UntypedActor {
      */
     private void handleCmdNode( CmdNode command ) {
 
-        def reply = new CmdNodeResponse(command.ticket)
+        def reply = new NodeReply(command.ticket)
 
         /*
          * apply the PAUSE for the specified nodes

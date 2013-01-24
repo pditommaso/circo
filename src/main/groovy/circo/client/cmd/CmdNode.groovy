@@ -25,7 +25,7 @@ import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 import circo.client.ClientApp
 import circo.data.NodeData
-import circo.frontend.CmdNodeResponse
+import circo.reply.NodeReply
 /**
  * Manage cluster nodes
  *
@@ -53,7 +53,7 @@ class CmdNode extends AbstractCommand {
         }
 
         // send the command and wait for a reply
-        CmdNodeResponse response = client.send( this )
+        NodeReply response = client.send( this )
 
         if ( !response ) {
             log.error "Oops! Missing response object -- command aborted"

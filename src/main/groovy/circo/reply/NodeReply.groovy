@@ -17,7 +17,7 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.frontend
+package circo.reply
 
 import groovy.transform.InheritConstructors
 import circo.data.NodeData
@@ -27,7 +27,7 @@ import circo.data.NodeData
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @InheritConstructors
-class CmdNodeResponse extends AbstractResponse {
+class NodeReply extends AbstractReply {
 
     def List<NodeData> nodes
 

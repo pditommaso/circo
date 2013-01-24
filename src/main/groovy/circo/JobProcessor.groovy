@@ -18,18 +18,21 @@
  */
 
 package circo
+
 import akka.actor.*
 import akka.actor.SupervisorStrategy.Directive
 import akka.japi.Function
 import akka.japi.Procedure
-import groovy.util.logging.Slf4j
 import circo.data.DataStore
 import circo.data.WorkerRef
 import circo.messages.*
+import circo.reply.ResultReply
+import groovy.util.logging.Slf4j
 import scala.concurrent.duration.Duration
 
 import static akka.actor.SupervisorStrategy.restart
 import static akka.actor.SupervisorStrategy.resume
+
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -186,11 +189,24 @@ class JobProcessor extends UntypedActor {
 
                 // -- notify the work is done
                 log.debug "-> WorkIsDone($worker) to $master"
-                master.tell( new WorkIsDone(worker, job) )
+                master.tell( new WorkIsDone(worker) )
 
                 // -- request more work
                 log.debug "-> WorkerRequestsWork($worker) to $master"
                 master.tell new WorkerRequestsWork(worker)
+
+                // -- still some work pending, re-schedule to the master
+                if( job.retryIsRequired() ) {
+                    log.debug "Job ${job.id} failed -- retry submitting to ${master}"
+                    master.tell( WorkToSpool.of(job.id) )
+                }
+                // -- notify the sender the result
+                else if( job.sender ) {
+                    log.debug "Reply job result to sender -- ${job.id}"
+                    final reply = new ResultReply( job.id.ticket )
+                    reply.result = job.result
+                    job.sender.tell ( reply, worker )
+                }
 
 
                 // We're idle now

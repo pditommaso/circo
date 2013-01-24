@@ -19,6 +19,7 @@
 
 package circo.frontend
 
+import circo.reply.AbstractReply
 import spock.lang.Specification
 
 /**
@@ -30,7 +31,7 @@ class AbstractCmdResultTest extends Specification {
     def testMessages() {
 
         when:
-        def cmd = new AbstractResponse('123') {}
+        def cmd = new AbstractReply('123') {}
         cmd.info("info 1")
         cmd.warn("warn 1")
         cmd.warn("warn 2")
@@ -40,22 +41,22 @@ class AbstractCmdResultTest extends Specification {
 
 
         then:
-        cmd.messages.get(AbstractResponse.Level.INFO) == ['info 1']
-        cmd.messages.get(AbstractResponse.Level.WARN) == ['warn 1', 'warn 2']
-        cmd.messages.get(AbstractResponse.Level.ERROR) == ['error 1', 'error 2', 'error 3']
+        cmd.messages.get(AbstractReply.Level.INFO) == ['info 1']
+        cmd.messages.get(AbstractReply.Level.WARN) == ['warn 1', 'warn 2']
+        cmd.messages.get(AbstractReply.Level.ERROR) == ['error 1', 'error 2', 'error 3']
 
 
     }
 
     def 'test getter' () {
         when:
-        def cmd0 = new AbstractResponse('111') {}
-        def cmd1 = new AbstractResponse('222') {}
+        def cmd0 = new AbstractReply('111') {}
+        def cmd1 = new AbstractReply('222') {}
         cmd1.info << 'ciao'
-        def cmd2 = new AbstractResponse('333') {}
+        def cmd2 = new AbstractReply('333') {}
         cmd2.warn << 'hola'
 
-        def cmd3 = new AbstractResponse('444') {}
+        def cmd3 = new AbstractReply('444') {}
         cmd3.error << 'hi'
 
         then:

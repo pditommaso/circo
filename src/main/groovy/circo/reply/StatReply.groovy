@@ -17,19 +17,23 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.frontend
+package circo.reply
 
 import groovy.transform.InheritConstructors
 import groovy.transform.ToString
+import circo.data.JobsStat
+import circo.messages.JobEntry
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @InheritConstructors
 @ToString(includePackage = false, includeSuper = true)
-class CmdSubResponse extends AbstractResponse {
+class StatReply extends AbstractReply {
 
-    int numOfJobs = 1
+    List<JobEntry> jobs
+
+    JobsStat stats
 
 
 }

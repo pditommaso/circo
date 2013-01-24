@@ -17,7 +17,7 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.frontend
+package circo.reply
 
 import com.google.common.collect.LinkedListMultimap
 import com.google.common.collect.Multimap
@@ -30,7 +30,7 @@ import groovy.util.logging.Slf4j
  */
 @Slf4j
 @ToString(includePackage = false)
-abstract class AbstractResponse implements Serializable {
+abstract class AbstractReply implements Serializable {
 
     enum Level { INFO, WARN, ERROR }
 
@@ -39,21 +39,21 @@ abstract class AbstractResponse implements Serializable {
     /** The ticket (i.e. unique id) of the request that originated this result */
     final String ticket
 
-    def AbstractResponse( String ticket ) {
+    def AbstractReply( String ticket ) {
         this.ticket = ticket
     }
 
-    def AbstractResponse error( String msg ) {
+    def AbstractReply error( String msg ) {
         messages.put(Level.ERROR, msg)
         return this
     }
 
-    def AbstractResponse warn( String msg ) {
+    def AbstractReply warn( String msg ) {
         messages.put(Level.WARN, msg)
         return this
     }
 
-    def AbstractResponse info ( String msg ) {
+    def AbstractReply info ( String msg ) {
         messages.put(Level.INFO, msg)
         return this
     }

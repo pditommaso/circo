@@ -43,7 +43,7 @@ class CmdSubTest extends Specification {
         cmd.maxDuration == Duration.create('7 minutes')
         cmd.maxInactive == Duration.create('8 seconds')
         cmd.times == new IntRange(1,10)
-        cmd.sync
+        cmd.isSync()
         cmd.command.join(' ') == 'echo hello world'
 
     }

@@ -17,16 +17,18 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.frontend
+package circo.reply
 
 import groovy.transform.InheritConstructors
 
 /**
  *
+ * Generic Acknowledge reply to a submitted command
+ *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @InheritConstructors
-class CmdAckResponse extends AbstractResponse {
+class AckReply extends AbstractReply {
 
 
 }
