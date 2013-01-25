@@ -37,9 +37,9 @@ abstract class AbstractReply implements Serializable {
     Multimap<Level, String> messages = LinkedListMultimap.create()
 
     /** The ticket (i.e. unique id) of the request that originated this result */
-    final String ticket
+    final UUID ticket
 
-    def AbstractReply( String ticket ) {
+    def AbstractReply( UUID ticket ) {
         this.ticket = ticket
     }
 

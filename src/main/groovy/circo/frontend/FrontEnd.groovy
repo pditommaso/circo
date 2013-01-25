@@ -118,7 +118,7 @@ class FrontEnd extends UntypedActor {
 
             def reply = new ResultReply(command.ticket)
             try {
-                def entry = dataStore.getJob(JobId.fromString(value))
+                def entry = dataStore.getJob(JobId.of(value))
                 if( entry ) {
                     reply.result = entry.result
                 }
@@ -205,34 +205,28 @@ class FrontEnd extends UntypedActor {
     /*
      * The client send a 'JobReq' to the coordinator in order to submit a new job request
      */
-    void handleCmdSub(CmdSub cmdSub) {
-        assert cmdSub
-
-        final ticket = cmdSub.ticket
-        final request = cmdSub.createJobReq()
+    void handleCmdSub(CmdSub command) {
+        assert command
 
         /*
          * create a new job request for each times required
          */
-        def count = 0
-        if( cmdSub.times ) {
-            cmdSub.times.withStep().each  { index ->
-                createAndSaveJobEntry( request, ticket, index, cmdSub.times )
-                count++
+        def listOfIds = []
+        if( command.times ) {
+            command.times.withStep().each  { index ->
+                listOfIds << createAndSaveJobEntry( command, index, command.times ) .id
             }
         }
         /*
-         * Creare a job for each entry in the 'eachList'
+         * Create a job for each entry in the 'eachList'
          */
-        else if ( cmdSub.getEachList() ) {
-            cmdSub.getEachList().each  { index ->
-                createAndSaveJobEntry( request, ticket, index )
-                count++
+        else if ( command.getEachList() ) {
+            command.getEachList().each  { index ->
+                listOfIds << createAndSaveJobEntry( command, index ) .id
             }
         }
         else {
-            count = 1
-            createAndSaveJobEntry( request, ticket )
+            listOfIds << createAndSaveJobEntry( command ) .id
         }
 
 
@@ -240,25 +234,31 @@ class FrontEnd extends UntypedActor {
          * reply to the sender with JobId assigned to the received JobRequest
          */
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
-            log.debug "-> ${ticket} TO sender: ${getSender()}"
+            log.debug "-> ${command} TO sender: ${getSender()}"
 
-            def result = new SubReply(ticket)
-            result.numOfJobs = count
-
+            def result = new SubReply(command.ticket)
+            result.jobIds = listOfIds
             getSender().tell( result, getSelf() )
         }
 
 
     }
 
-    private JobEntry createAndSaveJobEntry( JobReq request, def ticket, def index = null, Range range = null ) {
-        assert ticket
+    private JobEntry createAndSaveJobEntry( CmdSub command, def index = null, Range range = null ) {
 
-        final id = new JobId( ticket, index )
+        // -- create a new ID for this job
+        final id = dataStore.nextJobId()
+
+        // create a new request object
+        final request = command.createJobReq()
 
         // -- define some context environment variables
-        request.environment['JOB_ID'] = id.toString()
-        request.environment['JOB_NAME'] = id.ticket?.toString()
+        request.environment['JOB_ID'] = id.toHexString()
+
+        // add the job index
+        if ( index ) {
+            request.environment['JOB_INDEX'] = index.toString()
+        }
 
         if( index != null && range != null ) {
             // for backward compatibility with SGE use the same variable name for job arrays

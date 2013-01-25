@@ -27,11 +27,25 @@ import spock.lang.Specification
  */
 class JobIdTest extends Specification {
 
-    def 'test copy constructor' () {
+    def 'test constructor' () {
 
         when:
-        def job1 = new JobId('str')
-        def job2 = new JobId('xxx', 123)
+        def job1 = new JobId(1)
+        def job2 = new JobId(15)
+        def job3 = new JobId('1')
+        def job4 = new JobId('f')
+
+        then:
+        job1 == job3
+        job2 == job4
+        job1 != job2
+    }
+
+    def 'test copy' () {
+
+        when:
+        def job1 = new JobId(1)
+        def job2 = new JobId(16)
 
         then:
         JobId.copy(job1) == job1
@@ -44,15 +58,14 @@ class JobIdTest extends Specification {
     def 'test equalsAndHash' () {
 
         expect:
+        new JobId(9) == JobId.of(9)
+        new JobId(10) == JobId.of('a')
+        new JobId(10) != JobId.of('b')
         new JobId('1234') == JobId.of('1234')
         new JobId('1234') != JobId.of('1235')
-        new JobId('1234',99) == JobId.of('1234',99)
-        new JobId('1234',99) != JobId.of('1234',98)
 
         JobId.of('1234').hashCode() == JobId.of('1234').hashCode()
         JobId.of('1234').hashCode() != JobId.of('1235').hashCode()
-        JobId.of('1234',32).hashCode() == JobId.of('1234',32).hashCode()
-        JobId.of('1234',32).hashCode() != JobId.of('1234',33).hashCode()
     }
 
 
@@ -60,49 +73,34 @@ class JobIdTest extends Specification {
 
         expect:
         JobId.of('100') < JobId.of('101')
-        JobId.of('100',99) < JobId.of('101',11)
-        JobId.of('100',7) < JobId.of('100',8)
         JobId.of('200') > JobId.of('101')
-
+        JobId.of(8) > JobId.of(5)
+        JobId.of(256) > JobId.of('ff')
+        JobId.of('fe') < JobId.of('ff')
     }
 
     def 'test toString' () {
 
         when:
-        def uuid = UUID.randomUUID()
-        def id1 = new JobId(uuid.toString())
-        def id2 = new JobId(uuid, 88)
+        def id1 = new JobId(1)
+        def id2 = new JobId('f')
 
         then:
-        id1.toString() == uuid.toString()
-        id2.toString() == uuid.toString() + ":88"
-
+        id1.toString() == 'JobId(1)'
+        id2.toString() == 'JobId(f)'
 
     }
 
-    def 'test getTicket' () {
+    def 'test toHexString' () {
 
         when:
-        def uuid = UUID.randomUUID()
-        def jobid = new JobId(uuid)
+        def id1 = new JobId(1)
+        def id2 = new JobId(255)
 
         then:
-        jobid.getTicket() == uuid.toString()
-
+        id1.toHexString() == '1'
+        id2.toHexString() == 'ff'
 
     }
-
-    def 'test FromString' () {
-
-        expect:
-        new JobId('112233')  == JobId.fromString('112233')
-        new JobId('112233','89')  == JobId.fromString('112233:89')
-        new JobId('112233',89)  == JobId.fromString('112233:89')
-    }
-
-    def 'test toFmtString' () {
-        //TODO
-    }
-
 
 }

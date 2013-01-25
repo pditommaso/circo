@@ -114,7 +114,7 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
     }
 
     def static JobEntry create( def id, Closure closure = null ) {
-        def jobId = id instanceof JobId ? id : new JobId(String.valueOf(id))
+        def jobId = id instanceof JobId ? id : JobId.of(id)
         def result = new JobEntry( jobId, new JobReq())
         if ( closure ) closure.call(result);
         return result

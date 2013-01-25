@@ -30,6 +30,11 @@ import java.util.concurrent.TimeUnit
 @EqualsAndHashCode
 class JobReq implements Serializable {
 
+    /**
+     * The unique request identifier
+     */
+    def UUID ticket
+
     /** The script to be executed */
     def String script
 
@@ -60,6 +65,7 @@ class JobReq implements Serializable {
      * The user who submitted the request
      */
     def String user
+
 
 
 

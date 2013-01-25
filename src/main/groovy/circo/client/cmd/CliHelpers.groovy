@@ -43,7 +43,7 @@ public abstract class AbstractCommand implements Serializable {
     /**
      * Request identifier, each request submitted to teh server has a Unique Universal identifier
      */
-    String ticket
+    UUID ticket
 
     /**
      * Implements the client interaction

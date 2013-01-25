@@ -41,7 +41,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
 
         sql.execute """
             create table if not exists JOBS (
-              ID VARCHAR PRIMARY KEY,
+              ID BIGINT PRIMARY KEY,
               OBJ BINARY
             );
         """
@@ -87,7 +87,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
 
         // -- serialize and store
         def blob = value ? SerializationUtils.serialize(value) : null
-        sql.execute("insert into JOBS (ID, OBJ) values (?, ?)", [ key.toString(), blob ])
+        sql.execute("insert into JOBS (ID, OBJ) values (?, ?)", [ key.value, blob ])
 
     }
 
@@ -105,7 +105,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
 
             map.each { key, value ->
                 def blob = value ? SerializationUtils.serialize(value) : null
-                stm.addBatch( key.toString(), blob as byte[] )
+                stm.addBatch( key.value, blob as byte[] )
             }
 
         }
@@ -115,7 +115,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
     @Override
     void delete(JobId key) {
         assert key
-        sql.execute("delete from JOBS where id = ?", [key.toString()])
+        sql.execute("delete from JOBS where id = ?", [key.value])
     }
 
     @Override
@@ -125,7 +125,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
 
         def params = ['?'] * keys.size()
         String statement = "delete from JOBS where ID in (${params.join(',')})"
-        List keysToDelete = keys.collect { it.toString() }
+        List keysToDelete = keys.collect { it.value }
 
         sql.execute(statement, keysToDelete as List<Object>)
     }
@@ -134,7 +134,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
     JobEntry load(JobId key) {
         assert key
 
-        def row = sql.firstRow("select OBJ from JOBS where ID = ?", [key.toString()])
+        def row = sql.firstRow("select OBJ from JOBS where ID = ?", [key.value])
         if( !row ) {
             return null
         }
@@ -150,11 +150,11 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
 
         def params = ['?'] * keys.size()
         String statement = "select ID, OBJ from JOBS where ID in (${params.join(',')})"
-        List values = keys.collect { it.toString() }
+        List values = keys.collect { it.value }
 
         sql.eachRow(statement, values) { row ->
 
-            final id = JobId.fromString( row[0] as String )
+            final id = JobId.of( row[0] )
             final job = row[1] ? SerializationUtils.deserialize(row[1] as byte[]) : null
             result.put( id, job as JobEntry)
         }
@@ -167,7 +167,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
 
         def result = new LinkedHashSet<JobId>()
         sql.eachRow("select ID from JOBS ") { row ->
-            result << JobId.fromString( row[0] as String )
+            result << JobId.of( row[0] )
         }
 
         return result

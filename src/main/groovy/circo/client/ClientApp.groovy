@@ -75,7 +75,20 @@ class ClientApp {
              * print the Submit response to the stdout
              */
             if( message instanceof SubReply ) {
-                log.info "Your job '${message.ticket}' has been submitted"
+                def count = message.jobIds?.size()
+                def list = message.jobIds *. toHexString { "'${it}'" }
+                if ( count == 0 ) {
+                    log.info "Oops. No job submitted"
+                }
+                else if ( count == 1 ) {
+                    log.info "Your job ${list[0]} has been submitted"
+                }
+                else if ( count < 10 ) {
+                    log.info "Your jobs ${list.join(',')} have been submitted"
+                }
+                else {
+                    log.info "Your jobs ${list.join(',')}.. and ${count-10} more have been submitted"
+                }
             }
 
             // -- handle a generic command response
@@ -160,7 +173,7 @@ class ClientApp {
 
     }
 
-    final Map<String, ResponseSink> responseSinks = new HashMap<>()
+    final Map<UUID, ResponseSink> responseSinks = new HashMap<>()
 
     final ActorSystem system
 
@@ -291,7 +304,7 @@ class ClientApp {
     def <R extends AbstractReply, T extends AbstractCommand> R send( T command ) {
 
         // -- assign to this request a UUID
-        command.ticket = UUID.randomUUID().toString()
+        command.ticket = UUID.randomUUID()
 
         // -- create the request
         def holder = createSinkForCommand(command)
@@ -362,7 +375,7 @@ class ClientApp {
         system.shutdown()
 
         // local daemon
-        if ( localDaemon ) localDaemon.stop()
+        if ( localDaemon ) { localDaemon.stop() }
 
         // .. bye
         System.exit(exitCode)

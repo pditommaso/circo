@@ -18,7 +18,6 @@
  */
 
 package circo.frontend
-
 import circo.client.cmd.CmdNode
 import circo.client.cmd.CmdStat
 import circo.client.cmd.CmdSub
@@ -51,9 +50,9 @@ class FrontEndTest extends ActorSpecification {
             return FE
         }
 
-        final ID = JobId.of(UUID.randomUUID())
+        final ticket = UUID.randomUUID()
         final sub = new CmdSub()
-        sub.ticket = ID.ticket
+        sub.ticket = ticket
         sub.command = ['echo', 'Hello world']
         sub.env.put('VAR1', 'val_1')
         sub.env.put('VAR2', 'val_2')
@@ -66,12 +65,20 @@ class FrontEndTest extends ActorSpecification {
 
         when:
         frontend.tell(sub, sender.getRef())
+
+        /*
+         * this should make part of the 'expected' results
+         */
+
+        // the sender get a 'reply' message
         def result = sender.expectMsgClass(SubReply)
-        def entry = dataStore.getJob(ID)
-
-
+        // the reply contains the ID(s) of the new submitted job(s)
+        def ID = result.jobIds.get(0)
+        // the a new job entry has been created
+        def entry = dataStore.getJob( ID )
 
         then:
+        result.jobIds.size() == 1
         result.ticket == sub.ticket
         result.messages.size() == 0
 
@@ -79,13 +86,50 @@ class FrontEndTest extends ActorSpecification {
         entry.req.maxAttempts == sub.maxAttempts
         entry.req.maxDuration == sub.maxDuration.toMillis()
         entry.req.environment.each{ k, v -> sub.env.get(k) == v }
-        entry.req.environment['JOB_ID'] == ID.toString()
-        entry.req.environment['JOB_NAME'] == ID.toString()
+        entry.req.environment['JOB_ID'] == ID.toHexString()
         //entry.req.environment == sub.env
         entry.req.script == sub.command.join(' ')
 
         listenerEntry == entry
 
+    }
+
+    def 'test cmd sub --each' () {
+
+        setup:
+        def sender = newProbe(system)
+        def master = newProbe(system)
+        def frontend = newTestActor(system,FrontEnd) {
+            def FE = new FrontEnd(dataStore)
+            FE.master = master.getRef()
+            return FE
+        }
+
+        final ticket = UUID.randomUUID()
+        final sub = new CmdSub()
+        sub.ticket = ticket
+        sub.command = ['echo', 'Hello world']
+        sub.eachList = ['alpha','beta','delta']
+
+        when:
+        frontend.tell(sub, sender.getRef())
+        // the a new job entry has been created
+        def result = sender.expectMsgClass(SubReply)
+        def entry0 = dataStore.getJob( result.jobIds[0] )
+        def entry1 = dataStore.getJob( result.jobIds[1] )
+        def entry2 = dataStore.getJob( result.jobIds[2] )
+
+        then:
+        result.jobIds.size() == 3
+        result.jobIds[0] == JobId.of(1)
+        entry0.req.environment['JOB_ID'] == entry0.id.toHexString()
+        entry0.req.environment['JOB_INDEX'] == 'alpha'
+
+        entry1.req.environment['JOB_ID'] == entry1.id.toHexString()
+        entry1.req.environment['JOB_INDEX'] == 'beta'
+
+        entry2.req.environment['JOB_ID'] == entry2.id.toHexString()
+        entry2.req.environment['JOB_INDEX'] == 'delta'
 
     }
 
@@ -156,7 +200,7 @@ class FrontEndTest extends ActorSpecification {
 
         def sender = newProbe(system)
         def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
-        def cmd = new CmdNode(ticket: '7832')
+        def cmd = new CmdNode(ticket: UUID.randomUUID())
 
         when:
         frontend.tell( cmd, sender.getRef() )

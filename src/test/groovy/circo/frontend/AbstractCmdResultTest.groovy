@@ -31,7 +31,7 @@ class AbstractCmdResultTest extends Specification {
     def testMessages() {
 
         when:
-        def cmd = new AbstractReply('123') {}
+        def cmd = new AbstractReply( UUID.randomUUID() ) {}
         cmd.info("info 1")
         cmd.warn("warn 1")
         cmd.warn("warn 2")
@@ -50,17 +50,22 @@ class AbstractCmdResultTest extends Specification {
 
     def 'test getter' () {
         when:
-        def cmd0 = new AbstractReply('111') {}
-        def cmd1 = new AbstractReply('222') {}
+        def uuid0 = UUID.randomUUID()
+        def uuid1 = UUID.randomUUID()
+        def uuid2 = UUID.randomUUID()
+        def uuid3 = UUID.randomUUID()
+
+        def cmd0 = new AbstractReply(uuid0) {}
+        def cmd1 = new AbstractReply(uuid1) {}
         cmd1.info << 'ciao'
-        def cmd2 = new AbstractReply('333') {}
+        def cmd2 = new AbstractReply(uuid2) {}
         cmd2.warn << 'hola'
 
-        def cmd3 = new AbstractReply('444') {}
+        def cmd3 = new AbstractReply(uuid3) {}
         cmd3.error << 'hi'
 
         then:
-        cmd0.ticket == '111'
+        cmd0.ticket == uuid0
         !cmd0.hasMessages()
         !cmd0.hasInfo()
         !cmd0.hasWarn()

@@ -73,8 +73,8 @@ class JdbcJobsMapStoreTest extends Specification {
         def store = new JdbcJobsMapStore(sql: this.sql)
         def job1 = new JobEntry( '1122', 'Script1' )
         def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455',99), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788',44), 'Script4' )
+        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
+        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
 
         def map = new HashMap<JobId,JobEntry>()
         map[job1.id] = job1
@@ -89,10 +89,10 @@ class JdbcJobsMapStoreTest extends Specification {
 
         then:
         store.loadAllKeys().size() == 4
-        store.load( job1.id ).id == JobId.fromString('1122')
+        store.load( job1.id ).id == JobId.of('1122')
         store.load( job1.id ).req.script == 'Script1'
 
-        store.load( job4.id ).id == JobId.fromString('7788:44')
+        store.load( job4.id ).id == JobId.of('7788')
         store.load( job4.id ).req.script == 'Script4'
     }
 
@@ -102,8 +102,8 @@ class JdbcJobsMapStoreTest extends Specification {
         def store = new JdbcJobsMapStore(sql: this.sql)
         def job1 = new JobEntry( '1122', 'Script1' )
         def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455',99), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788',44), 'Script4' )
+        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
+        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
 
         def map = new HashMap<JobId,JobEntry>()
         map[job1.id] = job1
@@ -131,8 +131,8 @@ class JdbcJobsMapStoreTest extends Specification {
         def store = new JdbcJobsMapStore(sql: this.sql)
         def job1 = new JobEntry( '1122', 'Script1' )
         def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455',99), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788',44), 'Script4' )
+        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
+        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
 
         store.store( job1.id, job1 )
         store.store( job2.id, job2 )
@@ -153,8 +153,8 @@ class JdbcJobsMapStoreTest extends Specification {
         def store = new JdbcJobsMapStore(sql: this.sql)
         def job1 = new JobEntry( '1122', 'Script1' )
         def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455',99), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788',44), 'Script4' )
+        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
+        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
 
 
         when:
@@ -175,8 +175,8 @@ class JdbcJobsMapStoreTest extends Specification {
         def store = new JdbcJobsMapStore(sql: this.sql)
         def job1 = new JobEntry( '1122', 'Script1' )
         def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455',99), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788',44), 'Script4' )
+        def job3 = new JobEntry( new JobId('4455'), 'Script3' )
+        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
 
         def map = new HashMap<JobId,JobEntry>()
         map[job1.id] = job1
@@ -197,8 +197,8 @@ class JdbcJobsMapStoreTest extends Specification {
         def store = new JdbcJobsMapStore(sql: this.sql)
         def job1 = new JobEntry( '1122', 'Script1' )
         def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455',99), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788',44), 'Script4' )
+        def job3 = new JobEntry( new JobId('4455'), 'Script3' )
+        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
 
 
         when:

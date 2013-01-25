@@ -20,6 +20,7 @@
 package circo.data
 
 import circo.messages.JobEntry
+import circo.messages.JobId
 import circo.messages.JobStatus
 import com.hazelcast.config.*
 import com.hazelcast.core.*
@@ -44,6 +45,7 @@ class HazelcastDataStore extends AbstractDataStore {
 
     private Map<Closure,EntryListener> listenersMap = [:]
 
+    private AtomicNumber idGen
 
     /**
      * Create an {@code com.hazelcast.core.HazelcastInstance} with configuration
@@ -152,8 +154,10 @@ class HazelcastDataStore extends AbstractDataStore {
         this.hazelcast = instance
         this.jobsMap = hazelcast.getMap('jobs')
         this.nodeDataMap = hazelcast.getMap('nodeInfo')
-
+        this.idGen = hazelcast.getAtomicNumber('idGenerator')
     }
+
+    JobId nextJobId() { new JobId( idGen.addAndGet(1) ) }
 
 
     @Override
@@ -161,35 +165,21 @@ class HazelcastDataStore extends AbstractDataStore {
         hazelcast.getLock(key)
     }
 
-    List<JobEntry> findJobsById( final String jobId) {
+    List<JobEntry> findJobsById( final String jobId ) {
         assert jobId
 
-        String ticket
-        String index
-        int pos = jobId.indexOf(':')
-        if( pos == -1 ) {
-            ticket = jobId
-            index = null
+        boolean likeOp = false
+        def value
+
+        if ( jobId.contains('*') ) {
+            value = jobId.replace('*','%')
+            likeOp = true
         }
         else {
-            String[] slice = jobId.split('\\:')
-            ticket = slice[0]
-            index = slice.size()>1 ? slice[1] : null
+            value = jobId
         }
 
-        // replace the '*' with sql '%'
-        ticket = ticket.replaceAll('\\*','%')
-        if ( index ) {
-            index = index.replaceAll('\\*','%')
-        }
-
-        if ( !ticket.contains('%') ) {
-            ticket += '%'
-        }
-
-
-        def match = index ? "$ticket:$index" : ticket
-        def criteria = "id.toString() LIKE '$match'"
+        def criteria = likeOp ? "id.toHexString() LIKE '$value'" : "id.toHexString() = '$value'"
 
         def result = (jobsMap as IMap) .values(new SqlPredicate(criteria))
         new ArrayList<JobEntry>(result as Collection<JobEntry>)

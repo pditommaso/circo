@@ -19,6 +19,7 @@
 
 package circo.reply
 
+import circo.messages.JobId
 import groovy.transform.InheritConstructors
 import groovy.transform.ToString
 /**
@@ -29,7 +30,10 @@ import groovy.transform.ToString
 @ToString(includePackage = false, includeSuper = true)
 class SubReply extends AbstractReply {
 
-    int numOfJobs = 1
+    /**
+     * The list of identifiers of the job created fulfilling the submitted request
+     */
+    List<JobId> jobIds
 
 
 }

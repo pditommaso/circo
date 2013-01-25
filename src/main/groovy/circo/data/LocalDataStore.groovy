@@ -18,14 +18,18 @@
  */
 
 package circo.data
+
+import circo.messages.JobEntry
+import circo.messages.JobId
+import circo.messages.JobStatus
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-import circo.messages.JobEntry
-import circo.messages.JobStatus
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -36,11 +40,14 @@ class LocalDataStore extends AbstractDataStore {
 
     private List jobsListeners = []
 
+    private AtomicLong idGen = new AtomicLong()
+
     def LocalDataStore() {
         jobsMap = new ConcurrentHashMap<>()
         nodeDataMap = new ConcurrentHashMap<>()
     }
 
+    JobId nextJobId() { new JobId( idGen.addAndGet(1) ) }
 
     @Override
     protected Lock getLock(key) {
@@ -69,34 +76,18 @@ class LocalDataStore extends AbstractDataStore {
         return isNew
     }
 
-    List<JobEntry> findJobsById( final String jobId) {
+    List<JobEntry> findJobsById( final String jobId ) {
         assert jobId
 
-        String ticket
-        String index
-        int pos = jobId.indexOf(':')
-        if( pos == -1 ) {
-            ticket = jobId
-            index = null
+        def value
+        if ( jobId.contains('*') ) {
+            value = jobId.replace('*','.*')
         }
         else {
-            String[] slice = jobId.split('\\:')
-            ticket = slice[0]
-            index = slice.size()>1 ? slice[1] : null
+            value = jobId
         }
 
-        ticket = ticket.replaceAll('\\*','')
-        String partialIndex = index?.contains('*') ? index.replaceAll('\\*','') : null
-
-        jobsMap.values().findAll { JobEntry job ->
-
-            def matchTicket = job.id.ticket.startsWith(ticket)
-            def exactIndex = index==null || index == job.id.index?.toString()
-            def matchIndex = partialIndex && job.id.index?.toString()?.startsWith(partialIndex)
-
-            return matchTicket && ( exactIndex || matchIndex )
-
-        }
+        jobsMap.values().findAll { JobEntry job -> job.id.toHexString() ==~ /$value/ }
 
     }
 

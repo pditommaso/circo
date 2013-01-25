@@ -21,7 +21,7 @@ class DataStoreTest extends Specification {
         }
     }
     
-    def testSaveAndLoad( ) {
+    def testSaveAndGet( ) {
 
         when:
         def id = JobId.of(1)
@@ -34,6 +34,28 @@ class DataStoreTest extends Specification {
         entry == store.getJob(id)
         entry == store.getJob(JobId.of(1))
         null == store.getJob( JobId.of(321) )
+
+        cleanup:
+        shutdown(store)
+
+        where:
+        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
+    }
+
+    def 'test get' () {
+
+        setup:
+        def id0 = JobId.of('123')
+        def id1 = JobId.of('abc')
+        def id2 = JobId.of(222)
+
+        store.saveJob( JobEntry.create(id1) { it.req.script = 'script1' } )
+        store.saveJob( JobEntry.create(id2) { it.req.script = 'script2' } )
+
+        expect:
+        store.getJob(id0) == null
+        store.getJob(JobId.of('abc')).req.script == 'script1'
+        store.getJob(JobId.of(222)).req.script == 'script2'
 
         cleanup:
         shutdown(store)
@@ -146,17 +168,13 @@ class DataStoreTest extends Specification {
     def 'test findJobsByID' () {
 
         setup:
-        def id1 = UUID.randomUUID()
-        def id2 = UUID.randomUUID()
-        def id3 = UUID.randomUUID()
 
-        def job1 = JobEntry.create( id1 )
-        def job2 = JobEntry.create( id2 )
-
-        def job3 = JobEntry.create( new JobId(id3,1) )
-        def job4 = JobEntry.create( new JobId(id3,2) )
-        def job5 = JobEntry.create( new JobId(id3,3) )
-        def job6 = JobEntry.create( new JobId(id3,11) )
+        def job1 = JobEntry.create( '11' )
+        def job2 = JobEntry.create( '23' )
+        def job3 = JobEntry.create( '33' )
+        def job4 = JobEntry.create( '34' )
+        def job5 = JobEntry.create( '35' )
+        def job6 = JobEntry.create( '36' )
 
         store.saveJob(job1)
         store.saveJob(job2)
@@ -166,15 +184,15 @@ class DataStoreTest extends Specification {
         store.saveJob(job6)
 
         expect:
-        store.findJobsById( id1.toString() ) == [job1]
-        store.findJobsById( id1.toString().substring(0,8) ) == [job1]
-        store.findJobsById( id1.toString().substring(0,8)+'xx' ) == []
+        store.findJobsById( '11' ) == [job1]
+        store.findJobsById( '1*' ) == [job1]
+        store.findJobsById( '12' ) == []
 
-        store.findJobsById( new JobId(id3,1).toString() ) == [job3]
-        store.findJobsById( new JobId(id3,2).toString() ) == [job4]
-        store.findJobsById( id3.toString() ).toSet() == [job3,job4,job5,job6].toSet()
+        store.findJobsById( '33' ) == [job3]
+        store.findJobsById( '34' ) == [job4]
+        store.findJobsById( '3*' ).toSet() == [job3,job4,job5,job6].toSet()
 
-        store.findJobsById( new JobId(id3,1).toString()+'*' ).toSet() == [job3,job6].toSet()
+        store.findJobsById( '*3' ).toSet() == [job2,job3].toSet()
 
 
         cleanup:

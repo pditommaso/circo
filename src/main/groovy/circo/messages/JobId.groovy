@@ -18,10 +18,8 @@
  */
 
 package circo.messages
-
-import groovy.transform.EqualsAndHashCode
 import circo.util.SerializeId
-
+import groovy.transform.EqualsAndHashCode
 /**
  * Models a Job unique identifier
  * <p>
@@ -36,71 +34,47 @@ import circo.util.SerializeId
 @EqualsAndHashCode
 class JobId implements java.io.Serializable, Comparable<JobId> {
 
-    def String ticket
+    def long value
 
-    def String index
+    def JobId( def value ) {
+        assert value
+        this.value = value instanceof Number ? value.longValue() : Long.parseLong(value.toString(), 16)
+    }
 
-    def JobId( def ticket, def index = null ) {
-        assert ticket
-        this.ticket = ticket.toString()
-        this.index = index?.toString()
+    def JobId( JobId that ) {
+        assert that
+        new JobId( that.value )
     }
 
     def static JobId copy( JobId that ) {
         assert that
-        new JobId( that.ticket, that.index )
+        new JobId( that.value )
     }
 
-    def String toString() {
-        def result = ticket
-        if ( index ) {
-            result += ':' + index
-        }
+    def String toString() { "JobId(${})" }
 
-        result
+    def String toHexString() {
+        Long.toHexString(value)
     }
 
-    def String toFmtString() {
-
-        def result = ticket?.size()>8 ? ticket.substring(0,8) : ticket
-
-        if ( index ) {
-            result += ':' + index
-        }
-
-        result
-
+    def String toHexString(Closure closure) {
+        closure.call(Long.toHexString(value))
     }
 
     /**
      * JobId constructor factory helper method
      */
-    static def JobId of( def ticket, def index = null ) {
-        assert ticket
-        new JobId(ticket.toString(),index)
+    static def JobId of( def value ) {
+        new JobId(value)
     }
 
     static def JobId fromString( String value ) {
-        assert value
-
-        def p = value.indexOf(':')
-        if( p != -1 ) {
-            new JobId(  value.substring(0,p), value.substring(p+1)  )
-        }
-        else {
-            new JobId( value )
-        }
-
-
+        new JobId(value)
     }
 
     @Override
     int compareTo(JobId that) {
-        def result = this.ticket <=> that.ticket
-        if ( result == 0 ) {
-            result = this.index <=> that.index
-        }
-        return result
+        def result = this.value <=> that.value
     }
 
 

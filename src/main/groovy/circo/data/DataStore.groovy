@@ -32,6 +32,9 @@ import circo.messages.JobStatus
 @CompileStatic
 interface DataStore {
 
+
+    JobId nextJobId()
+
     /**
      * Save a {@code JobEntry} in the underlying storage implementation
      * @param job A {@code JobEntry} instance

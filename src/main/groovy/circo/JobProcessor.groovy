@@ -203,7 +203,7 @@ class JobProcessor extends UntypedActor {
                 // -- notify the sender the result
                 else if( job.sender ) {
                     log.debug "Reply job result to sender -- ${job.id}"
-                    final reply = new ResultReply( job.id.ticket )
+                    final reply = new ResultReply( job.req.ticket )
                     reply.result = job.result
                     job.sender.tell ( reply, worker )
                 }

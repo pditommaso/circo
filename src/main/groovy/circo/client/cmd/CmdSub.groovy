@@ -113,9 +113,11 @@ class CmdSub extends AbstractCommand  {
      * @return Convert this job submit command to a valid {@code JobReq} instance
      */
     JobReq createJobReq() {
+        assert ticket
         assert command
 
         def result = new JobReq()
+        result.ticket = this.ticket
         result.environment = new HashMap<>(env)
         result.script = command.join(' ')
         result.maxAttempts = maxAttempts
