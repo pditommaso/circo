@@ -15,7 +15,7 @@ echo === begin circo bootstrap ===
 #
 
 CIRCO_CLUSTER=${CIRCO_CLUSTER:-circotest1}
-CIRCO_NAME=${CIRCO_NAME:-circo-0.1.3}
+CIRCO_NAME=${CIRCO_NAME:-circo-0.1.4}
 CIRCO_TAR=${CIRCO_TAR:-http://cbcrg-eu.s3.amazonaws.com/$CIRCO_NAME.tgz}
 CIRCO_PORT=${CIRCO_PORT:-2551}
 CIRCO_USER=${CIRCO_USER:-$USER}

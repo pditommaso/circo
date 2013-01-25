@@ -42,9 +42,9 @@ class Consts {
 
     static final String APPNAME = MAIN_PACKAGE
 
-    static final String APPVER = "0.1.3"
+    static final String APPVER = "0.1.4"
 
-    static final long APPTIMESTAMP = 1359066495511
+    static final long APPTIMESTAMP = 1359106407199
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 
