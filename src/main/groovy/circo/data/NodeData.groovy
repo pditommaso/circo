@@ -57,11 +57,19 @@ class NodeData implements Serializable {
 
     def NodeData( NodeData that ) {
         assert that
+
         this.address = that.address
         this.startTimestamp = that.startTimestamp
         this.processed = that.processed
         this.failed = that.failed
-        this.workers = new HashMap<>(that.workers)
+
+        // make a deep copy
+        this.workers = new HashMap<>(that.workers?.size())
+        that.workers.each { WorkerRef ref, WorkerData data ->
+            def copy = WorkerData.copy(data)
+            this.workers.put( copy.worker, copy )
+        }
+
     }
 
     def void failureInc( WorkerRef ref ) {

@@ -18,13 +18,12 @@
  */
 
 package circo.data
-
 import akka.actor.ActorRef
+import circo.messages.JobId
+import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
-import circo.messages.JobId
-import circo.util.SerializeId
 
 /**
  *
@@ -44,6 +43,14 @@ class WorkerData implements Serializable {
 
     def long failed
 
+    def static WorkerData copy( WorkerData that ) {
+        assert that
+        def result = new WorkerData(that.worker)
+        result.currentJobId = that.currentJobId ? JobId.copy(that.currentJobId) : null
+        result.processed = that.processed
+        result.failed = that.failed
+        result
+    }
 
     static WorkerData of( WorkerRef worker) {
         new WorkerData(worker)

@@ -35,7 +35,6 @@ class CmdSubTest extends Specification {
         def parser = CommandParser.parse( 'sub -t 1-10 --max-duration 7min --max-inactive 8sec --sync echo hello world' )
         CmdSub cmd = parser.getCommand()
 
-        if( parser.failure ) parser.failure.printStackTrace()
 
         then:
         !parser.hasFailure()
@@ -43,8 +42,8 @@ class CmdSubTest extends Specification {
         cmd.maxDuration == Duration.create('7 minutes')
         cmd.maxInactive == Duration.create('8 seconds')
         cmd.times == new IntRange(1,10)
-        cmd.isSync()
         cmd.command.join(' ') == 'echo hello world'
+        cmd.expectedReplies() == 11
 
     }
 
@@ -54,8 +53,6 @@ class CmdSubTest extends Specification {
         def times
         def parser = CommandParser.parse( 'sub --times 1-10:2' )
         CmdSub cmd = parser.getCommand()
-
-        if( parser.failure ) parser.failure.printStackTrace()
 
         then:
         !parser.hasFailure()

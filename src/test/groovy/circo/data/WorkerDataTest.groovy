@@ -54,6 +54,23 @@ class WorkerDataTest extends Specification  {
         worker1.hashCode() == worker2.hashCode()
         worker1.hashCode() != worker3.hashCode()
 
+    }
+
+    def 'test copy constructor' () {
+
+        when:
+        def ref1 = new WorkerRef(new JavaTestKit(system).getRef())
+        def ref2 = new WorkerRef(new JavaTestKit(system).getRef())
+
+        def data1 = WorkerData.of(ref1) { it.currentJobId=JobId.of(74893) }
+        def data2 = WorkerData.of(ref2) { it.currentJobId=JobId.of(12345) }
+
+        then:
+        WorkerData.copy(data1) == data1
+        WorkerData.copy(data2) == data2
+        WorkerData.copy(data1) != data2
+
+
 
     }
 }

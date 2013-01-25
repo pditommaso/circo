@@ -46,6 +46,10 @@ class JobId implements java.io.Serializable, Comparable<JobId> {
         this.index = index?.toString()
     }
 
+    def static JobId copy( JobId that ) {
+        assert that
+        new JobId( that.ticket, that.index )
+    }
 
     def String toString() {
         def result = ticket

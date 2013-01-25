@@ -357,7 +357,7 @@ class JobMasterTest extends ActorSpecification {
         master.actor.node.assignJobId(worker, jobId)
 
         when:
-        master.tell ( new WorkIsDone( worker, entry ) )
+        master.tell ( new WorkIsDone(worker) )
 
         then:
         master.actor.node.getWorkerData(worker).currentJobId == null

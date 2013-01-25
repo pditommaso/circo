@@ -63,7 +63,15 @@ class WorkerRef implements Serializable {
         this.path = transportAddress ? path.toStringWithAddress(transportAddress) : path.toString()
     }
 
-    //def ActorRef getActor() { actor }
+
+    private WorkerRef(String path) {
+        this.path = path
+    }
+
+    def static WorkerRef copy( WorkerRef that ) {
+        assert that
+        new WorkerRef(that.path)
+    }
 
     def tell( def message ) {
         actor.tell(message)

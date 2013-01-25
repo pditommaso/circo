@@ -27,6 +27,20 @@ import spock.lang.Specification
  */
 class JobIdTest extends Specification {
 
+    def 'test copy constructor' () {
+
+        when:
+        def job1 = new JobId('str')
+        def job2 = new JobId('xxx', 123)
+
+        then:
+        JobId.copy(job1) == job1
+        JobId.copy(job2) == job2
+        JobId.copy(job1) != job2
+
+    }
+
+
     def 'test equalsAndHash' () {
 
         expect:

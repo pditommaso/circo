@@ -205,12 +205,12 @@ class HazelcastDataStore extends AbstractDataStore {
 
     }
 
-    void addNewJobListener(Closure listener) {
-        assert listener
+    void addNewJobListener(Closure callback) {
+        assert callback
 
         def entry = new EntryListener() {
             @Override
-            void entryAdded(EntryEvent event) { listener.call(event.getValue()) }
+            void entryAdded(EntryEvent event) { callback.call(event.getValue()) }
 
             @Override
             void entryRemoved(EntryEvent event) { }
@@ -223,7 +223,8 @@ class HazelcastDataStore extends AbstractDataStore {
         }
 
         (jobsMap as IMap) .addLocalEntryListener(entry)
-        listenersMap.put(listener, entry)
+
+        listenersMap.put(callback, entry)
     }
 
 

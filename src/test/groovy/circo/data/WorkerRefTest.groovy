@@ -46,6 +46,16 @@ class WorkerRefTest extends Specification {
         system.shutdown()
     }
 
+    def 'test copy constructor' () {
+
+        setup:
+        def actor = new JavaTestKit(system)
+        def worker = new WorkerRef(actor.getRef())
+
+        expect:
+        WorkerRef.copy(worker) == worker
+        WorkerRef.copy(worker).hashCode() == worker.hashCode()
+    }
 
     def "test tell" () {
 

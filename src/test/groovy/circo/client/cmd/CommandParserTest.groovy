@@ -53,7 +53,6 @@ class CommandParserTest extends Specification {
         !parser2.hasFailure()
         parser2.getCommand() instanceof CmdSub
         (parser2.getCommand() as CmdSub) .maxAttempts == 5
-        (parser2.getCommand() as CmdSub).isSync() == true
 
         parser3.isHelp()
         parser3.getCommand() instanceof CmdSub

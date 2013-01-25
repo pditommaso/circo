@@ -69,20 +69,24 @@ class DataStoreTest extends Specification {
 
     def 'test add listener' () {
         when:
-        def invoked
+        JobEntry invoked = null
+        def times = []
         def entry = JobEntry.create( 1243 )
-        def count=0
-        store.addNewJobListener { invoked = it; count++ }
-        store.saveJob(entry)
-        store.saveJob(entry)
-
+        store.addNewJobListener { it ->
+            invoked = it
+            times << 1
+        }
+        def r1 = store.saveJob(entry)
+        def r2 = store.saveJob(entry)
 
         then:
-        count == 1
+        r1 == true
+        r2 == false
+        times == [1]
         invoked == entry
 
         where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()   ]
+        store << [ new LocalDataStore(),  new HazelcastDataStore()  ]
     }
 
     def 'test remove listener' () {
@@ -214,25 +218,18 @@ class DataStoreTest extends Specification {
 
         def node2 = new NodeData( address: addr('2.2.2.2'), processed: 343 )
 
-        def node3 = new NodeData( address:  addr('3.3.3.3') )
-
-        def newNode1 = new NodeData( address: addr('1.1.1.1'), processed: 8888 )
-        def newNode2 = new NodeData( address: addr('2.2.2.2'), processed: 4444 )
-        def newNode3 = new NodeData( address:  addr('3.3.3.3'))
-
         store.putNodeData(node1)
         store.putNodeData(node2)
-        store.putNodeData(node3)
-
 
         when:
         def copy1 = new NodeData(node1)
         def copy2 = new NodeData(node2)
-        def copy3 = new NodeData(node3)
+
+        def newNode1 = new NodeData( address: addr('1.1.1.1'), processed: 8888 )
+        def newNode2 = new NodeData( address: addr('2.2.2.2'), processed: 4444 )
 
         newNode1.processed++
-        node2.processed++
-        copy3.processed++
+        copy2.processed++
 
         then:
         // copy1 is a clone of node1 -- it does not change so, it can be replaced with a new value
@@ -241,7 +238,6 @@ class DataStoreTest extends Specification {
         // node2 is changed after it was copied -- the replace will fail
         store.replaceNodeData(copy2, newNode2) == false
 
-        store.replaceNodeData(copy3, newNode3) == false
 
         cleanup:
         shutdown(store)
@@ -284,7 +280,7 @@ class DataStoreTest extends Specification {
         result1.processed  == 110
         result1.failed == 20
 
-        result2.processed == 211
+        result2.processed == 211   // fail with HZ
         result2.failed == 31
 
 
