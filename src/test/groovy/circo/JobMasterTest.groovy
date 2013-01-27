@@ -406,7 +406,7 @@ class JobMasterTest extends ActorSpecification {
         def result1
         def job1 = new JobEntry( JobId.of('1'), new JobReq(script: '1') )
         job1.setSender(senderProbe.getRef())
-        job1.result = result1 =  new JobResult(jobId:job1.id)
+        job1.result = result1 =  new JobResult(jobId:job1.id, exitCode: 0)
 
         // this is FAILED, it must be rescheduled
         def result2

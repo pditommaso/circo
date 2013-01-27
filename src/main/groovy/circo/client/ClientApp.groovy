@@ -24,6 +24,7 @@ import circo.Consts
 import circo.client.cmd.*
 import circo.data.WorkerRef
 import circo.frontend.FrontEnd
+import circo.messages.JobContext
 import circo.reply.AbstractReply
 import circo.reply.ResultReply
 import circo.reply.SubReply
@@ -38,23 +39,14 @@ import sun.misc.Signal
 import sun.misc.SignalHandler
 
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicInteger
 /**
  *  Client application to interact with the cluster
  *
  *  @Author Paolo Di Tommaso
- *
  */
 @Slf4j
 class ClientApp {
-
-    static final File MOKE_HOME
-
-    static {
-        MOKE_HOME = new File( System.getProperty("user.home"), ".${Consts.APPNAME}" )
-        if( !MOKE_HOME.exists() && !MOKE_HOME.mkdir() ) {
-            throw new IllegalStateException("Cannot create path '${MOKE_HOME}' -- Check the file sytem access permission")
-        }
-    }
 
     /**
      * Actor that receives the reply message from the cluster
@@ -68,51 +60,38 @@ class ClientApp {
         }
 
         def void onReceive( def message ) {
-
             log.debug "<- $message"
-
-            /*
-             * print the Submit response to the stdout
-             */
-            if( message instanceof SubReply ) {
-                def count = message.jobIds?.size()
-                def list = message.jobIds *. toHexString { "'${it}'" }
-                if ( count == 0 ) {
-                    log.info "Oops. No job submitted"
-                }
-                else if ( count == 1 ) {
-                    log.info "Your job ${list[0]} has been submitted"
-                }
-                else if ( count < 10 ) {
-                    log.info "Your jobs ${list.join(',')} have been submitted"
-                }
-                else {
-                    log.info "Your jobs ${list.join(',')}.. and ${count-10} more have been submitted"
-                }
-            }
 
             // -- handle a generic command response
             if( message instanceof AbstractReply ) {
-                final response = message as AbstractReply
-                final sink = responseSinks[ response.ticket ]
+                final replyObj = message as AbstractReply
+                final sink = responseSinks[ replyObj.ticket ]
                 if( !sink ) {
-                    log.error "Missing response sink for req: ${response.ticket}"
+                    log.error "Missing response sink for req: ${replyObj.ticket}"
                     return
                 }
 
                 /*
                  * special handling for the ResultReply
                  */
-                if( message.class == ResultReply ) {
+                if( message.class == SubReply ) {
+                    def reply = message as SubReply
+                    printJobIds(reply)
+                    // re-sync the barrier count based the real number of jobs submitted
+                    sink.delta = reply.jobIds.size()+1 - sink.count
+                    // create the collection to hold all produced context */
+                    sink.gatherResults = new ArrayList( reply.jobIds.size() )
+                    sink.expectedResults = reply.jobIds.size()
+                }
+                else if( message.class == ResultReply ) {
                     handleResultReply(message as ResultReply, sink)
                 }
 
                 // assign this response to the associated sink obj -- maintains the
                 // relationship between the submitted command and the cluster reply
-                sink.response = response
+                sink.reply = replyObj
                 sink.countDown()
                 log.debug "Counting down, remaining: ${sink.getCount()} "
-
 
             }
 
@@ -122,18 +101,49 @@ class ClientApp {
 
         }
 
-        def void handleResultReply( ResultReply reply, def sink ) {
-            def clazz = sink.command?.class
-            def output = reply.result?.output
-
-            if( !output ) return
-
-            if( clazz == CmdGet ) {
-                print output
+        def void printJobIds( SubReply message ) {
+            def count = message.jobIds?.size()
+            def list = message.jobIds *. toFmtString { "'${it}'" }
+            if ( count == 0 ) {
+                log.info "Oops. No job submitted"
             }
+            else if ( count == 1 ) {
+                log.info "Your job ${list[0]} has been submitted"
+            }
+            else if ( count < 10 ) {
+                log.info "Your jobs ${list.join(',')} have been submitted"
+            }
+            else {
+                log.info "Your jobs ${list.join(',')}.. and ${count-10} more have been submitted"
+            }
+        }
+
+        def void handleResultReply( ResultReply reply, ReplySink sink ) {
+            def clazz = sink.command?.class
+
             // -- print out the job result as requested by the user on the cmdline
-            else if( clazz == CmdSub && (sink.command as CmdSub).printOutput ) {
-                print output
+            if( clazz == CmdSub ) {
+                def cmd = sink.command as CmdSub
+                if ( cmd.printOutput && reply.result?.output ) {
+                    print reply.result.output
+                }
+
+                // re-sync context
+                sink.expectedResults -= 1
+                sink.gatherResults << reply.result.context
+
+                if ( sink.expectedResults == 0  ) {
+                    def newContext = JobContext.copy(cmd.context)
+                    sink.gatherResults.each { JobContext delta ->
+                        newContext += delta
+                    }
+                    // apply the new context
+                    app.context = newContext
+                }
+
+            }
+            else if( clazz == CmdGet && reply.result?.output ) {
+                print reply.result?.output
             }
         }
 
@@ -142,19 +152,40 @@ class ClientApp {
     /**
      * Holds the responses received from the server
      */
-    static class ResponseSink {
+    static class ReplySink {
 
-        static ResponseSink currentSink
+        static ReplySink currentSink
 
         AbstractCommand command
 
-        AbstractReply response
+        AbstractReply reply
+
+        /* gather all the context produced by the job execution */
+        List gatherResults
+
+        int expectedResults
+
+        AtomicInteger delta = new AtomicInteger(0)
+
+        def void setDelta( int value ) {
+            if ( value < 0 ) {
+                Math.abs(value).times { barrier.countDown() }
+            }
+            else {
+                delta.set(value)
+            }
+        }
 
         @Delegate
         CountDownLatch barrier
 
         def void countDown() {
-            barrier.countDown()
+            if ( delta.get()>0 ) {
+                delta.decrementAndGet()
+            }
+            else {
+                barrier.countDown()
+            }
         }
 
         def void await() {
@@ -173,7 +204,7 @@ class ClientApp {
 
     }
 
-    final Map<UUID, ResponseSink> responseSinks = new HashMap<>()
+    final Map<UUID, ReplySink> responseSinks = new HashMap<>()
 
     final ActorSystem system
 
@@ -193,13 +224,20 @@ class ClientApp {
 
     ConsoleReader getConsole() { console }
 
+    JobContext context
+
+    Map<String,String> aliases
+
 
     // -- common initialization
     {
         console = new ConsoleReader()
-        def historyFile = new File(MOKE_HOME, "history")
+        def historyFile = new File(Consts.CIRCO_HOME, "history")
         console.history = new FileHistory(historyFile)
         console.historyEnabled = true
+
+        context = new JobContext()
+        aliases = new LinkedHashMap<String, String>()
     }
 
 
@@ -282,14 +320,14 @@ class ClientApp {
      * @param expectedReply
      * @return
      */
-    private ResponseSink createSinkForCommand( AbstractCommand cmd ) {
+    private ReplySink createSinkForCommand( AbstractCommand cmd ) {
         assert cmd
         assert cmd.ticket
 
         def numOfReplies = cmd.expectedReplies()
         log.debug "Sub expected numOfReplies: $numOfReplies"
 
-        def holder = new ResponseSink()
+        def holder = new ReplySink()
         holder.command = cmd
 
         holder.barrier = new CountDownLatch(numOfReplies)
@@ -313,57 +351,9 @@ class ClientApp {
         frontEnd.tell( command, client )
         holder.await()
 
-        return holder.response
+        return holder.reply
     }
 
-
-
-//
-//    /**
-//     * Send a message to the server and wait for a synchronous reply
-//     *
-//     * @param message
-//     * @return
-//     */
-//    def <T> T askAndWait( def AbstractCommand message ) {
-//
-//        // create a unique ID for this request
-//        message.reqId = UUID.randomUUID()
-//
-//        // send the message and wait for the reply
-//        def duration = Duration.create('2 second')
-//        def future = Patterns.ask(frontEnd, message, duration.toMillis())
-//        T result = Await.result(future, duration) as T
-//
-//        return result
-//    }
-//
-//    @Deprecated
-//    def void askAndWait( def message, Closure complete ) {
-//        def duration = Duration.create('1 second')
-//        def result = AkkaHelper.ask(frontEnd, message, duration.toMillis())
-//        complete.call(result)
-//    }
-//
-//
-//    @Deprecated
-//    def void submit( def message ) {
-//        frontEnd.tell( message, client )
-//    }
-//
-//    @Deprecated
-//    def void submit( CmdSub sub ) {
-//
-//        def count = sub.sync ? 2 : 1
-//        receivedSignal = new CountDownLatch(count)
-//        frontEnd.tell( sub, client )
-//        receivedSignal.await()
-//    }
-//
-//    @Deprecated
-//    def ask( def message ) {
-//        AkkaHelper.ask(frontEnd, message, 1000)
-//    }
 
 
     def void close(int exitCode = 0) {
@@ -397,7 +387,7 @@ class ClientApp {
             println ""
 
             while( true ) {
-                def line = console.readLine("${Consts.APPNAME}> ")
+                def line = console.readLine("${Consts.APP_NAME}> ")
                 log.trace "Loop: $line"
 
                 if( !line ) {
@@ -409,6 +399,15 @@ class ClientApp {
 
                 else if ( line.toLowerCase() in ['?','help'] ) {
                     printAvailableCommands()
+                }
+
+                else if ( line =~~ /!\d+/ ) {
+                    line = console.history.get( line.substring(1).toInteger() )
+                    executeCmdLine(line?.toString())
+                }
+                else if ( line == '!!' ) {
+                    line = console.history.last()
+                    executeCmdLine(line?.toString())
                 }
 
                 else if ( line ){
@@ -491,8 +490,8 @@ class ClientApp {
         try {
             Signal.handle(new Signal("INT"), {
                 log.debug("Interrupting current thread .. ")
-                if ( ResponseSink.currentSink ) {
-                    ResponseSink.currentSink.cancel()
+                if ( ReplySink.currentSink ) {
+                    ReplySink.currentSink.cancel()
                     // TODO +++ propagate cancel to the target job
                 }
 

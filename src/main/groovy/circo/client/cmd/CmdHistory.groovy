@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,35 +17,24 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.messages
-import groovy.transform.EqualsAndHashCode
-import groovy.transform.ToString
+package circo.client.cmd
+import circo.client.ClientApp
+import circo.util.CircoHelper
+import com.beust.jcommander.Parameters
 /**
  *
- *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Parameters(commandNames = 'history', commandDescription = 'Display the history of executed commands')
+class CmdHistory extends AbstractCommand {
 
-@EqualsAndHashCode
-@ToString(includes=['jobId','exitCode','success'], includePackage = false)
-class JobResult implements Serializable {
+    @Override
+    void execute(ClientApp client) throws IllegalArgumentException {
 
-    /** The Job of this job */
-    JobId jobId
+        def len = client.console.history.size().toString().length()+1
+        client.console.history.each {
+            println "${CircoHelper.fmt(it.index(),len)}  ${it.value()}"
+        }
 
-    /** The exitcode as returned by the system */
-    int exitCode = Integer.MIN_VALUE
-
-    /** The program output */
-    String output
-
-    /** The exception raised, in any */
-    Throwable failure
-
-    /** Whenever the job terminated by a user 'cancel' request */
-    boolean cancelled
-
-    /** The resulting context */
-    JobContext context
-
-
+    }
 }

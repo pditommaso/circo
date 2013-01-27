@@ -26,6 +26,15 @@ package circo
  */
 class Consts {
 
+    static final File CIRCO_HOME
+
+    static {
+        CIRCO_HOME = new File( System.getProperty("user.home"), ".${Consts.APP_NAME}" )
+        if( !CIRCO_HOME.exists() && !CIRCO_HOME.mkdir() ) {
+            throw new IllegalStateException("Cannot create path '${CIRCO_HOME}' -- Check the file sytem access permission")
+        }
+    }
+
     /**
      * The ascii art logo, displayed on start
      */
@@ -33,18 +42,20 @@ class Consts {
        ___ _
       / __(_)_ _ __ ___
      | (__| | '_/ _/ _ \\
-      \\___|_|_| \\__\\___/   ver ${APPVER}
+      \\___|_|_| \\__\\___/   ver ${APP_VER}
 
     """
     .stripIndent()
 
     static final String MAIN_PACKAGE = Consts.class.name.split('\\.')[0]
 
-    static final String APPNAME = MAIN_PACKAGE
+    static final String APP_NAME = MAIN_PACKAGE
 
-    static final String APPVER = "0.1.4"
+    static final String APP_VER = "0.2.0"
 
-    static final long APPTIMESTAMP = 1359118361914
+    static final long APP_TIMESTAMP = 1359313939094
+
+    static final int APP_BUILDNUM = 103
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 

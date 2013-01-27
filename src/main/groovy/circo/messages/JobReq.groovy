@@ -66,6 +66,15 @@ class JobReq implements Serializable {
      */
     def String user
 
+    /**
+     * The context holding the state of the job execution
+     */
+    def JobContext context
+
+    def List<String> receive
+
+    def List<String> produce
+
 
 
 

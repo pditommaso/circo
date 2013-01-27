@@ -222,7 +222,7 @@ class LoggerHelper {
 
             appender = new RollingFileAppender()
 
-            def fileName = ".${Consts.APPNAME}-daemon-${cmdLine.port}.log"
+            def fileName = ".${Consts.APP_NAME}-daemon-${cmdLine.port}.log"
             def timeBasedPolicy = new TimeBasedRollingPolicy( )
             timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
             timeBasedPolicy.setContext(loggerContext)

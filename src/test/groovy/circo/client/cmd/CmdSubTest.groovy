@@ -43,7 +43,6 @@ class CmdSubTest extends Specification {
         cmd.maxInactive == Duration.create('8 seconds')
         cmd.times == new IntRange(1,10)
         cmd.command.join(' ') == 'echo hello world'
-        cmd.expectedReplies() == 11
 
     }
 
@@ -58,7 +57,6 @@ class CmdSubTest extends Specification {
         !parser.hasFailure()
         !parser.isHelp()
         cmd.times == new IntRange(1,10)
-        cmd.count() == 5
 
     }
 
@@ -73,8 +71,7 @@ class CmdSubTest extends Specification {
         then:
         !parser.hasFailure()
         !parser.isHelp()
-        cmd.eachList == ['a','b','c']
-        cmd.count() == 3
+        cmd.eachItems == ['a','b','c']
 
     }
 

@@ -51,13 +51,14 @@ class JobId implements java.io.Serializable, Comparable<JobId> {
         new JobId( that.value )
     }
 
-    def String toString() { "JobId(${})" }
+    def String toString() { Long.toHexString(value) }
 
-    def String toHexString() {
-        Long.toHexString(value)
+    def String toFmtString() {
+        def result = Long.toHexString(value)
+        return result.charAt(0).isLetter() ? '0'+result : result
     }
 
-    def String toHexString(Closure closure) {
+    def String toFmtString(Closure closure) {
         closure.call(Long.toHexString(value))
     }
 

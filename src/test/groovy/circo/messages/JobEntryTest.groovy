@@ -157,6 +157,9 @@ class JobEntryTest extends Specification {
         def job5 = JobEntry.create(5) { JobEntry it -> it.req.maxAttempts = 5; it.attempts = 5 }
         job5.result = new JobResult( exitCode: 1, cancelled: true )
 
+        def job6 = JobEntry.create(2)
+        job6.result = new JobResult(exitCode: 0, failure: new Exception('Error'))
+
         then:
         // this is OK
         job1.status == JobStatus.COMPLETE
@@ -195,6 +198,13 @@ class JobEntryTest extends Specification {
         !job5.isFailed()
         job5.isCancelled()
         job5.retryIsRequired()
+
+        // job with exitcode == 0 BUT failure not null
+        job6.status == JobStatus.FAILED
+        !job6.isSuccess()
+        job6.isFailed()
+        !job6.isCancelled()
+        job6.retryIsRequired()
 
     }
 

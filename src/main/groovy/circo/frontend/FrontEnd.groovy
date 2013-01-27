@@ -25,6 +25,7 @@ import akka.actor.Address
 import akka.actor.UntypedActor
 import circo.JobMaster
 import circo.client.cmd.*
+import circo.data.DataRef
 import circo.data.DataStore
 import circo.data.NodeData
 import circo.data.WorkerRef
@@ -214,16 +215,18 @@ class FrontEnd extends UntypedActor {
         def listOfIds = []
         if( command.times ) {
             command.times.withStep().each  { index ->
-                listOfIds << createAndSaveJobEntry( command, index, command.times ) .id
+                listOfIds << createAndSaveJobEntry( command, index ) .id
             }
         }
         /*
          * Create a job for each entry in the 'eachList'
          */
-        else if ( command.getEachList() ) {
-            command.getEachList().each  { index ->
-                listOfIds << createAndSaveJobEntry( command, index ) .id
+        else if ( command.getEachItems() ) {
+            def index=0
+            command.context.combinations( command.eachItems ) { List<DataRef> variables ->
+                listOfIds << createAndSaveJobEntry(command, index++, variables) .id
             }
+
         }
         else {
             listOfIds << createAndSaveJobEntry( command ) .id
@@ -244,28 +247,73 @@ class FrontEnd extends UntypedActor {
 
     }
 
-    private JobEntry createAndSaveJobEntry( CmdSub command, def index = null, Range range = null ) {
+    /**
+     * @return Convert this job submit command to a valid {@code JobReq} instance
+     */
+    private JobReq createJobReq(CmdSub sub) {
+        assert sub.ticket
+        assert sub.command
+
+        def request = new JobReq()
+        request.ticket = sub.ticket
+        request.environment = new HashMap<>(sub.env)
+        request.script = sub.command.join(' ')
+        request.maxAttempts = sub.maxAttempts
+        if ( sub.maxDuration ) {
+            request.maxDuration = sub.maxDuration.toMillis()
+        }
+        if ( sub.maxInactive ) {
+            request.maxInactive = sub.maxInactive.toMillis()
+        }
+
+        request.user = sub.user
+        request.context = sub.context
+        request.receive = sub.receive
+        request.produce = sub.produce
+
+        return request
+    }
+
+    private JobEntry createAndSaveJobEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
 
         // -- create a new ID for this job
         final id = dataStore.nextJobId()
 
         // create a new request object
-        final request = command.createJobReq()
+        final request = createJobReq(command)
 
         // -- define some context environment variables
-        request.environment['JOB_ID'] = id.toHexString()
+        request.environment['JOB_ID'] = id.toFmtString()
+
+        // -- update the context
+        if ( variables ) {
+            // make sure the 'receive' is not null
+            if ( !request.receive ) request.receive = []
+            // create a copy of context obj
+            request.context = JobContext.copy(command.context)
+
+            variables.each {
+                // 1 - add the variable to the context
+                request.context.add( it )
+
+                // 2 - the variable contribute to the 'receive' declaration by default
+                if ( !request.receive.contains(it.name ) ) {
+                    request.receive << it.name
+                }
+            }
+        }
 
         // add the job index
         if ( index ) {
             request.environment['JOB_INDEX'] = index.toString()
         }
 
-        if( index != null && range != null ) {
-            // for backward compatibility with SGE use the same variable name for job arrays
-            request.environment['SGE_TASK_ID'] = index.toString()
-            request.environment['SGE_TASK_FIRST'] = range.from.toString()
-            request.environment['SGE_TASK_LAST'] = range.to.toString()
-        }
+//        if( index != null && range != null ) {
+//            // for backward compatibility with SGE use the same variable name for job arrays
+//            request.environment['SGE_TASK_ID'] = index.toString()
+//            request.environment['SGE_TASK_FIRST'] = range.from.toString()
+//            request.environment['SGE_TASK_LAST'] = range.to.toString()
+//        }
 
         final entry = new JobEntry(id, request )
         entry.sender = new WorkerRef(getSender())

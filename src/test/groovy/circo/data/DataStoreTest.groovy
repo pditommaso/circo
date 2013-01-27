@@ -194,6 +194,8 @@ class DataStoreTest extends Specification {
 
         store.findJobsById( '*3' ).toSet() == [job2,job3].toSet()
 
+        // preceding '0' are removed
+        store.findJobsById( '011' ) == [job1]
 
         cleanup:
         shutdown(store)

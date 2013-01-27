@@ -86,20 +86,20 @@ class JobIdTest extends Specification {
         def id2 = new JobId('f')
 
         then:
-        id1.toString() == 'JobId(1)'
-        id2.toString() == 'JobId(f)'
+        id1.toString() == '1'
+        id2.toString() == 'f'
 
     }
 
-    def 'test toHexString' () {
+    def 'test toFmtString' () {
 
         when:
         def id1 = new JobId(1)
         def id2 = new JobId(255)
 
         then:
-        id1.toHexString() == '1'
-        id2.toHexString() == 'ff'
+        id1.toFmtString() == '1'
+        id2.toFmtString() == '0ff'
 
     }
 

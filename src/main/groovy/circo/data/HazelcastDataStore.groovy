@@ -179,7 +179,11 @@ class HazelcastDataStore extends AbstractDataStore {
             value = jobId
         }
 
-        def criteria = likeOp ? "id.toHexString() LIKE '$value'" : "id.toHexString() = '$value'"
+        // remove '0' prefix
+        while( value.size()>1 && value.startsWith('0') ) { value = value.substring(1) }
+
+        // the query criteria
+        def criteria = likeOp ? "id.toString() LIKE '$value'" : "id.toString() = '$value'"
 
         def result = (jobsMap as IMap) .values(new SqlPredicate(criteria))
         new ArrayList<JobEntry>(result as Collection<JobEntry>)

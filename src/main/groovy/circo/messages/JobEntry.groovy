@@ -19,6 +19,7 @@
 
 package circo.messages
 import akka.actor.ActorRef
+import circo.exception.MissingInputFileException
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import circo.data.WorkerRef
@@ -114,7 +115,7 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
     }
 
     def static JobEntry create( def id, Closure closure = null ) {
-        def jobId = id instanceof JobId ? id : JobId.of(id)
+        def jobId = id instanceof JobId ? id : new JobId(String.valueOf(id))
         def result = new JobEntry( jobId, new JobReq())
         if ( closure ) closure.call(result);
         return result
@@ -158,11 +159,18 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
      * 3) the job terminated with a 'valid' exit code, as defined by {@code #isValidExitCode}
      */
     def boolean isSuccess() {
-        result != null && !result.cancelled && isValidExitCode(result.exitCode)
+        if ( !result ) return false
+        if ( result.cancelled ) return false
+        if ( result.failure ) return false
+        isValidExitCode(result.exitCode)
     }
 
     def boolean isFailed() {
-        result != null && !result.cancelled && !isValidExitCode(result.exitCode)
+        if ( result == null ) return false
+        if ( result.cancelled ) return false
+        if ( result.failure ) return true
+
+        !isValidExitCode(result.exitCode)
     }
 
     def boolean isCancelled() {
@@ -171,7 +179,17 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
 
 
     def boolean retryIsRequired() {
-        (attempts-cancelled < req.maxAttempts || req.maxAttempts <= 0) && !isSuccess()
+        // -- when terminated successfully no retry by definition
+        if ( isSuccess() ) {
+            return false
+        }
+
+        // -- when failed by missing input do not retry
+        if ( result.failure instanceof MissingInputFileException ) {
+            return false
+        }
+
+        attempts-cancelled < req.maxAttempts || req.maxAttempts <= 0
     }
 
     @Override
@@ -228,7 +246,7 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
             if( isSuccess() ) {
                 setStatus(JobStatus.COMPLETE)
             }
-            else if ( !retryIsRequired() ) {
+            else if ( !retryIsRequired() || failed ) {
                 setStatus(JobStatus.FAILED)
             }
 

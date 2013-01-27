@@ -1,0 +1,12 @@
+# define the Context
+ctx -s fasta=/Users/ptommaso/Downloads/Support/sample/sample.fa
+ctx -s DB=/Users/ptommaso/tools/blast-db/pdb/pdb
+
+## Split the FASTA file
+sub --input fasta --output seq:seq_* --print "gcsplit -f seq_ fasta '%^>%' '/^>/' '{*}'"
+
+## execute a BLAST foreach sequence
+sub --each seq 'blastp -db DB -query seq -outfmt 6 > blast_result' --output blast_result 
+
+## collect the result, sort and print it 
+sub --input blast_result 'sort blast_result | cat -'  --print

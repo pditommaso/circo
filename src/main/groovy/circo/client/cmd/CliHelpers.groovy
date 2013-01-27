@@ -32,7 +32,7 @@ import circo.client.ClientApp
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @ToString(includes = 'ticket', includePackage = false, includeNames = true)
-public abstract class AbstractCommand implements Serializable {
+public abstract class AbstractCommand<R> implements Serializable {
 
     /**
      * Define the 'help' command line option for all subclasses command
@@ -59,6 +59,12 @@ public abstract class AbstractCommand implements Serializable {
      */
     def int expectedReplies() { 1 }
 
+//    /*
+//     * Template method get invoked when the command has completed and
+//     * the remote
+//     */
+//    def void onComplete( R reply ) { }
+//
 
 }
 
@@ -161,6 +167,8 @@ class AppCommandsFactory {
         cmdParser.addCommand( new CmdStat() )
         cmdParser.addCommand( new CmdClear() )
         cmdParser.addCommand( new CmdGet() )
+        cmdParser.addCommand( new CmdContext() )
+        cmdParser.addCommand( new CmdHistory() )
 
         return cmdParser
     }

@@ -18,17 +18,24 @@
  */
 
 package circo
+
 import akka.actor.ActorRef
+import akka.actor.Address
 import akka.actor.UntypedActor
 import akka.dispatch.Futures
 import akka.pattern.Patterns
-import com.google.common.io.Files
-import groovy.util.logging.Slf4j
 import circo.data.DataStore
+import circo.data.FileRef
+import circo.exception.MissingInputFileException
+import circo.exception.MissingOutputFileException
 import circo.messages.*
 import circo.util.ProcessHelper
+import com.google.common.io.Files
+import groovy.io.FileType
+import groovy.util.logging.Slf4j
 
 import java.util.concurrent.Callable
+
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -43,8 +50,6 @@ class JobExecutor extends UntypedActor {
 
     protected int slow = 0
 
-    def JobExecutor( ) {
-    }
 
     def void preStart() {
         log.debug "++ Starting actor ${getSelf().path()}"
@@ -57,12 +62,16 @@ class JobExecutor extends UntypedActor {
         log.debug "~~ Stopping actor ${getSelf().path()}"
     }
 
+    /** The on-going linux process */
     private Process process
 
+    /** The exit-code as retuned by the linux process */
     private int exitCode
 
+    /** The stdout as retuned by the linux process */
     private StringBuilder output
 
+    /** Whenever the user has requested to cancel this job */
     private boolean cancelRequest
 
     @Override
@@ -139,6 +148,11 @@ class JobExecutor extends UntypedActor {
 
     }
 
+    /**
+     * Create a local private directory inside the job context execution directory
+     * @param job
+     * @return
+     */
     static File createCircoDir( JobEntry job ) {
 
         File result = new File(job.workDir, '.circo')
@@ -149,8 +163,13 @@ class JobExecutor extends UntypedActor {
         return result
     }
 
-    static private Random rndgen = new Random()
+    static private Random rndGen = new Random()
 
+    /**
+     * The process scratch folder
+     * @param seed
+     * @return
+     */
     static File createWorkDir( int seed ) {
 
         final baseDir = System.getProperty("java.io.tmpdir")
@@ -169,13 +188,16 @@ class JobExecutor extends UntypedActor {
             }
 
             Thread.sleep(50)
-            id = id + rndgen.nextInt(Integer.MAX_VALUE)
+            id = id + rndGen.nextInt(Integer.MAX_VALUE)
         }
-
-
     }
 
-
+    /**
+     * The main job execution method
+     *
+     * @param job The job to be executed
+     * @return The result of the execution
+     */
     JobResult process( final JobEntry job ) {
         log.debug "Cmd launching: ${job} "
 
@@ -183,6 +205,12 @@ class JobExecutor extends UntypedActor {
         def result = null
         def scriptFile = null
         def privateDir = null
+
+        def scriptToExecute = stage(job.req)
+
+        /*
+         * create the private scratch directory to run the task
+         */
         try {
             job.launchTime = System.currentTimeMillis()
             job.workDir = createWorkDir( job.id.hashCode() )
@@ -191,11 +219,12 @@ class JobExecutor extends UntypedActor {
             privateDir = createCircoDir(job)
             // save the script to a file
             scriptFile = new File(privateDir,'script')
-            Files.write( job.req.script.getBytes(), scriptFile )
+            Files.write( scriptToExecute.getBytes(), scriptFile )
         }
         finally {
             store.saveJob(job)
         }
+
 
 
         try {
@@ -246,6 +275,8 @@ class JobExecutor extends UntypedActor {
 
             result = new JobResult( jobId: job.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest)
 
+            // collect the files produced by this job
+            gather(job.req, result, job.workDir, monitor.path().address())
         }
         finally {
             // -- save the completion time
@@ -261,13 +292,117 @@ class JobExecutor extends UntypedActor {
             process = null
 
             if( !result ) {
-                new JobResult( jobId: job.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest  )
+                result = new JobResult( jobId: job.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest  )
             }
 
             return result
         }
 
     }
+
+    static private String stage( JobReq request ) {
+        if ( !request.receive ) { // nothing to do
+            return request.script
+        }
+
+        def result = new StringBuilder()
+        StringTokenizer tokenizer = new StringTokenizer(request.script, " \t\n\r\f", true)
+        def missing = []
+        while( tokenizer.hasMoreTokens())  {
+            String token = tokenizer.nextToken()
+
+            /*
+             * when a string if found in the entries specified in the 'receive' declaration
+             * that string is replaced by the value associated to it in the current context
+             */
+            if( token in request.receive ) {
+                // make sure that the keyword exists in the context
+                if ( !request.context.contains(token) ) {
+                    missing << token
+                    result  << token
+                    continue
+                }
+
+                // handle properly collection or single value
+                def value = request.getContext().getData(token)
+                if( value instanceof Collection ) {
+                    result << ( value.join(' ') )
+                }
+                else {
+                    result << value?.toString()
+                }
+            }
+            // just push back the token in the result script
+            else {
+                result << token
+            }
+        }
+
+        if ( missing ) { throw new MissingInputFileException(missing) }
+
+        /*
+         * +++ TODO +++ copy remote files in the local folder
+         */
+
+        return result.toString()
+    }
+
+    /**
+     * fetch the expected produced files on the fle system
+     *
+     * @param job
+     * @param result
+     */
+    static private JobResult gather(JobReq req, JobResult result, File workDir, Address nodeAddress ) {
+        assert req
+        assert result
+        assert workDir
+
+        /*
+         * create the result context object
+         */
+        JobContext deltaContext = new JobContext()
+
+        /*
+         * scan for the produced files
+         */
+        List<File> missing = []
+        req?.produce?.each { String it ->
+
+            String name = null
+            String filePattern
+            def p = it.indexOf(':')
+            if( p == -1 ) {
+                filePattern = it
+            }
+            else {
+                name = it.substring(0,p)
+                filePattern = it.substring(p+1)
+            }
+
+            // replace any wildcards characters
+            // TODO give a try to http://code.google.com/p/wildcard/  -or- http://commons.apache.org/io/
+            filePattern = filePattern.replace("?", ".?").replace("*", ".*?")
+
+            // scan to find the file with that name
+            int count=0
+            workDir.eachFileMatch(FileType.FILES, ~/$filePattern/ ) { File file ->
+                deltaContext.add( new FileRef(name?:file.name, file, nodeAddress) )
+                count++
+            }
+
+            // cannot find any file with that name, return an error
+            if ( count == 0 ) { missing << name }
+        }
+
+        if ( missing ) {
+            throw new MissingOutputFileException(missing as File[])
+        }
+
+        result.context = deltaContext
+        return result
+    }
+
 
 
     private class ByteDumper extends Thread {

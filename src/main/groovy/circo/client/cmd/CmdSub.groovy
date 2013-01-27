@@ -19,7 +19,7 @@
 
 package circo.client.cmd
 import circo.client.ClientApp
-import circo.messages.JobReq
+import circo.messages.JobContext
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
@@ -61,10 +61,8 @@ class CmdSub extends AbstractCommand  {
     boolean printOutput
 
 
-    @Parameter(names='--each', description = 'Submit the command for each entry in the specified collection', converter = EachConverter)
-    private eachList
-
-    def List getEachList() { return eachList }
+    @Parameter(names='--each', description = 'Submit the command for each entry in the specified collection')
+    List<String> eachItems
 
 
     /**
@@ -79,15 +77,34 @@ class CmdSub extends AbstractCommand  {
 
     def IntRangeSerializable getTimes() {  times as IntRangeSerializable }
 
+    @Parameter(names=['--input'], description = 'The files this job receives as input from the context')
+    List<String> receive
+
+    @Parameter(names=['--output'], description = 'The files this job produces as output to the context')
+    List<String> produce
+
     //--- non command option parameters
 
 
     /** The user who submitted the request */
     private String user
 
+    def String getUser() { user }
+
+    /** A copy of the current context to be used for the job submission */
+    private JobContext context
+
+    def JobContext getContext() { context }
 
 
-    private init() {
+    private init(JobContext context) {
+
+        // -- the user who is submitting the request
+        this.user = System.properties['user.name']
+        // -- the current execution context as defined in the client
+        this.context = context
+
+        // -- the environment variable (+++ to be merged with the context structure ????)
         if( this.exportAllEnvironment ) {
             def copy = new HashMap<>(env)
             env = new HashMap<>( System.getenv() )
@@ -96,12 +113,12 @@ class CmdSub extends AbstractCommand  {
             }
         }
 
-        this.user = System.properties['user.name']
     }
 
     def int expectedReplies() {
         if( this.syncOutput || this.printOutput ) {
-            return count() +1
+            // expect at least one more reply
+            return 2
         }
 
         // it should at least the command acknowledge
@@ -109,54 +126,14 @@ class CmdSub extends AbstractCommand  {
     }
 
 
-    /**
-     * @return Convert this job submit command to a valid {@code JobReq} instance
-     */
-    JobReq createJobReq() {
-        assert ticket
-        assert command
-
-        def result = new JobReq()
-        result.ticket = this.ticket
-        result.environment = new HashMap<>(env)
-        result.script = command.join(' ')
-        result.maxAttempts = maxAttempts
-        if ( maxDuration ) {
-            result.maxDuration = maxDuration.toMillis()
-        }
-        if ( maxInactive ) {
-            result.maxInactive = maxInactive.toMillis()
-        }
-
-        result.user = this.user
-
-        return result
-    }
-
-    def int count() {
-
-        if ( getTimes() ) {
-            getTimes().withStep().size()
-        }
-        else if ( getEachList() ) {
-            getEachList().size()
-        }
-        else {
-            1
-        }
-
-
-    }
-
-
     @Override
     void execute(ClientApp client) {
 
-        if( times && eachList ) {
+        if( times && eachItems ) {
             throw new IllegalArgumentException("Options '--times' and '--each' cannot be used together")
         }
 
-        init()
+        init(client.context)
 
         if( !command ) {
             println "no command to submit provided -- nothing to do"
@@ -164,8 +141,7 @@ class CmdSub extends AbstractCommand  {
         }
 
         def result = client.send(this)
-
-        result.printMessages()
+        result?.printMessages()
 
     }
 

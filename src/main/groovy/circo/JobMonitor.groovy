@@ -39,7 +39,6 @@ import java.util.concurrent.TimeUnit
 @Slf4j
 class JobMonitor extends UntypedActor {
 
-
     /**
      * The executor actor that launch the process
      */

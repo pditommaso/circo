@@ -495,7 +495,7 @@ class JobMaster extends UntypedActor  {
 
     protected void resumeJobs( Address nodeAddress ) {
         assert nodeAddress
-
+        println "XXXX"
         final deadNodeData = store.getNodeData(nodeAddress)
         if( deadNodeData == null ) {
             log.debug "No NodeData for address: ${nodeAddress} -- ignore it"

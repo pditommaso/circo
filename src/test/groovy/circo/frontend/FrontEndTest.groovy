@@ -86,7 +86,7 @@ class FrontEndTest extends ActorSpecification {
         entry.req.maxAttempts == sub.maxAttempts
         entry.req.maxDuration == sub.maxDuration.toMillis()
         entry.req.environment.each{ k, v -> sub.env.get(k) == v }
-        entry.req.environment['JOB_ID'] == ID.toHexString()
+        entry.req.environment['JOB_ID'] == ID.toFmtString()
         //entry.req.environment == sub.env
         entry.req.script == sub.command.join(' ')
 
@@ -94,6 +94,10 @@ class FrontEndTest extends ActorSpecification {
 
     }
 
+
+    /*
+     * TODO ++++ to be fixed
+     */
     def 'test cmd sub --each' () {
 
         setup:
@@ -109,7 +113,7 @@ class FrontEndTest extends ActorSpecification {
         final sub = new CmdSub()
         sub.ticket = ticket
         sub.command = ['echo', 'Hello world']
-        sub.eachList = ['alpha','beta','delta']
+        sub.eachItems = ['alpha','beta','delta']
 
         when:
         frontend.tell(sub, sender.getRef())
@@ -122,13 +126,13 @@ class FrontEndTest extends ActorSpecification {
         then:
         result.jobIds.size() == 3
         result.jobIds[0] == JobId.of(1)
-        entry0.req.environment['JOB_ID'] == entry0.id.toHexString()
+        entry0.req.environment['JOB_ID'] == entry0.id.toFmtString()
         entry0.req.environment['JOB_INDEX'] == 'alpha'
 
-        entry1.req.environment['JOB_ID'] == entry1.id.toHexString()
+        entry1.req.environment['JOB_ID'] == entry1.id.toFmtString()
         entry1.req.environment['JOB_INDEX'] == 'beta'
 
-        entry2.req.environment['JOB_ID'] == entry2.id.toHexString()
+        entry2.req.environment['JOB_ID'] == entry2.id.toFmtString()
         entry2.req.environment['JOB_INDEX'] == 'delta'
 
     }

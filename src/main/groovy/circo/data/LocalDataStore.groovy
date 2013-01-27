@@ -87,7 +87,10 @@ class LocalDataStore extends AbstractDataStore {
             value = jobId
         }
 
-        jobsMap.values().findAll { JobEntry job -> job.id.toHexString() ==~ /$value/ }
+        // remove '0' prefix
+        while( value.size()>1 && value.startsWith('0') ) { value = value.substring(1) }
+
+        jobsMap.values().findAll { JobEntry job -> job.id.toFmtString() ==~ /$value/ }
 
     }
 

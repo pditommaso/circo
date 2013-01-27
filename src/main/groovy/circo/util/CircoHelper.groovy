@@ -32,7 +32,7 @@ import java.text.DecimalFormatSymbols
 @Slf4j
 class CircoHelper {
 
-    static DATETIME_FORMAT = "HH:mm dd/MMM/yy"
+    static DATETIME_FORMAT = "dd/MMM/yyyy HH:mm"
     static SHORT_DATETIME_FORMAT = "HH:mm dd/MMM"
     static TIME_FORMAT = "HH:mm:ss"
 
@@ -164,13 +164,13 @@ class CircoHelper {
 
     static def String version(boolean full=false) {
 
-        def result = "${Consts.APPVER}"
-
-        if( full ) {
-            result += " - ${CircoHelper.fmt(new Date(Consts.APPTIMESTAMP))}"
+        if ( !full ) {
+            "${Consts.APP_VER}.${Consts.APP_BUILDNUM}"
+        }
+        else {
+            "${Consts.APP_VER} - Build on ${CircoHelper.fmt(new Date(Consts.APP_TIMESTAMP))} - build # ${Consts.APP_BUILDNUM}"
         }
 
-        return result
     }
 
 }

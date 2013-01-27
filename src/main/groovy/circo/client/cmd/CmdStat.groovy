@@ -105,7 +105,7 @@ class CmdStat extends AbstractCommand {
             }
 
             def entry = """
-            id        : ${job.id.toHexString()}
+            id        : ${job.id.toFmtString()}
             status    : ${job.status}
             sender    : ${job.sender?.toFmtString()}
             worker    : ${job.worker?.toFmtString()}
@@ -154,7 +154,7 @@ class CmdStat extends AbstractCommand {
 
         jobs?.each { JobEntry job ->
 
-            final String id = job.id.toHexString()
+            final String id = job.id.toFmtString()
             final state = job.status.toFmtString()
             final String timestamp = job.getStatusTimeFmt()
             final String worker = job.worker?.toFmtString() ?: '-'
