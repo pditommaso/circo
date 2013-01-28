@@ -109,7 +109,7 @@ task classpathCompile(dependsOn: configurations.compile) << {
  * Update the build timestamp in the source source file
  */
 task buildInfo << {
-    def numFile = new File('./buildnum')
+    def numFile = new File('./.buildnum')
     if( !numFile.exists() ) numFile.createNewFile()
     def buildNum = (numFile.text ?: '0').toInteger() +1
     numFile.text =  buildNum
