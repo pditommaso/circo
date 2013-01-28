@@ -147,7 +147,10 @@ class CmdContext extends AbstractCommand {
 
     String valuesToStr( def items ) {
 
-        if ( items instanceof Collection ) {
+        if( items instanceof Range ) {
+            items.toString()
+        }
+        else if ( items instanceof Collection ) {
             if ( items.size() == 0 ) return '-'
             if ( items.size() == 1 ) return itemToStr(items[0])
 
@@ -159,8 +162,10 @@ class CmdContext extends AbstractCommand {
                 return list.collect { itemToStr(it) }.join(fDelim)
             }
         }
+        else {
+            itemToStr(items[0])
+        }
 
-        itemToStr(items[0])
     }
 
 

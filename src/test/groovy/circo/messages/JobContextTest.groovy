@@ -207,10 +207,10 @@ class JobContextTest extends Specification {
     def 'test fromString' () {
 
         expect:
-        JobContext.fromString( '()') == []
-        JobContext.fromString( '( )') == []
-        JobContext.fromString( '(a,bb , ccc)' ) == ['a','bb','ccc']
-        JobContext.fromString( '(a,bb , , ccc)' ) == ['a','bb','ccc']   // empty values are removed
+        JobContext.fromString( '[]') == []
+        JobContext.fromString( '[ ]') == []
+        JobContext.fromString( '[a,bb , ccc]' ) == ['a','bb','ccc']
+        JobContext.fromString( '[a,bb , , ccc]' ) == ['a','bb','ccc']   // empty values are removed
 
         JobContext.fromString( '1..5') == [1,2,3,4,5]
         JobContext.fromString( 'aa..ac') == ['aa','ab','ac']
@@ -228,7 +228,7 @@ class JobContextTest extends Specification {
         when:
         // replace the current value
         ctx.put('val1', 'XXX')
-        ctx.put('val2', '(a,b)')
+        ctx.put('val2', '[a,b]')
         ctx.put('val3', '1..3')
         ctx.put('val4', 'aa..ad')
 
@@ -256,7 +256,7 @@ class JobContextTest extends Specification {
         when:
         // replace the current value
         ctx.add('val1', 'XXX')
-        ctx.add('val2', '(a,b)')
+        ctx.add('val2', '[a,b]')
         ctx.add('val3', '1..3')
         ctx.add('val4', 'aa..ad')
 

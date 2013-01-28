@@ -219,7 +219,7 @@ class JobContext implements Serializable {
 
     }
 
-    def static pattern_list = /\([^\)]+\)/
+    def static pattern_list = /\[[^\]]+\)/
 
     def static pattern_range = /[^(\.\.)]+\.\.[^(\.\.)]+/
 
@@ -227,7 +227,7 @@ class JobContext implements Serializable {
         assert value
 
         value = value.trim()
-        if( value == '()') {
+        if( value == '[]') {
             return []
         }
         else if( value =~~ pattern_list ) {

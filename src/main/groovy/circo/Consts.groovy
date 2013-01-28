@@ -53,9 +53,9 @@ class Consts {
 
     static final String APP_VER = "0.2.0"
 
-    static final long APP_TIMESTAMP = 1359389618714
+    static final long APP_TIMESTAMP = 1359390365503
 
-    static final int APP_BUILDNUM = 105
+    static final int APP_BUILDNUM = 107
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 
