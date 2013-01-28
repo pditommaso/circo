@@ -57,7 +57,7 @@ class CircoHelperTest extends Specification {
     def 'test address fromAddress' () {
 
         expect:
-        address as Address == CircoHelper.fromString(str)
+        address as Address == CircoHelper.parseAddress(str)
 
         where:
         str                             |  address

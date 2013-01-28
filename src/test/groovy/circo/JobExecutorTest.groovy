@@ -40,7 +40,7 @@ class JobExecutorTest extends Specification {
         when:
         def entry = new JobEntry(JobId.of(123), new JobReq(script: 'echo Hello world!'))
         entry.workDir = new File(System.getProperty('java.io.tmpdir'))
-        def file = JobExecutor.createCircoDir(entry)
+        def file = JobExecutor.createPrivateDir(entry)
 
         then:
         file.exists()
@@ -56,7 +56,7 @@ class JobExecutorTest extends Specification {
     def "test createWorkDir" () {
 
         when:
-        def path = JobExecutor.createWorkDir(123554)
+        def path = JobExecutor.createScratchDir(123554)
         println path
 
         then:
@@ -71,13 +71,13 @@ class JobExecutorTest extends Specification {
 
         setup:
         def req = new JobReq()
-        req.script = """
-        cp file1 file2
+        req.script = '''
+        cp $file1 file2
         run file1_txt
         run file2_txt
-        """
+        '''
         .stripIndent().trim()
-        req.receive = ['file1']
+        req.get = ['file1']
         req.produce = ['file2']
         req.context = new JobContext().put(new FileRef('/path/on/the/fs/file1'))
 

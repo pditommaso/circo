@@ -93,7 +93,7 @@ class JobContextTest extends Specification {
 
 
 
-    def 'test put after copy ' () {
+    def 'test add after copy ' () {
 
         setup:
         def context = new JobContext()
@@ -180,8 +180,8 @@ class JobContextTest extends Specification {
         context.add( new StringRef('val3', 'y') )
 
         when:
-        def delta1 = new JobContext().put('p',1).put('val3','file1')
-        def delta2 = new JobContext().put('p',1).put('q',2).put('val3','file2')
+        def delta1 = new JobContext().put('p','1').put('val3','file1')
+        def delta2 = new JobContext().put('p','1').put('q','2').put('val3','file2')
         def delta3 = new JobContext().put('val3','file3')
 
         def copy = JobContext.copy(context)
@@ -196,10 +196,75 @@ class JobContextTest extends Specification {
         // 'val3' has been replaced by the delta
         copy.getValues('val3').toSet() == ['file1','file2','file3'].toSet()
         // these are new
-        copy.getValues('p') == [1,1]
-        copy.getValues('q') == [2]
-        copy.getValues('q') != [1,1]
+        copy.getValues('p') == ['1','1']
+        copy.getValues('q') == ['2']
+        copy.getValues('q') != ['1','1']
         copy.getValues('X') == []
+
+    }
+
+
+    def 'test fromString' () {
+
+        expect:
+        JobContext.fromString( '()') == []
+        JobContext.fromString( '( )') == []
+        JobContext.fromString( '(a,bb , ccc)' ) == ['a','bb','ccc']
+        JobContext.fromString( '(a,bb , , ccc)' ) == ['a','bb','ccc']   // empty values are removed
+
+        JobContext.fromString( '1..5') == [1,2,3,4,5]
+        JobContext.fromString( 'aa..ac') == ['aa','ab','ac']
+    }
+
+
+    def 'test put string' () {
+        setup:
+        def ctx = new JobContext()
+        ctx.add( new StringRef('val1','one') )
+        ctx.add( new StringRef('val2', 'alpha') )
+        ctx.add( new StringRef('val2', 'beta') )
+        ctx.add( new StringRef('val2', 'gamma') )
+
+        when:
+        // replace the current value
+        ctx.put('val1', 'XXX')
+        ctx.put('val2', '(a,b)')
+        ctx.put('val3', '1..3')
+        ctx.put('val4', 'aa..ad')
+
+        then:
+        ctx.getData('val1') == 'XXX'
+        ctx.getData('val2') == ['a','b']
+        ctx.getData('val3') == ['1','2','3']   // <--only string values are supported right now
+        ctx.getData('val4') == ['aa','ab','ac','ad']
+
+
+
+    }
+
+
+    def 'test add String' () {
+
+        setup:
+        def ctx = new JobContext()
+        ctx.add( new StringRef('val1','one') )
+        ctx.add( new StringRef('val2', 'alpha') )
+        ctx.add( new StringRef('val2', 'beta') )
+        ctx.add( new StringRef('val2', 'gamma') )
+        ctx.add( new StringRef('val3', 'ciao') )
+
+        when:
+        // replace the current value
+        ctx.add('val1', 'XXX')
+        ctx.add('val2', '(a,b)')
+        ctx.add('val3', '1..3')
+        ctx.add('val4', 'aa..ad')
+
+        then:
+        ctx.getData('val1')  == ['one','XXX']
+        ctx.getData('val2') == ['alpha','beta','gamma','a','b']
+        ctx.getData('val3') == ['ciao','1','2','3']
+        ctx.getData('val4') == ['aa','ab','ac','ad']
 
     }
 

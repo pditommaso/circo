@@ -23,11 +23,14 @@ import circo.messages.JobContext
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
+import groovy.util.logging.Slf4j
+
 /**
  * Command to manage the job context
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Slf4j
 @Parameters(commandNames = ['ctx'], commandDescription = 'Manage the job execution context')
 class CmdContext extends AbstractCommand {
 
@@ -46,6 +49,16 @@ class CmdContext extends AbstractCommand {
     @Parameter(names=['-d','--delim'], description = 'Delimiter used when getting values of type list')
     String fDelim = ','
 
+    @Parameter(names='--empty', description='Remove all entries in the current environment')
+    Boolean fEmpty
+
+    @Parameter(names='--import', description='Import the environment from the file specified. Use the special keyword \'env\' to import the system environment')
+    String fImport
+
+    @Parameter(names=['-g','--grep'], description = 'Filter the result by the specified \'grep\' like filter')
+    String grep
+
+
     @Override
     void execute(ClientApp client) throws IllegalArgumentException {
 
@@ -55,7 +68,9 @@ class CmdContext extends AbstractCommand {
         }
 
         if( fSet ) {
-            fSet.each { k, v -> client.getContext().put(k,v)}
+            fSet.each { k, v ->
+                client.getContext().put(k,v)
+            }
             return
         }
 
@@ -69,6 +84,34 @@ class CmdContext extends AbstractCommand {
             return
         }
 
+        if ( fEmpty ) {
+            client.getContext().clear()
+            return
+        }
+
+        if ( fImport ) {
+            if( fImport == 'env' ) {
+                System.getenv().each { k, v -> client.context.put(k,v) }
+            }
+            else {
+                def file = new File(fImport)
+                if ( !file.exists() ) {
+                    println "The specified file does not exist: $file"
+                    return
+                }
+
+                def props = new Properties()
+                try {
+                    props.load(new FileInputStream(file))
+                    props.each { String k, String v -> client.context.put(k,v) }
+                }
+                catch( Exception e ) {
+                    log.error "Unable to import the file specified -- Make sure entries are in the format 'name=value'", e
+                }
+            }
+
+        }
+
         // -- when nothing else is specified, print the current context
         printContext(client.getContext())
     }
@@ -79,8 +122,19 @@ class CmdContext extends AbstractCommand {
         names.each { String it ->
             println "$it=${valuesToStr(context.getValues(it))}"
         }
-
     }
+
+    def println( def text ) {
+        if ( text && grep )  {
+            text.toString().eachLine { String it ->
+                if( it =~ /$grep/) super.println(it)
+            }
+        }
+        else {
+            super.println(text)
+        }
+    }
+
 
     String itemToStr( def item ) {
         if( item instanceof File ) {
@@ -108,6 +162,7 @@ class CmdContext extends AbstractCommand {
 
         itemToStr(items[0])
     }
+
 
 
 }

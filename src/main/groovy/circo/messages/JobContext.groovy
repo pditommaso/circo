@@ -18,14 +18,17 @@
  */
 
 package circo.messages
+
 import circo.data.DataRef
 import circo.data.EmptyRef
-import circo.data.ObjectRef
+import circo.data.StringRef
+import circo.util.CircoHelper
 import circo.util.SerializeId
 import com.google.common.collect.ArrayListMultimap
 import com.google.common.collect.Multimap
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -137,35 +140,45 @@ class JobContext implements Serializable {
     }
 
 
-    def JobContext add( String name, def values ) {
-        values.each {
-                this.add(new ObjectRef(name,it))
+    def JobContext add( String name, String value) {
+        assert name
+        assert value
+
+        def obj = fromString(value)
+        if ( !obj ) return
+
+        if ( obj instanceof Collection ) {
+            obj.each { this.add( new StringRef(name,it) ) }
         }
+        else {
+            this.add( new StringRef(name,obj) )
+        }
+
         this
     }
 
-    def JobContext put( DataRef... ref ) {
+    def JobContext put( DataRef ref ) {
         assert ref
 
-        ref.collect().unique().each {
-            holder.removeAll(it)
-        }
-
-        ref.each { DataRef it ->
-            holder.put(it.name, it)
-        }
+        holder.removeAll(ref.name)
+        holder.put(ref.name, ref)
 
         return this
     }
 
-    def JobContext put( String name, Object... values )  {
+    def JobContext put( String name, String value )  {
         assert name
-        assert values
-        assert !(values[0] instanceof DataRef)
+        assert value
+
+        def obj = fromString(value)
+        if ( !obj ) return
 
         holder.removeAll(name)
-        values.each {
-            holder.put(name, new ObjectRef(name,it))
+        if ( obj instanceof Collection ) {
+            obj.each { this.add( new StringRef(name,it) ) }
+        }
+        else {
+            put( new StringRef(name,obj) )
         }
 
         return this
@@ -176,6 +189,9 @@ class JobContext implements Serializable {
         this
     }
 
+    def JobContext clear() {
+        holder.clear()
+    }
 
     /*
      * Invoke the closure for each possible combination for the variables in the context
@@ -201,7 +217,32 @@ class JobContext implements Serializable {
             callback.call(param)
         }
 
+    }
+
+    def static pattern_list = /\([^\)]+\)/
+
+    def static pattern_range = /[^(\.\.)]+\.\.[^(\.\.)]+/
+
+    static fromString( String value ) {
+        assert value
+
+        value = value.trim()
+        if( value == '()') {
+            return []
+        }
+        else if( value =~~ pattern_list ) {
+            def result = []
+            value[1..-2].split(',')*.trim().each { if(it) result << it }
+            return result
+        }
+        else if ( value =~~ pattern_range ) {
+            return CircoHelper.parseRange(value)
+        }
+        else {
+            value
+        }
 
     }
+
 
 }

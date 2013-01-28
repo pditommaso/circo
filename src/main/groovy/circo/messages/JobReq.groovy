@@ -71,7 +71,7 @@ class JobReq implements Serializable {
      */
     def JobContext context
 
-    def List<String> receive
+    def List<String> get
 
     def List<String> produce
 

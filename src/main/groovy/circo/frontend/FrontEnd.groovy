@@ -268,7 +268,7 @@ class FrontEnd extends UntypedActor {
 
         request.user = sub.user
         request.context = sub.context
-        request.receive = sub.receive
+        request.get = sub.get
         request.produce = sub.produce
 
         return request
@@ -288,7 +288,7 @@ class FrontEnd extends UntypedActor {
         // -- update the context
         if ( variables ) {
             // make sure the 'receive' is not null
-            if ( !request.receive ) request.receive = []
+            if ( !request.get ) request.get = []
             // create a copy of context obj
             request.context = JobContext.copy(command.context)
 
@@ -297,8 +297,8 @@ class FrontEnd extends UntypedActor {
                 request.context.add( it )
 
                 // 2 - the variable contribute to the 'receive' declaration by default
-                if ( !request.receive.contains(it.name ) ) {
-                    request.receive << it.name
+                if ( !request.get.contains(it.name ) ) {
+                    request.get << it.name
                 }
             }
         }

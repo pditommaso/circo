@@ -19,6 +19,7 @@
 
 package circo.client.cmd
 
+import circo.util.CircoHelper
 import com.beust.jcommander.IStringConverter
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
@@ -253,14 +254,7 @@ class EachConverter implements IStringConverter<List> {
 
         int p = value.indexOf('..')
         if ( p != -1 ) {
-            String alpha = value.substring(0,p)
-            String omega = value.substring(p+2)
-            if( alpha.isInteger() && omega.isInteger() ) {
-                return new IntRangeSerializable(alpha.toInteger(),omega.toInteger())
-            }
-            else {
-                return new StringRangeSerializable(alpha,omega)
-            }
+            return CircoHelper.parseRange(value)
         }
         else {
             return value.split(',')?.collect { it?.trim() } as List<String>

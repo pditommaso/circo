@@ -18,13 +18,17 @@
  */
 
 package circo.util
+
 import akka.actor.Address
 import akka.actor.Address as AkkaAddress
 import circo.Consts
+import circo.client.cmd.IntRangeSerializable
+import circo.client.cmd.StringRangeSerializable
 import groovy.util.logging.Slf4j
 
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -128,7 +132,7 @@ class CircoHelper {
      * @param protocol The akka protocol to be used if it is not specified by the string value. Default {@code Consts#DEFAULT_AKKA_PROTOCOL}
      * @return
      */
-    def static Address fromString(String str, int port = Consts.DEFAULT_AKKA_PORT, String system = Consts.DEFAULT_AKKA_SYSTEM, String protocol = Consts.DEFAULT_AKKA_PROTOCOL) {
+    def static Address parseAddress(String str, int port = Consts.DEFAULT_AKKA_PORT, String system = Consts.DEFAULT_AKKA_SYSTEM, String protocol = Consts.DEFAULT_AKKA_PROTOCOL) {
         assert str
 
         int p = str.indexOf('@')
@@ -159,6 +163,38 @@ class CircoHelper {
         }
 
         new Address(protocol,system,host,port)
+    }
+
+    /**
+     * Converts a string to a range
+     *
+     * @param value
+     * @return
+     */
+    static Range parseRange( String value ) {
+        assert value
+
+        int p = value.indexOf('..')
+        String alpha = value.substring(0,p)
+        String omega = value.substring(p+2)
+
+        int step
+        p = omega.indexOf(':')
+        if ( p != -1 ) {
+            step = omega.substring(p+1).toInteger()
+            omega = omega.substring(0,p)
+        }
+        else {
+            step =1
+        }
+
+        if( alpha.isInteger() && omega.isInteger() ) {
+            return new IntRangeSerializable(alpha.toInteger(),omega.toInteger(), step)
+        }
+        else {
+            return new StringRangeSerializable(alpha,omega,step)
+        }
+
     }
 
 

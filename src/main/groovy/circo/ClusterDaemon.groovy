@@ -104,7 +104,7 @@ public class ClusterDaemon {
         if( !addresses ) return result
 
         addresses.eachLine { String line ->
-            line.split('[,\b]').each { String it -> result << (Address)CircoHelper.fromString(it) }
+            line.split('[,\b]').each { String it -> result << (Address)CircoHelper.parseAddress(it) }
         }
 
         return result

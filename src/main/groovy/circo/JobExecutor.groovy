@@ -65,10 +65,10 @@ class JobExecutor extends UntypedActor {
     /** The on-going linux process */
     private Process process
 
-    /** The exit-code as retuned by the linux process */
+    /** The exit-code as returned by the linux process */
     private int exitCode
 
-    /** The stdout as retuned by the linux process */
+    /** The stdout as returned by the linux process */
     private StringBuilder output
 
     /** Whenever the user has requested to cancel this job */
@@ -153,7 +153,7 @@ class JobExecutor extends UntypedActor {
      * @param job
      * @return
      */
-    static File createCircoDir( JobEntry job ) {
+    static File createPrivateDir( JobEntry job ) {
 
         File result = new File(job.workDir, '.circo')
         if( !result.exists() && !result.mkdir() ) {
@@ -170,7 +170,7 @@ class JobExecutor extends UntypedActor {
      * @param seed
      * @return
      */
-    static File createWorkDir( int seed ) {
+    static File createScratchDir( int seed ) {
 
         final baseDir = System.getProperty("java.io.tmpdir")
 
@@ -213,10 +213,10 @@ class JobExecutor extends UntypedActor {
          */
         try {
             job.launchTime = System.currentTimeMillis()
-            job.workDir = createWorkDir( job.id.hashCode() )
+            job.workDir = createScratchDir( job.id.hashCode() )
 
             // create the local private dir
-            privateDir = createCircoDir(job)
+            privateDir = createPrivateDir(job)
             // save the script to a file
             scriptFile = new File(privateDir,'script')
             Files.write( scriptToExecute.getBytes(), scriptFile )
@@ -300,43 +300,47 @@ class JobExecutor extends UntypedActor {
 
     }
 
+    def static BASIC_VARIABLE = /\$([^ \n\r\f\t\$]+)/
+
     static private String stage( JobReq request ) {
-        if ( !request.receive ) { // nothing to do
+        assert request
+
+        if ( !request.get || !request.script ) { // nothing to do
             return request.script
         }
 
-        def result = new StringBuilder()
-        StringTokenizer tokenizer = new StringTokenizer(request.script, " \t\n\r\f", true)
         def missing = []
-        while( tokenizer.hasMoreTokens())  {
-            String token = tokenizer.nextToken()
 
-            /*
-             * when a string if found in the entries specified in the 'receive' declaration
-             * that string is replaced by the value associated to it in the current context
-             */
-            if( token in request.receive ) {
-                // make sure that the keyword exists in the context
-                if ( !request.context.contains(token) ) {
-                    missing << token
-                    result  << token
-                    continue
-                }
 
-                // handle properly collection or single value
-                def value = request.getContext().getData(token)
-                if( value instanceof Collection ) {
-                    result << ( value.join(' ') )
-                }
-                else {
-                    result << value?.toString()
-                }
+        def result = request.script.replaceAll(BASIC_VARIABLE) {
+
+            // the matched variable e.g. $some_file
+            String original = it[0]
+            // the token e.g 'some_file'
+            String token = it[1]
+
+            // the found token is processed only when if has been
+            // declared in the 'get' declaration for the submit request
+            if ( !request.get.contains(token) ) {
+                return original
             }
-            // just push back the token in the result script
-            else {
-                result << token
+
+            // make sure that the keyword exists in the current context
+            if ( !request.context.contains(token) ) {
+                missing << token
+                return original
             }
+
+            // Replace the 'token' with the associated value in the context
+            // A token associated to a collection is joined by separating elements by a blank
+            def value = request.getContext().getData(token)
+            if( value instanceof Collection ) {
+                return value.join(' ')
+            }
+
+            return value?.toString()
         }
+
 
         if ( missing ) { throw new MissingInputFileException(missing) }
 

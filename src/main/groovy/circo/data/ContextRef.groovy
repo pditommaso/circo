@@ -98,9 +98,11 @@ class StringRef implements DataRef {
 
     String name
 
-    def StringRef( String label, String value, Address address = null ) {
+    def StringRef( String label, def value, Address address = null ) {
+        assert label
+        assert value
         this.name = label
-        this.value = value
+        this.value = value.toString()
         this.address = address
     }
 

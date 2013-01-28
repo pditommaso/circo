@@ -77,10 +77,10 @@ class CmdSub extends AbstractCommand  {
 
     def IntRangeSerializable getTimes() {  times as IntRangeSerializable }
 
-    @Parameter(names=['--input'], description = 'The files this job receives as input from the context')
-    List<String> receive
+    @Parameter(names=['--get'], description = 'The files this job receives as input from the context')
+    List<String> get
 
-    @Parameter(names=['--output'], description = 'The files this job produces as output to the context')
+    @Parameter(names=['--produce'], description = 'The files this job produces as output to the context')
     List<String> produce
 
     //--- non command option parameters

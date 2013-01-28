@@ -300,7 +300,7 @@ class ClientApp {
         }
 
 
-        Address remoteAddress = CircoHelper.fromString(host)
+        Address remoteAddress = CircoHelper.parseAddress(host)
         log.info "Connecting to cluster at ${CircoHelper.fmt(remoteAddress)}"
 
         String remoteActor = "${remoteAddress}/user/${FrontEnd.ACTOR_NAME}"
