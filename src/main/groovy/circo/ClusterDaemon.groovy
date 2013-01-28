@@ -28,6 +28,7 @@ import circo.data.HazelcastDataStore
 import circo.data.LocalDataStore
 import circo.data.WorkerRef
 import circo.frontend.FrontEnd
+import circo.frontend.TcpFacade
 import circo.ui.TerminalUI
 import circo.util.CircoHelper
 import circo.util.CmdLine
@@ -63,7 +64,6 @@ public class ClusterDaemon {
     def boolean isStopped() { stopped }
 
     private multiCast = false
-
 
 
     /**
@@ -207,6 +207,12 @@ public class ClusterDaemon {
         createFrontEnd()
         createProcessors()
 
+        // -- public tcp facade
+        if( cmdLine.publicAddress ) {
+            createTcpFacade(cmdLine.publicAddress)
+        }
+
+        // -- terminate ui
         if( cmdLine.interactive ) {
             createTerminalUI()
         }
@@ -221,6 +227,11 @@ public class ClusterDaemon {
 
     protected void createFrontEnd() {
         system.actorOf( new Props({ new FrontEnd(dataStore) } as UntypedActorFactory), FrontEnd.ACTOR_NAME )
+    }
+
+    protected void createTcpFacade(String address) {
+        assert address
+        system.actorOf( new Props({ new TcpFacade(address) } as UntypedActorFactory), TcpFacade.ACTOR_NAME )
     }
 
     protected void createTerminalUI() {

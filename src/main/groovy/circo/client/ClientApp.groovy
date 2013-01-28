@@ -19,11 +19,12 @@
 
 package circo.client
 import akka.actor.*
+import akka.camel.CamelMessage
+import akka.camel.javaapi.UntypedConsumerActor
 import circo.ClusterDaemon
 import circo.Consts
 import circo.client.cmd.*
 import circo.data.WorkerRef
-import circo.frontend.FrontEnd
 import circo.reply.AbstractReply
 import circo.reply.ResultReply
 import circo.reply.SubReply
@@ -59,18 +60,35 @@ class ClientApp {
     /**
      * Actor that receives the reply message from the cluster
      */
-    class ClientActor extends UntypedActor {
+    class ClientActor extends UntypedConsumerActor {
 
-        ClientApp app
+        final ClientApp app
+
+        final String endPoint
 
         def ClientActor( def app ) {
             this.app = app
+            this.endPoint = 'netty:tcp://192.168.1.36:9001'
+        }
+
+        @Override
+        String getEndpointUri() {
+            endPoint
         }
 
         def void onReceive( def message ) {
-
             log.debug "<- $message"
 
+            if( message instanceof CamelMessage ) {
+                handleMessageBody( message.body() )
+            }
+
+            else {
+                log.debug "<!! unhandled message: $message"
+            }
+        }
+
+        def void handleMessageBody( def message ) {
             /*
              * print the Submit response to the stdout
              */
@@ -100,13 +118,7 @@ class ClientApp {
                 sink.countDown()
                 log.debug "Counting down, remaining: ${sink.getCount()} "
 
-
             }
-
-            else {
-                log.debug "<!! unhandled message: $message"
-            }
-
         }
 
         def void handleResultReply( ResultReply reply, def sink ) {
@@ -252,7 +264,7 @@ class ClientApp {
         Address remoteAddress = CircoHelper.fromString(host)
         log.info "Connecting to cluster at ${CircoHelper.fmt(remoteAddress)}"
 
-        String remoteActor = "${remoteAddress}/user/${FrontEnd.ACTOR_NAME}"
+        String remoteActor = 'netty:tcp://192.168.1.36:9000' //"${remoteAddress}/user/${TcpFacade.ACTOR_NAME}"
         log.debug "Remote front-end actor path: $remoteActor"
 
         frontEnd = system.actorFor(remoteActor)
@@ -303,54 +315,6 @@ class ClientApp {
         return holder.response
     }
 
-
-
-//
-//    /**
-//     * Send a message to the server and wait for a synchronous reply
-//     *
-//     * @param message
-//     * @return
-//     */
-//    def <T> T askAndWait( def AbstractCommand message ) {
-//
-//        // create a unique ID for this request
-//        message.reqId = UUID.randomUUID()
-//
-//        // send the message and wait for the reply
-//        def duration = Duration.create('2 second')
-//        def future = Patterns.ask(frontEnd, message, duration.toMillis())
-//        T result = Await.result(future, duration) as T
-//
-//        return result
-//    }
-//
-//    @Deprecated
-//    def void askAndWait( def message, Closure complete ) {
-//        def duration = Duration.create('1 second')
-//        def result = AkkaHelper.ask(frontEnd, message, duration.toMillis())
-//        complete.call(result)
-//    }
-//
-//
-//    @Deprecated
-//    def void submit( def message ) {
-//        frontEnd.tell( message, client )
-//    }
-//
-//    @Deprecated
-//    def void submit( CmdSub sub ) {
-//
-//        def count = sub.sync ? 2 : 1
-//        receivedSignal = new CountDownLatch(count)
-//        frontEnd.tell( sub, client )
-//        receivedSignal.await()
-//    }
-//
-//    @Deprecated
-//    def ask( def message ) {
-//        AkkaHelper.ask(frontEnd, message, 1000)
-//    }
 
 
     def void close(int exitCode = 0) {

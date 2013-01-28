@@ -44,7 +44,7 @@ class Consts {
 
     static final String APPVER = "0.1.3"
 
-    static final long APPTIMESTAMP = 1359066495511
+    static final long APPTIMESTAMP = 1359157811385
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 

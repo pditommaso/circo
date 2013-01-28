@@ -36,7 +36,7 @@ class CmdLine {
     @Parameter(names=['-i','--interactive'], description='Run this node in interactive mode, showing stats information')
     def boolean interactive = false
 
-    @Parameter(names=['-p','--processors'], description='Number or processors to use')
+    @Parameter(names=['-p','--cores'], description='Number or processors to use')
     def int processors = Runtime.getRuntime().availableProcessors()
 
     @Parameter(names=['-h',"--help"], help = true)
@@ -56,6 +56,10 @@ class CmdLine {
 
     @Parameter(names='--host', description = 'Host name/address for this node')
     def String host = InetAddress.getLocalHost().getHostAddress()
+
+    @Parameter(names=['--public-address'] )
+    def String publicAddress
+
 
     @Parameter(names='--slow', description = 'Add an extra overhead on job execution to simulation slow node', hidden = true)
     def int slow = 0
