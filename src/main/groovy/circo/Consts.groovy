@@ -27,12 +27,19 @@ package circo
  */
 class Consts {
 
-    static final File CIRCO_HOME
+    static final File APP_HOME_DIR
+
+    static final File APP_TMP_DIR
 
     static {
-        CIRCO_HOME = new File( System.getProperty("user.home"), ".${Consts.APP_NAME}" )
-        if( !CIRCO_HOME.exists() && !CIRCO_HOME.mkdir() ) {
-            throw new IllegalStateException("Cannot create path '${CIRCO_HOME}' -- Check the file sytem access permission")
+        APP_HOME_DIR = new File( System.getProperty("user.home"), ".${Consts.APP_NAME}" )
+        if( !APP_HOME_DIR.exists() && !APP_HOME_DIR.mkdir() ) {
+            throw new IllegalStateException("Cannot create path '${APP_HOME_DIR}' -- check file system access permission")
+        }
+
+        APP_TMP_DIR = new File(APP_HOME_DIR, 'tmp')
+        if( !APP_TMP_DIR.exists() && !APP_TMP_DIR.mkdirs()) {
+            throw new IllegalStateException("Cannot create path '${APP_TMP_DIR}' -- check file system access permission")
         }
     }
 
@@ -54,9 +61,9 @@ class Consts {
 
     static final String APP_VER = "0.2.0"
 
-    static final long APP_TIMESTAMP = 1359473256763
+    static final long APP_TIMESTAMP = 1359487363355
 
-    static final int APP_BUILDNUM = 115
+    static final int APP_BUILDNUM = 124
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 

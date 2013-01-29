@@ -232,7 +232,7 @@ class ClientApp {
     // -- common initialization
     {
         console = new ConsoleReader()
-        def historyFile = new File(Consts.CIRCO_HOME, "history")
+        def historyFile = new File(Consts.APP_HOME_DIR, "history")
         console.history = new FileHistory(historyFile)
         console.historyEnabled = true
 

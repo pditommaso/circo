@@ -172,7 +172,7 @@ class JobExecutor extends UntypedActor {
      */
     static File createScratchDir( int seed ) {
 
-        final baseDir = System.getProperty("java.io.tmpdir")
+        final baseDir = Consts.APP_TMP_DIR
 
         long timestamp = System.currentTimeMillis()
         int id = seed

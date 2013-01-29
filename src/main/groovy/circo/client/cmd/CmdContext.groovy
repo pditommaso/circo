@@ -18,7 +18,6 @@
  */
 
 package circo.client.cmd
-
 import circo.client.ClientApp
 import circo.data.StringRef
 import circo.messages.JobContext
@@ -29,7 +28,6 @@ import groovy.util.logging.Slf4j
 
 import static circo.Consts.LIST_CLOSE_BRACKET
 import static circo.Consts.LIST_OPEN_BRACKET
-
 /**
  * Command to manage the job context
  *
@@ -74,7 +72,7 @@ class CmdContext extends AbstractCommand {
             }
         }
         else if ( text ){
-            print text
+            println text.trim()
         }
 
 
@@ -204,7 +202,7 @@ class CmdContext extends AbstractCommand {
             if ( items.size() == 1 ) return str(items[0])
 
             // verify if the list is made up all of synonyms
-            def list = items.unique(false)
+            def list = items.collect{ str(it) }.unique(false)
             if( list.size() == 1 ) {
                 return "${str(list[0])} (${items.size()})"
             }

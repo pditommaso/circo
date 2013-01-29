@@ -212,10 +212,10 @@ class FrontEnd extends UntypedActor {
         /*
          * create a new job request for each times required
          */
-        def listOfIds = []
+        def listOfJobs = []
         if( command.times ) {
             command.times.withStep().each  { index ->
-                listOfIds << createAndSaveJobEntry( command, index ) .id
+                listOfJobs << createJobEntry( command, index )
             }
         }
         /*
@@ -224,12 +224,12 @@ class FrontEnd extends UntypedActor {
         else if ( command.eachItems ) {
             def index=0
             command.context.combinations( command.eachItems ) { List<DataRef> variables ->
-                listOfIds << createAndSaveJobEntry(command, index++, variables) .id
+                listOfJobs << createJobEntry(command, index++, variables)
             }
 
         }
         else {
-            listOfIds << createAndSaveJobEntry( command ) .id
+            listOfJobs << createJobEntry( command )
         }
 
 
@@ -240,17 +240,25 @@ class FrontEnd extends UntypedActor {
             log.debug "-> ${command} TO sender: ${getSender()}"
 
             def result = new SubReply(command.ticket)
-            result.jobIds = listOfIds
+            result.jobIds = listOfJobs .collect { it.id }
             getSender().tell( result, getSelf() )
         }
 
+        /*
+         * When the jobs are save, the data-store will trigger one event for each of them
+         * that will raise the computation
+         * Note: the save MUST be after the client notification, otherwise may happen
+         * that some jobs terminate (and the termination notification is sent) before the SubReply
+         * is sent to teh client, which will cause a 'dead-lock'
+         */
+        listOfJobs.each { dataStore.saveJob(it) }
 
     }
 
     /**
      * @return Convert this job submit command to a valid {@code JobReq} instance
      */
-    private JobReq createJobReq(CmdSub sub) {
+    private JobReq createReq(CmdSub sub) {
         assert sub.ticket
         assert sub.command
 
@@ -273,13 +281,13 @@ class FrontEnd extends UntypedActor {
         return request
     }
 
-    private JobEntry createAndSaveJobEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
+    private JobEntry createJobEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
 
         // -- create a new ID for this job
         final id = dataStore.nextJobId()
 
         // create a new request object
-        final request = createJobReq(command)
+        final request = createReq(command)
 
         // -- define some context environment variables
         request.environment['JOB_ID'] = id.toFmtString()
@@ -308,7 +316,6 @@ class FrontEnd extends UntypedActor {
         final entry = new JobEntry(id, request )
         entry.sender = new WorkerRef(getSender())
         entry.status = JobStatus.NEW
-        dataStore.saveJob( entry )
 
         return entry
     }

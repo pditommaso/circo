@@ -53,6 +53,7 @@ class CmdContextTest extends Specification {
            cmd.valuesToStr(['Hello']) == 'Hello'                        // single value is printed without brackets
            cmd.valuesToStr(999) == '999'
            cmd.valuesToStr([new File('/path/name_1'), new File('/path/name_2')]) == '[name_1,name_2]'  // parent path are removed from files
+           cmd.valuesToStr([new File('/path/name_1'), new File('/path/name_1')]) == 'name_1 (2)'  // parent path are removed from files
 
     }
 

@@ -18,6 +18,7 @@
  */
 
 package circo
+
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.Terminated
@@ -32,15 +33,10 @@ import akka.cluster.ClusterEvent.MemberJoined
 import akka.cluster.ClusterEvent.MemberLeft
 import akka.cluster.ClusterEvent.MemberRemoved
 import akka.cluster.ClusterEvent.MemberUp
-import akka.cluster.ClusterEvent.MemberEvent
-
-import groovy.util.logging.Slf4j
-import circo.data.DataStore
-import circo.data.NodeData
-import circo.data.NodeStatus
-import circo.data.WorkerData
-import circo.data.WorkerRef
+import circo.data.*
 import circo.messages.*
+import groovy.util.logging.Slf4j
+
 /**
  *  Based on
  *  http://letitcrash.com/post/29044669086/balancing-workload-across-nodes-with-akka-2
@@ -67,6 +63,7 @@ class JobMaster extends UntypedActor  {
 
     Map<Address,ActorRef> members = new HashMap<>()
 
+    int workerCount = 0
 
 
     /*
@@ -117,6 +114,7 @@ class JobMaster extends UntypedActor  {
 
         // --- add the event listener
         store.addNewJobListener( onNewJobAddedListener )
+
     }
 
     @Override
@@ -161,7 +159,7 @@ class JobMaster extends UntypedActor  {
     def void onReceive( def message ) {
         log.debug "<- $message"
 
-        if( message instanceof MemberEvent ) {
+        if( message instanceof ClusterEvent.ClusterDomainEvent ) {
             handleMemberEvent(message)
         }
 
@@ -219,6 +217,12 @@ class JobMaster extends UntypedActor  {
             context.watch(worker.actor)
 
             node.putWorkerData( WorkerData.of(worker) )
+
+            // trigger a WorkerRequestsWork event to force a job poll
+            // Note: only for the very first worker in the node
+            if ( workerCount++ == 0 ) {
+                getSelf().tell( new WorkerRequestsWork(worker), getSelf() )
+            }
         }
 
         /*
@@ -234,7 +238,7 @@ class JobMaster extends UntypedActor  {
                 return
             }
 
-            // dequeue a new jobId to be processed
+            // de-queue a new jobId to be processed
             // assign to the worker a new job to be processed
             final jobId = node.queue.poll()
             if ( !jobId ){
@@ -495,7 +499,7 @@ class JobMaster extends UntypedActor  {
 
     protected void resumeJobs( Address nodeAddress ) {
         assert nodeAddress
-        println "XXXX"
+
         final deadNodeData = store.getNodeData(nodeAddress)
         if( deadNodeData == null ) {
             log.debug "No NodeData for address: ${nodeAddress} -- ignore it"
