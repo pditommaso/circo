@@ -124,7 +124,7 @@ public class ClusterDaemon {
          */
         System.setProperty("akka.remote.netty.port", String.valueOf(cmdLine.port));
         System.setProperty("akka.remote.netty.hostname", daemonAddress )
-        System.setProperty('akka.cluster.auto-join','off')
+        //System.setProperty('akka.cluster.auto-join','off')
 
         /*
          * set the Sigar library path

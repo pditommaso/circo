@@ -185,7 +185,7 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
         }
 
         // -- when failed by missing input do not retry
-        if ( result.failure instanceof MissingInputFileException ) {
+        if ( result?.failure instanceof MissingInputFileException ) {
             return false
         }
 

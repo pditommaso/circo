@@ -1,6 +1,7 @@
 #!/bin/bash
 export AWS_ACCESS_KEY=...
 export AWS_SECRET_KEY=...
+export CIRCO_NAME=circo-0.2.1
 export CIRCO_CLUSTER=circotest
 export CIRCO_USER=ec2-user
 curl -s http://cbcrg-eu.s3.amazonaws.com/circo-cloud-bootstrap.sh | bash &> ~ec2-user/boot.log

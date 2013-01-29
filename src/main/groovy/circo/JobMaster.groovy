@@ -18,7 +18,6 @@
  */
 
 package circo
-
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.Terminated
@@ -28,15 +27,16 @@ import akka.cluster.ClusterEvent
 import akka.cluster.ClusterEvent.CurrentClusterState
 import akka.cluster.ClusterEvent.LeaderChanged
 import akka.cluster.ClusterEvent.MemberDowned
+import akka.cluster.ClusterEvent.MemberEvent
 import akka.cluster.ClusterEvent.MemberExited
 import akka.cluster.ClusterEvent.MemberJoined
 import akka.cluster.ClusterEvent.MemberLeft
 import akka.cluster.ClusterEvent.MemberRemoved
 import akka.cluster.ClusterEvent.MemberUp
+import akka.cluster.Member
 import circo.data.*
 import circo.messages.*
 import groovy.util.logging.Slf4j
-
 /**
  *  Based on
  *  http://letitcrash.com/post/29044669086/balancing-workload-across-nodes-with-akka-2
@@ -61,9 +61,41 @@ class JobMaster extends UntypedActor  {
 
     Random random = new Random()
 
-    Map<Address,ActorRef> members = new HashMap<>()
+    Map<Address,ActorRef> allMasters = new HashMap<>()
 
     int workerCount = 0
+
+
+    private Map<Class,Closure> dispatchTable = new HashMap()
+
+    private Map<Class,Closure> membersTable = new HashMap()
+
+    def createDispatchTable() {
+
+        membersTable[CurrentClusterState] = this.&handleCurrentClusterState
+        membersTable[LeaderChanged] = this.&handleLeaderChanged
+
+        membersTable[MemberJoined] = this.&handleMemberCreated
+        membersTable[MemberUp] = this.&handleMemberCreated
+
+        membersTable[MemberExited] = this.&handleMemberTerminated
+        membersTable[MemberDowned] = this.&handleMemberTerminated
+        membersTable[MemberRemoved] = this.&handleMemberTerminated
+        membersTable[MemberLeft] = this.&handleMemberTerminated
+
+
+        dispatchTable[WorkToSpool] = this.&handleWorkToSpool
+        dispatchTable[WorkerCreated] = this.&handleWorkerCreated
+        dispatchTable[WorkerRequestsWork] = this.&handleWorkerRequestWork
+        dispatchTable[WorkIsDone] = this.&handleWorkIsDone
+        dispatchTable[WorkerFailure] = this.&handleWorkerFailure
+        dispatchTable[PauseWorker] = this.&handlePauseWorker
+        dispatchTable[ResumeWorker] = this.&handleResumeWorker
+
+        dispatchTable[Terminated] = this.&handleTerminated
+    }
+
+
 
 
     /*
@@ -82,9 +114,11 @@ class JobMaster extends UntypedActor  {
         getSelf().tell(message)
     }
 
+
     def JobMaster( DataStore store ) {
         assert store
         this.store = store
+        createDispatchTable()
     }
 
 
@@ -106,11 +140,12 @@ class JobMaster extends UntypedActor  {
         }
 
         // -- listen for member events
-        cluster.subscribe(getSelf(), ClusterEvent.MemberEvent);
         cluster.subscribe(getSelf(), ClusterEvent.LeaderChanged)
+        cluster.subscribe(getSelf(), ClusterEvent.ClusterDomainEvent)
+        cluster.subscribe(getSelf(), MemberEvent)
 
         // -- add itself to members map
-        members.put(selfAddress, getSelf())
+        allMasters.put(selfAddress, getSelf())
 
         // --- add the event listener
         store.addNewJobListener( onNewJobAddedListener )
@@ -157,286 +192,271 @@ class JobMaster extends UntypedActor  {
 
     @Override
     def void onReceive( def message ) {
-        log.debug "<- $message"
 
-        if( message instanceof ClusterEvent.ClusterDomainEvent ) {
-            handleMemberEvent(message)
+        def type = message?.class
+        if( membersTable.containsKey(type) ) {
+            log.debug "<< ${type.simpleName} >>"
+            membersTable[type].call( message )
         }
 
-        else {
-            handleMessage(message)
+        else if ( dispatchTable.containsKey(type) ) {
+            log.debug "<- $message"
+            dispatchTable[type].call(message)
             store.putNodeData(node)
         }
 
-    }
-
-
-    def void handleMessage( def message ) {
-
-        /*
-         * -- A client has post a new command to be processed
-         *    It is appended to the list of jobs
-         */
-        if( message instanceof WorkToSpool ) {
-            final jobId = message.JobId
-
-            // -- verify than an entry exists in the db
-            final entry = store.getJob(jobId)
-            if( !entry ) {
-                // TODO improve this error condition handling
-                log.warn "Cannot find any entry for id ${jobId} -- message discarded"
-                return
-            }
-
-            // -- forward to somebody else
-            if( entry.worker?.address() == selfAddress && members.size()>1 ) {
-                def target = someoneElse()
-                log.debug "=> fwd: ${message} TO someoneElse: ${someoneElse()}"
-                target.forward(message,getContext())
-            }
-            // -- add the jobId to the queue - and - notify workers
-            else {
-                log.debug("Adding ${jobId} to queue")
-                node.queue.add(jobId)
-                // update the job status
-                entry.status = JobStatus.PENDING
-                store.saveJob(entry)
-                // notify workers
-                notifyWorkers()
-            }
-
-        }
-
-
-        /*
-         * Worker is alive. Add him to the list, watch him for
-         * death, and let him know if there's work to be done
-         */
-        else if( message instanceof WorkerCreated ) {
-            def worker = message.worker
-            context.watch(worker.actor)
-
-            node.putWorkerData( WorkerData.of(worker) )
-
-            // trigger a WorkerRequestsWork event to force a job poll
-            // Note: only for the very first worker in the node
-            if ( workerCount++ == 0 ) {
-                getSelf().tell( new WorkerRequestsWork(worker), getSelf() )
-            }
-        }
-
-        /*
-         * A worker wants more work.  If we know about him, he's not
-         * currently doing anything, and we've got something to do,
-         * give it to him.
-         */
-        else if( message instanceof WorkerRequestsWork ) {
-            final worker = message.worker
-
-            if( node.status == NodeStatus.PAUSED ) {
-                log.debug "Node paused -- Worker request for work ignored"
-                return
-            }
-
-            // de-queue a new jobId to be processed
-            // assign to the worker a new job to be processed
-            final jobId = node.queue.poll()
-            if ( !jobId ){
-
-                // Worker is local?
-                // YES -> ask work to other node
-                // NO -> no work to done
-                if( worker.isLocal(selfAddress) ) {
-                    someoneWithWork() ?. forward(message, getContext())
-                }
-                //log.debug "-> NoWorkToBeDone()"
-                //worker.tell( NoWorkToBeDone.getInstance() )
-                return
-            }
-
-            // Worker is local ?
-            // YES -> update the worker map and and notify the worker
-            // NO -> send the work to the other node
-            if( !worker.isLocal(selfAddress) ) {
-                ActorRef actor = members.get( worker.address() ) ?: someoneElse()
-                actor.tell( WorkToSpool.of(jobId) )
-                return
-            }
-
-
-            // TODO ++++ improve the error condition handling
-            try {
-                if( !node.hasWorkerData(worker) ) {
-                    throw new IllegalStateException("Unknown worker: ${worker} for node ${selfAddress}")
-                }
-
-                if( !node.assignJobId(worker, jobId) ) {
-                    throw new IllegalStateException("Oops! Worker ${worker} request a new job but is still processing a job")
-                }
-
-                // so far everything is ok -- notify the worker
-                def request = new WorkToBeDone(jobId)
-                log.debug "-> ${request}"
-                worker.tell( request )
-            }
-            catch( Exception failure ) {
-
-                if( failure instanceof IllegalStateException ) {
-                    log.warn( failure.getMessage() ?: failure.toString() )
-                }
-                else {
-                    log.error("Unable to process message: $message", failure)
-                }
-
-                // re-queue the jobId that was unable to manage
-                someoneElse().tell( WorkToSpool.of(jobId) )
-            }
-        }
-
-        /*
-         * Worker has completed its work and we can clear it out
-         */
-        else if( message instanceof WorkIsDone ) {
-
-            final worker = message.worker
-
-            if( !node.removeJobId(worker) ) {
-                log.error("Blurgh! ${message.worker} said it's done work but we didn't know about him")
-            }
-
-
-        }
-
-        /*
-         * A worker died. If he was doing anything then we need
-         * to give it to someone else so we just add it back to the
-         * master and let things progress as usual
-         */
-        else if( message instanceof Terminated ) {
-
-            def worker = new WorkerRef(message.actor)
-
-            def jobId =  node.getWorkerData(worker) ?. currentJobId
-            if( jobId ) {
-                log.error("Blurgh! ${worker} died while processing: ${jobId}")
-                // Send the work that it was doing back to ourselves for processing
-                someoneElse().tell(WorkToSpool.of(jobId))
-            }
-            log.debug "Removing worker: ${worker} from availables workers"
-            node.removeWorkerData(worker)
-
-        }
-
-        /*
-         * A worker send a 'WorkerFailure' message to notify an error condition
-         */
-        else if ( message instanceof WorkerFailure ) {
-            final worker = message.worker
-            node.failureInc(worker)
-        }
-
-
-        /*
-         * pause the node and stop all workers
-         */
-        else if ( message instanceof PauseWorker ) {
-            log.debug "Pausing node: $selfAddress"
-
-            // set the node in 'PAUSED' status
-            node.status = NodeStatus.PAUSED
-
-            // -- stop as well all running jobs
-            if ( message.hard ) {
-                node.workers.keySet().each { WorkerRef ref ->  ref.tell(message) }
-            }
-        }
-
-        else if( message instanceof  ResumeWorker ) {
-            log.debug "Resuming node: $selfAddress"
-            node.status = NodeStatus.AVAIL
-            notifyWorkers()
-        }
-
-
-        // -- anything else send to dead letters
         else {
-            log.debug "Unhandled message: $message"
             unhandled(message)
         }
 
     }
 
-
     /*
-     * keep track of the cluster members status
+     * A worker died. If he was doing anything then we need
+     * to give it to someone else so we just add it back to the
+     * master and let things progress as usual
      */
-    protected void handleMemberEvent( def message ) {
+    protected void handleTerminated(Terminated message) {
 
-        // -- leader handling messages
+        def worker = new WorkerRef(message.actor)
 
-        if (message instanceof CurrentClusterState) {
-            def state = (CurrentClusterState) message;
-            leaderAddress = state.getLeader()
-            log.debug "leaderAddres: ${leaderAddress} "
+        def jobId =  node.getWorkerData(worker) ?. currentJobId
+        if( jobId ) {
+            log.error("Blurgh! ${worker} died while processing: ${jobId}")
+            // Send the work that it was doing back to ourselves for processing
+            someoneElse().tell(WorkToSpool.of(jobId))
         }
-
-        else if (message instanceof LeaderChanged) {
-            def leaderChanged = (LeaderChanged) message;
-            leaderAddress = leaderChanged.getLeader()
-            log.debug "leaderAddres: ${leaderAddress} "
-        }
-
-
-        // member - IN - message
-
-        else if ( message instanceof MemberJoined ) {
-            putAddress( message.member().address() )
-        }
-
-        else if( message instanceof MemberUp  ) {
-            putAddress( message.member().address() )
-        }
-
-
-        // member 'out' messages
-
-        else if ( message instanceof MemberExited ) {
-            removeAddress( message.member().address() )
-            resumeJobs( message.member().address() )
-        }
-
-        else if(message instanceof MemberDowned  ) {
-            removeAddress( message.member().address() )
-            resumeJobs( message.member().address() )
-        }
-
-        else if ( message instanceof MemberRemoved ) {
-            removeAddress( message.member().address() )
-            resumeJobs( message.member().address() )
-        }
-
-        else if( message instanceof MemberLeft ) {
-            removeAddress( message.member().address() )
-            resumeJobs( message.member().address() )
-        }
-
-        else {
-            log.debug "Unused cluster member message: $message"
-        }
+        log.debug "Removing worker: ${worker} from availables workers"
+        node.removeWorkerData(worker)
 
 
     }
 
-    protected boolean putAddress( Address address ) {
+    /*
+     * -- A client has post a new command to be processed
+     *    It is appended to the list of jobs
+     */
+
+    protected void handleWorkToSpool(WorkToSpool message) {
+        final jobId = message.JobId
+
+        // -- verify than an entry exists in the db
+        final entry = store.getJob(jobId)
+        if( !entry ) {
+            // TODO improve this error condition handling
+            log.warn "Cannot find any entry for id ${jobId} -- message discarded"
+            return
+        }
+
+        // -- forward to somebody else
+        if( entry.worker?.address() == selfAddress && allMasters.size()>1 ) {
+            def target = someoneElse()
+            log.debug "=> fwd: ${message} TO someoneElse: ${someoneElse()}"
+            target.forward(message,getContext())
+        }
+        // -- add the jobId to the queue - and - notify workers
+        else {
+            log.debug("Adding ${jobId} to queue")
+            node.queue.add(jobId)
+            // update the job status
+            entry.status = JobStatus.PENDING
+            store.saveJob(entry)
+            // notify workers
+            notifyWorkers()
+        }
+    }
+
+
+    /*
+     * Worker is alive. Add him to the list, watch him for
+     * death, and let him know if there's work to be done
+     */
+
+    def void handleWorkerCreated(WorkerCreated message) {
+
+        def worker = message.worker
+        context.watch(worker.actor)
+
+        node.putWorkerData( WorkerData.of(worker) )
+
+        // trigger a WorkerRequestsWork event to force a job poll
+        // Note: only for the very first worker in the node
+        if ( workerCount++ == 0 ) {
+            getSelf().tell( new WorkerRequestsWork(worker), getSelf() )
+        }
+
+    }
+
+
+
+    /*
+     * A worker wants more work.  If we know about him, he's not
+     * currently doing anything, and we've got something to do,
+     * give it to him.
+     */
+    def void handleWorkerRequestWork(WorkerRequestsWork message) {
+
+        final worker = message.worker
+
+        if( node.status == NodeStatus.PAUSED ) {
+            log.debug "Node paused -- Worker request for work ignored"
+            return
+        }
+
+        // de-queue a new jobId to be processed
+        // assign to the worker a new job to be processed
+        final isLocalWorker = worker.isLocal(selfAddress)
+        final jobId = node.queue.poll()
+        if ( !jobId ){
+            log.debug "No work available"
+
+            // Worker is local?
+            // YES -> ask work to other node
+            // NO -> no work to done
+
+            log.debug "'$worker' isLocalWorker?: ${isLocalWorker}"
+            if( isLocalWorker ) {
+                def other = someoneWithWork()
+                log.debug "=> Fwd Work Request to: '$other'"
+                other ?. forward(message, getContext())
+            }
+            //log.debug "-> NoWorkToBeDone()"
+            //worker.tell( NoWorkToBeDone.getInstance() )
+            return
+        }
+
+        // Worker is local ?
+        // YES -> update the worker map and and notify the worker
+        // NO -> send the work to the other node
+        if( !isLocalWorker ) {
+            ActorRef otherMaster = allMasters.get( worker.address() )
+            log.debug "Send work to remote node (1): '$otherMaster'"
+            if( !otherMaster ) {
+                otherMaster = someoneElse()
+                log.debug "Send work to remote mnode (2): '$otherMaster'"
+            }
+            otherMaster.tell( WorkToSpool.of(jobId) )
+            return
+        }
+
+
+        // TODO ++++ improve the error condition handling
+        try {
+            if( !node.hasWorkerData(worker) ) {
+                throw new IllegalStateException("Unknown worker: ${worker} for node ${selfAddress}")
+            }
+
+            if( !node.assignJobId(worker, jobId) ) {
+                throw new IllegalStateException("Oops! Worker ${worker} request a new job but is still processing a job")
+            }
+
+            // so far everything is ok -- notify the worker
+            def request = new WorkToBeDone(jobId)
+            log.debug "-> ${request}"
+            worker.tell( request )
+        }
+        catch( Exception failure ) {
+
+            if( failure instanceof IllegalStateException ) {
+                log.warn( failure.getMessage() ?: failure.toString() )
+            }
+            else {
+                log.error("Unable to process message: $message", failure)
+            }
+
+            // re-queue the jobId that was unable to manage
+            someoneElse().tell( WorkToSpool.of(jobId) )
+        }
+
+    }
+
+
+    def void handleWorkIsDone(WorkIsDone message) {
+        final worker = message.worker
+        if( !node.removeJobId(worker) ) {
+            log.error("Blurgh! ${message.worker} said it's done work but we didn't know about him")
+        }
+    }
+
+
+
+    /*
+     * A worker send a 'WorkerFailure' message to notify an error condition
+     */
+    protected void handleWorkerFailure(WorkerFailure message) {
+
+        final worker = message.worker
+        node.failureInc(worker)
+
+    }
+
+
+    /*
+     * pause the node and stop all workers
+     */
+
+    protected void handlePauseWorker(PauseWorker message) {
+
+        log.debug "Pausing node: $selfAddress"
+
+        // set the node in 'PAUSED' status
+        node.status = NodeStatus.PAUSED
+
+        // -- stop as well all running jobs
+        if ( message.hard ) {
+            node.workers.keySet().each { WorkerRef ref ->  ref.tell(message) }
+        }
+
+    }
+
+    protected void handleResumeWorker(ResumeWorker message) {
+        log.debug "Resuming node: $selfAddress"
+        node.status = NodeStatus.AVAIL
+        notifyWorkers()
+    }
+
+
+    protected void handleCurrentClusterState(CurrentClusterState message) {
+        // iterate over all members and add the missing ones
+        def currentMembers = message.members.collect { Member it -> it.address() }
+        currentMembers.each { it ->
+            if( !allMasters.containsKey(it) ) {
+                addMasterAddress(it)
+            }
+        }
+
+        // remove all addresses registered as master BUT not included in the current state
+        allMasters.keySet().each { Address it ->
+            if( !currentMembers.contains(it) && it != selfAddress ) {
+                removeMasterAddress(it)
+            }
+        }
+    }
+
+    protected void handleLeaderChanged(LeaderChanged message) {
+        leaderAddress = message.getLeader()
+        log.debug "leaderAddres: ${leaderAddress} "
+    }
+
+    protected void handleMemberCreated(def message) {
+        addMasterAddress( message.member().address() )
+    }
+
+    protected void handleMemberTerminated(def message) {
+        removeMasterAddress( message.member().address() )
+        resumeJobs( message.member().address() )
+    }
+
+    protected boolean addMasterAddress( Address address ) {
         log.debug "Putting address: ${address} in the members map"
         def actor = getContext().system().actorFor("${address}/user/${JobMaster.ACTOR_NAME}")
-        members.put( address, actor)
+        allMasters.put( address, actor)
         return true
     }
 
-    protected boolean removeAddress( Address address ) {
+    protected boolean removeMasterAddress( Address address ) {
         log.debug "Removing address ${address} from members map"
-        members.remove(address)
+        allMasters.remove(address)
         return true
     }
 
@@ -445,14 +465,14 @@ class JobMaster extends UntypedActor  {
      * @return
      */
     protected ActorRef getAny() {
-        assert members, 'Members map must contain at itself as member'
+        assert allMasters, 'Members map must contain at itself as member'
 
         // make a copy - and - remove the current address
-        List<Address> addresses = new ArrayList(members.keySet())
+        List<Address> addresses = new ArrayList(allMasters.keySet())
 
         // find out a random actor in this list
         def randomAddress = addresses.get(random.nextInt(addresses.size()))
-        members.get( randomAddress )
+        allMasters.get( randomAddress )
 
     }
 
@@ -461,19 +481,19 @@ class JobMaster extends UntypedActor  {
      * @return
      */
     protected ActorRef someoneElse( ) {
-        assert members, 'Members map must contain at itself as member'
+        assert allMasters, 'Members map must contain at itself as member'
 
         // make a copy - and - remove the current address
-        List<Address> addresses = new ArrayList(members.keySet())
+        List<Address> addresses = new ArrayList(allMasters.keySet())
         // in order to give priority to other nods
         // if there are at least two nodes, remove the its own address
-        if( members.size()>1 ) {
+        if( allMasters.size()>1 ) {
             addresses.remove(selfAddress)
         }
 
         // find out a random actor in this list
         def randomAddress = addresses.get(random.nextInt(addresses.size()))
-        return members.get( randomAddress )
+        return allMasters.get( randomAddress )
     }
 
     /**
@@ -481,19 +501,19 @@ class JobMaster extends UntypedActor  {
      * @return
      */
     protected ActorRef someoneWithWork() {
-        assert members, 'Members map must contain at itself as member'
+        assert allMasters, 'Members map must contain at itself as member'
 
         ActorRef actor
         NodeData node = null
         long max = 0
-        store.findAllNodesData().each {
-            if( it.queue.size()>max && it.address != selfAddress ) {
+        store.findAllNodesData().each { NodeData it ->
+            if( it.queue.size()>max && it.address != selfAddress && it.status == NodeStatus.AVAIL ) {
                 max = it.queue.size()
                 node = it
             }
         }
 
-        return node ? members[node.address] : null
+        return node ? allMasters[node.address] : null
     }
 
 

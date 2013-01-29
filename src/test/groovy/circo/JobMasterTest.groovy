@@ -45,7 +45,7 @@ class JobMasterTest extends ActorSpecification {
 
         def void preStart() {
             log.debug "Members add [ $selfAddress : ${this.getSelf()} ]"
-            members.put( selfAddress, getSelf() )
+            allMasters.put( selfAddress, getSelf() )
         }
 
         def void postStop() { }
@@ -139,7 +139,7 @@ class JobMasterTest extends ActorSpecification {
         // only the free workers will be notified
         master1.actor.node.putWorkerData(WorkerData.of(workerRef1))
         master1.actor.node.putWorkerData(WorkerData.of(workerRef2))
-        master1.actor.members.put( addr('2.2.2.2'), master2.actor.getSelf() )
+        master1.actor.allMasters.put( addr('2.2.2.2'), master2.actor.getSelf() )
 
 
         when:
@@ -257,7 +257,7 @@ class JobMasterTest extends ActorSpecification {
         final master = newTestActor(system, JobMasterMock)
         final workerProbe = newProbe(system)
         final workerRef = new WorkerRef(workerProbe.getRef())
-        master.actor.members.put( addr('2.2.2.2'), masterWithWork.probe.getRef() )
+        master.actor.allMasters.put( addr('2.2.2.2'), masterWithWork.probe.getRef() )
 
         when:
         master.tell( new WorkerRequestsWork(workerRef), workerProbe.getRef() )
@@ -283,8 +283,8 @@ class JobMasterTest extends ActorSpecification {
         final master1 = newTestActor(system, JobMasterMock) { new JobMasterMock('1.1.1.1') }
         final master2 = newTestActor(system, JobMasterMock) { new JobMasterMock('2.2.2.2') }
 
-        master1.actor.members.put( addr('2.2.2.2'), master2.actor.getSelf() )
-        master2.actor.members.put( addr('1.1.1.1'), master1.actor.getSelf() )
+        master1.actor.allMasters.put( addr('2.2.2.2'), master2.actor.getSelf() )
+        master2.actor.allMasters.put( addr('1.1.1.1'), master1.actor.getSelf() )
 
         // -- Master1 has some jobs to be processed
         master2.actor.node.queue.add(job1.id)
@@ -465,7 +465,7 @@ class JobMasterTest extends ActorSpecification {
         def actor2 = master.someoneElse()
 
         then:
-        master.members.size() == 1
+        master.allMasters.size() == 1
         master.getSelf() == actor1
         master.getSelf() == actor2
     }
@@ -476,8 +476,8 @@ class JobMasterTest extends ActorSpecification {
         def probe1 = newProbe(system)
         def probe2 = newProbe(system)
         def master = newActor(system, JobMasterMock)
-        master.members.put( addr('1.1.1.1'), probe1.getRef() )
-        master.members.put( addr('2.2.2.2'), probe2.getRef() )
+        master.allMasters.put( addr('1.1.1.1'), probe1.getRef() )
+        master.allMasters.put( addr('2.2.2.2'), probe2.getRef() )
 
         when:
         // with multiple members 'getAny' may return itself
@@ -490,7 +490,7 @@ class JobMasterTest extends ActorSpecification {
 
         then:
         master.someoneWithWork() == null
-        master.members.size() == 3
+        master.allMasters.size() == 3
         master.getSelf() in anyList
         !(master.getSelf() in someoneList)
 
@@ -526,8 +526,8 @@ class JobMasterTest extends ActorSpecification {
         dataStore.putNodeData(node2)
 
         final master = newActor(system, JobMasterMock)
-        master.members.put( addr('1.1.1.1'), probe1.getRef() )
-        master.members.put( addr('2.2.2.2'), probe2.getRef() )
+        master.allMasters.put( addr('1.1.1.1'), probe1.getRef() )
+        master.allMasters.put( addr('2.2.2.2'), probe2.getRef() )
 
 
         when:
