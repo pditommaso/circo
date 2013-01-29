@@ -221,7 +221,7 @@ class FrontEnd extends UntypedActor {
         /*
          * Create a job for each entry in the 'eachList'
          */
-        else if ( command.getEachItems() ) {
+        else if ( command.eachItems ) {
             def index=0
             command.context.combinations( command.eachItems ) { List<DataRef> variables ->
                 listOfIds << createAndSaveJobEntry(command, index++, variables) .id
@@ -268,7 +268,6 @@ class FrontEnd extends UntypedActor {
 
         request.user = sub.user
         request.context = sub.context
-        request.get = sub.get
         request.produce = sub.produce
 
         return request
@@ -287,20 +286,11 @@ class FrontEnd extends UntypedActor {
 
         // -- update the context
         if ( variables ) {
-            // make sure the 'receive' is not null
-            if ( !request.get ) request.get = []
             // create a copy of context obj
             request.context = JobContext.copy(command.context)
 
-            variables.each {
-                // 1 - add the variable to the context
-                request.context.add( it )
-
-                // 2 - the variable contribute to the 'receive' declaration by default
-                if ( !request.get.contains(it.name ) ) {
-                    request.get << it.name
-                }
-            }
+            // add the variable to the context
+            variables.each { request.context.put(it) }
         }
 
         // add the job index

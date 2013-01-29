@@ -19,6 +19,7 @@
 
 package circo.client.cmd
 
+import circo.messages.JobContext
 import scala.concurrent.duration.Duration
 import spock.lang.Specification
 /**
@@ -72,6 +73,51 @@ class CmdSubTest extends Specification {
         !parser.hasFailure()
         !parser.isHelp()
         cmd.eachItems == ['a','b','c']
+
+    }
+
+    def 'test parse cmd sub each with assignment' () {
+
+        setup:
+        def ctx = new JobContext().put('Z','999')
+
+
+        when:
+        def times
+        def parser = CommandParser.parse( 'sub --each a --each b=1 --each c=[x,y,z]' )
+        CmdSub cmd = parser.getCommand()
+        cmd.init(ctx)
+
+
+        then:
+        cmd.eachItems == ['a','b','c']
+        ctx.getValues('Z') == ['999']
+        ctx.getValues('b') == ['1']
+        ctx.getValues('c') == ['x','y','z']
+
+    }
+
+
+    /*
+     * different syntax, but identical semantic of the previous
+     */
+    def 'test parse cmd sub each with assignment (2)' () {
+
+        setup:
+        def ctx = new JobContext().put('Z','999')
+
+        when:
+        def times
+        def parser = CommandParser.parse( 'sub --each a,b=1,c=[x,y,z]' )
+        CmdSub cmd = parser.getCommand()
+        cmd.init(ctx)
+
+
+        then:
+        cmd.eachItems == ['a','b','c']
+        ctx.getValues('Z') == ['999']
+        ctx.getValues('b') == ['1']
+        ctx.getValues('c') == ['x','y','z']
 
     }
 

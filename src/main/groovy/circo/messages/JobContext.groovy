@@ -29,6 +29,8 @@ import com.google.common.collect.Multimap
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 
+import static circo.Consts.LIST_CLOSE_BRACKET
+import static circo.Consts.LIST_OPEN_BRACKET
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -193,6 +195,8 @@ class JobContext implements Serializable {
         holder.clear()
     }
 
+    def boolean isEmpty() { holder.isEmpty() }
+
     /*
      * Invoke the closure for each possible combination for the variables in the context
      * specified by its names
@@ -219,7 +223,9 @@ class JobContext implements Serializable {
 
     }
 
-    def static pattern_list = /\[[^\]]+\)/
+    def static pattern_str = "\\$LIST_OPEN_BRACKET[^\\$LIST_CLOSE_BRACKET]+\\$LIST_CLOSE_BRACKET"
+
+    def static pattern_list = /$pattern_str/
 
     def static pattern_range = /[^(\.\.)]+\.\.[^(\.\.)]+/
 
@@ -227,7 +233,7 @@ class JobContext implements Serializable {
         assert value
 
         value = value.trim()
-        if( value == '[]') {
+        if( value == LIST_OPEN_BRACKET + LIST_CLOSE_BRACKET) {
             return []
         }
         else if( value =~~ pattern_list ) {

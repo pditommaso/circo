@@ -22,6 +22,7 @@ import circo.client.cmd.CmdNode
 import circo.client.cmd.CmdStat
 import circo.client.cmd.CmdSub
 import circo.data.NodeDataTest
+import circo.messages.JobContext
 import circo.messages.JobEntry
 import circo.messages.JobId
 import circo.messages.JobStatus
@@ -95,9 +96,6 @@ class FrontEndTest extends ActorSpecification {
     }
 
 
-    /*
-     * TODO ++++ to be fixed
-     */
     def 'test cmd sub --each' () {
 
         setup:
@@ -113,27 +111,42 @@ class FrontEndTest extends ActorSpecification {
         final sub = new CmdSub()
         sub.ticket = ticket
         sub.command = ['echo', 'Hello world']
-        sub.eachItems = ['alpha','beta','delta']
+        // the context contains two variables
+        // - X == 1..2
+        // - Y == [ alpha, beta ]
+        sub.context = new JobContext().put('X','1..2').put('Y','[alpha,beta]')
+
+        // submit for each values in the (X,Y) pair, so there ae 4 combinations
+        sub.eachItems = ['X','Y']
 
         when:
         frontend.tell(sub, sender.getRef())
+
         // the a new job entry has been created
         def result = sender.expectMsgClass(SubReply)
         def entry0 = dataStore.getJob( result.jobIds[0] )
         def entry1 = dataStore.getJob( result.jobIds[1] )
         def entry2 = dataStore.getJob( result.jobIds[2] )
+        def entry3 = dataStore.getJob( result.jobIds[3] )
 
         then:
-        result.jobIds.size() == 3
+        result.jobIds.size() == 4
         result.jobIds[0] == JobId.of(1)
         entry0.req.environment['JOB_ID'] == entry0.id.toFmtString()
-        entry0.req.environment['JOB_INDEX'] == 'alpha'
+        entry0.req.context.getData('X') == '1'
+        entry0.req.context.getData('Y') == 'alpha'
 
         entry1.req.environment['JOB_ID'] == entry1.id.toFmtString()
-        entry1.req.environment['JOB_INDEX'] == 'beta'
+        entry1.req.context.getData('X') == '2'
+        entry1.req.context.getData('Y') == 'alpha'
 
         entry2.req.environment['JOB_ID'] == entry2.id.toFmtString()
-        entry2.req.environment['JOB_INDEX'] == 'delta'
+        entry2.req.context.getData('X') == '1'
+        entry2.req.context.getData('Y') == 'beta'
+
+        entry3.req.environment['JOB_ID'] == entry3.id.toFmtString()
+        entry3.req.context.getData('X') == '2'
+        entry3.req.context.getData('Y') == 'beta'
 
     }
 

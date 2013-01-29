@@ -19,6 +19,7 @@
 
 package circo
 
+
 /**
  * Application constants
  *
@@ -53,9 +54,9 @@ class Consts {
 
     static final String APP_VER = "0.2.0"
 
-    static final long APP_TIMESTAMP = 1359390365503
+    static final long APP_TIMESTAMP = 1359473256763
 
-    static final int APP_BUILDNUM = 107
+    static final int APP_BUILDNUM = 115
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 
@@ -67,5 +68,8 @@ class Consts {
 
     static final LOCAL_NAMES = ['this','local','localhost']
 
+    public static final LIST_OPEN_BRACKET = '['
+
+    public static final LIST_CLOSE_BRACKET = ']'
 
 }

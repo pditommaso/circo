@@ -305,7 +305,7 @@ class JobExecutor extends UntypedActor {
     static private String stage( JobReq request ) {
         assert request
 
-        if ( !request.get || !request.script ) { // nothing to do
+        if ( !request.script ) { // nothing to do
             return request.script
         }
 
@@ -319,15 +319,8 @@ class JobExecutor extends UntypedActor {
             // the token e.g 'some_file'
             String token = it[1]
 
-            // the found token is processed only when if has been
-            // declared in the 'get' declaration for the submit request
-            if ( !request.get.contains(token) ) {
-                return original
-            }
-
             // make sure that the keyword exists in the current context
             if ( !request.context.contains(token) ) {
-                missing << token
                 return original
             }
 

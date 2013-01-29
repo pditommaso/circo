@@ -22,8 +22,8 @@ package circo.util
 import akka.actor.Address
 import akka.actor.Address as AkkaAddress
 import circo.Consts
-import circo.client.cmd.IntRangeSerializable
-import circo.client.cmd.StringRangeSerializable
+import circo.client.cmd.CustomIntRange
+import circo.client.cmd.CustomStringRange
 import groovy.util.logging.Slf4j
 
 import java.text.DecimalFormat
@@ -189,10 +189,10 @@ class CircoHelper {
         }
 
         if( alpha.isInteger() && omega.isInteger() ) {
-            return new IntRangeSerializable(alpha.toInteger(),omega.toInteger(), step)
+            return new CustomIntRange(alpha.toInteger(),omega.toInteger(), step)
         }
         else {
-            return new StringRangeSerializable(alpha,omega,step)
+            return new CustomStringRange(alpha,omega,step)
         }
 
     }

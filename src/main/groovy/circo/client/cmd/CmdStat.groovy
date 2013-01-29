@@ -107,7 +107,6 @@ class CmdStat extends AbstractCommand {
             def entry = """
             id        : ${job.id.toFmtString()}
             command   : ${job.req?.script?:'-'}
-            get       : ${job.req?.get?:'-'}
             produce   : ${job.req?.produce?:'-'}
             status    : ${job.status}
             sender    : ${job.sender?.toFmtString()}

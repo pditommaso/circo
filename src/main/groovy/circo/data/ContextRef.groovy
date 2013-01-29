@@ -63,7 +63,7 @@ class FileRef implements DataRef {
     Address address
 
     def FileRef( String name, File file, Address address = null ) {
-        assert name
+        assert name != null
         assert file
 
         this.name = name
@@ -99,8 +99,9 @@ class StringRef implements DataRef {
     String name
 
     def StringRef( String label, def value, Address address = null ) {
-        assert label
-        assert value
+        assert label != null
+        assert value != null
+
         this.name = label
         this.value = value.toString()
         this.address = address

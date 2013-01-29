@@ -91,12 +91,12 @@ class ConvertersTest extends Specification {
     def 'test IntRange serialize-deserialize' () {
 
         when:
-        IntRangeSerializable range1 = new IntRangeSerializable( 1, 10 )
-        IntRangeSerializable range2 = new IntRangeSerializable( 3, 33, 5 )
-        IntRangeSerializable range3 = new IntRangeSerializable( 1, 10, 5 )
+        CustomIntRange range1 = new CustomIntRange( 1, 10 )
+        CustomIntRange range2 = new CustomIntRange( 3, 33, 5 )
+        CustomIntRange range3 = new CustomIntRange( 1, 10, 5 )
 
-        IntRangeSerializable copy1 = SerializationUtils.clone(range1) as IntRangeSerializable
-        IntRangeSerializable copy2 = SerializationUtils.clone(range2) as IntRangeSerializable
+        CustomIntRange copy1 = SerializationUtils.clone(range1) as CustomIntRange
+        CustomIntRange copy2 = SerializationUtils.clone(range2) as CustomIntRange
 
         then:
         range1 == copy1
@@ -108,11 +108,11 @@ class ConvertersTest extends Specification {
     def 'test StringRange serialize-deserialize' () {
 
         when:
-        StringRangeSerializable range1 = new StringRangeSerializable( 'b', 'e' )
-        StringRangeSerializable range2 = new StringRangeSerializable( 'a', 'f', 2 )
+        CustomStringRange range1 = new CustomStringRange( 'b', 'e' )
+        CustomStringRange range2 = new CustomStringRange( 'a', 'f', 2 )
 
-        StringRangeSerializable copy1 = SerializationUtils.clone(range1) as StringRangeSerializable
-        StringRangeSerializable copy2 = SerializationUtils.clone(range2) as StringRangeSerializable
+        CustomStringRange copy1 = SerializationUtils.clone(range1) as CustomStringRange
+        CustomStringRange copy2 = SerializationUtils.clone(range2) as CustomStringRange
 
         then:
         range1 == copy1
@@ -134,6 +134,15 @@ class ConvertersTest extends Specification {
         'b..f'      | ['b','c','d','e','f']
         '1..4'      | [1,2,3,4]
 
+    }
+
+    def 'test each list converter' () {
+
+        expect:
+        new EachListConverter().convert('a') == ['a']
+        new EachListConverter().convert('a,b,c') == ['a','b','c']
+        new EachListConverter().convert('a,b=1,c=2..8') == ['a','b=1','c=2..8']
+        new EachListConverter().convert('x,y=[1,2,3],z=[a,b]') == ['x','y=[1,2,3]','z=[a,b]']
     }
 
 

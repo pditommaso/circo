@@ -61,7 +61,7 @@ class CmdSub extends AbstractCommand  {
     boolean printOutput
 
 
-    @Parameter(names='--each', description = 'Submit the command for each entry in the specified collection')
+    @Parameter(names='--each', description = 'Submit the command for each entry in the specified collection', listConverter = EachListConverter)
     List<String> eachItems
 
 
@@ -75,10 +75,7 @@ class CmdSub extends AbstractCommand  {
     @Parameter(names=['-t','--times'], arity = 1, description = 'Number of times this request has to be submitted', converter = IntRangeConverter)
     private times
 
-    def IntRangeSerializable getTimes() {  times as IntRangeSerializable }
-
-    @Parameter(names=['--get'], description = 'The files this job receives as input from the context')
-    List<String> get
+    def CustomIntRange getTimes() {  times as CustomIntRange }
 
     @Parameter(names=['--produce'], description = 'The files this job produces as output to the context')
     List<String> produce
@@ -101,8 +98,6 @@ class CmdSub extends AbstractCommand  {
 
         // -- the user who is submitting the request
         this.user = System.properties['user.name']
-        // -- the current execution context as defined in the client
-        this.context = context
 
         // -- the environment variable (+++ to be merged with the context structure ????)
         if( this.exportAllEnvironment ) {
@@ -112,6 +107,28 @@ class CmdSub extends AbstractCommand  {
                 env.putAll(copy)
             }
         }
+
+        // -- the current execution context as defined in the client
+        this.context = JobContext.copy(context)
+
+        def items = []
+        this.eachItems?.each { String it ->
+            // when an entry contains an assignment
+            // split it and add the value into the context
+            def p = it.indexOf('=')
+            if ( p != -1 ) {
+                def name = it.substring(0,p)
+                def value = it.substring(p+1)
+                context.put(name,value)
+                items << name
+            }
+            else {
+                items << it
+            }
+        }
+        this.eachItems = items
+
+
 
     }
 

@@ -19,13 +19,15 @@
 
 package circo.client.cmd
 
-import circo.util.CircoHelper
-import com.beust.jcommander.IStringConverter
-import groovy.transform.ToString
-import groovy.util.logging.Slf4j
 import circo.messages.JobStatus
+import circo.util.CircoHelper
+import circo.util.SerializeId
+import com.beust.jcommander.IStringConverter
+import groovy.util.logging.Slf4j
 import scala.concurrent.duration.Duration
 
+import static circo.Consts.LIST_CLOSE_BRACKET
+import static circo.Consts.LIST_OPEN_BRACKET
 
 class CommaSeparatedListConverter implements  IStringConverter<List<String>>  {
 
@@ -75,10 +77,10 @@ class DurationConverter implements IStringConverter<Duration> {
  *      </pre>
  */
 @Slf4j
-class IntRangeConverter implements IStringConverter<IntRangeSerializable> {
+class IntRangeConverter implements IStringConverter<CustomIntRange> {
 
     @Override
-    IntRangeSerializable convert(final String value) {
+    CustomIntRange convert(final String value) {
         log.trace "Converting value '$value' to a IntRange"
         if ( !value ) {
             return null
@@ -100,19 +102,19 @@ class IntRangeConverter implements IStringConverter<IntRangeSerializable> {
         if( pos != -1 ) {
             def min = Integer.parseInt(str.substring(0,pos))
             def max = Integer.parseInt(str.substring(pos+2))
-            result = new IntRangeSerializable(min,max,step)
+            result = new CustomIntRange(min,max,step)
         }
 
         if ( !result && (pos = str.indexOf('-')) != -1 ) {
             def min = Integer.parseInt(str.substring(0,pos))
             def max = Integer.parseInt(str.substring(pos+1))
-            result = new IntRangeSerializable(min,max,step)
+            result = new CustomIntRange(min,max,step)
         }
 
         if ( !result ) {
             def val = Integer.parseInt(str)
             if ( val > 0 ) {
-                result = new IntRangeSerializable(1,val,step)
+                result = new CustomIntRange(1,val,step)
             }
             else {
                 throw new IllegalArgumentException("Not a valid range value: $str")
@@ -126,30 +128,46 @@ class IntRangeConverter implements IStringConverter<IntRangeSerializable> {
 }
 
 
-@Slf4j
-@ToString(includes = 'from,to,step', includePackage = false)
-class IntRangeSerializable implements Serializable {
+abstract class AbstractCustomRange<T extends Comparable> implements Range<T>, Serializable {
 
     @Delegate
-    transient private IntRange fTarget
+    protected transient Range<T> target
 
-    private int fStep = 1
+    protected int $step = 1
 
-    IntRangeSerializable(int from, int to, int step = 1 ) {
-        this.fTarget = new IntRange(from, to)
-        this.fStep = step
+    AbstractCustomRange(Range<T> target, int step) {
+        this.target = target
+        this.$step = step
     }
 
-    def List<Integer> step(int step) {
-        fTarget.step(step)
+
+    def List<T> step(int step) {
+        target.step(step)
     }
 
-    def List<Integer> withStep() {
-        return fTarget.step(fStep)
+    def List<T> withStep() {
+        return target.step($step)
     }
 
     def void step( int step, Closure callback ) {
         throw new IllegalAccessException('Method not supported')
+    }
+
+    def String toString() {
+        def result = "${from}..${to}"
+        if ( $step != 1 ) result += ':' + $step
+        return result
+    }
+
+}
+
+
+@Slf4j
+@SerializeId
+class CustomIntRange extends AbstractCustomRange<Integer> {
+
+    CustomIntRange(int from, int to, int step = 1 ) {
+        super(new IntRange(from, to), step)
     }
 
     /**
@@ -162,9 +180,9 @@ class IntRangeSerializable implements Serializable {
      */
     private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException
     {
-        out.writeInt(fTarget.getFromInt())
-        out.writeInt(fTarget.getToInt())
-        out.writeInt(fStep)
+        out.writeInt(getFrom() as int)
+        out.writeInt(getTo() as int)
+        out.writeInt($step)
     }
 
     /**
@@ -175,8 +193,8 @@ class IntRangeSerializable implements Serializable {
 
         def from = input.readInt()
         def to = input.readInt()
-        this.fStep = input.readInt()
-        this.fTarget = new IntRange(from,to)
+        this.$step = input.readInt()
+        this.target = new IntRange(from,to)
 
     }
 
@@ -185,31 +203,10 @@ class IntRangeSerializable implements Serializable {
 
 
 @Slf4j
-@ToString(includes = 'from,to,step', includePackage = false)
-class StringRangeSerializable implements Serializable {
+class CustomStringRange extends AbstractCustomRange<String> {
 
-    @Delegate
-    transient private Range<String> fTarget
-
-    private int fStep = 1
-
-    StringRangeSerializable(String from, String to, int step = 1 ) {
-        assert from
-        assert to
-        this.fTarget = new ObjectRange(from, to)
-        this.fStep = step
-    }
-
-    def List withStep() {
-        fTarget.step(fStep)
-    }
-
-    def List step(int step) {
-        fTarget.step(step)
-    }
-
-    def void step( int step, Closure callback ) {
-        throw new IllegalAccessException('Method not supported')
+    CustomStringRange(String from, String to, int step = 1 ) {
+        super(new ObjectRange(from, to), step)
     }
 
 
@@ -223,26 +220,27 @@ class StringRangeSerializable implements Serializable {
      */
     private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException
     {
-        out.writeObject(fTarget.getFrom())
-        out.writeObject(fTarget.getTo())
-        out.writeInt(fStep)
+        out.writeObject(getFrom())
+        out.writeObject(getTo())
+        out.writeInt($step)
     }
 
     /**
      * Reconstitute the <tt>ArrayList</tt> instance from a stream (that is,
-     * deserialize it).
+     * de-serialize it).
      */
     private void readObject(java.io.ObjectInputStream input) throws java.io.IOException, ClassNotFoundException {
 
         def from = input.readObject()
         def to = input.readObject()
-        this.fStep = input.readInt()
-        this.fTarget = new ObjectRange(from?.toString(),to?.toString())
+        this.$step = input.readInt()
+        this.target = new ObjectRange(from?.toString(),to?.toString())
     }
 
 
 }
 
+@Deprecated
 class EachConverter implements IStringConverter<List> {
 
     @Override
@@ -261,4 +259,56 @@ class EachConverter implements IStringConverter<List> {
         }
 
     }
+}
+
+class EachListConverter implements IStringConverter<List>  {
+
+
+    @Override
+    List convert(String value) {
+
+        List<String> result = []
+        StringTokenizer tokenizer = new StringTokenizer(value,',',true)
+        while( tokenizer.hasMoreTokens() ) {
+            String current = tokenizer.nextToken()
+            if ( current == ',') {
+                // do not care
+            }
+            else if ( current .contains(LIST_OPEN_BRACKET) ) {
+                consumeListValue(current,tokenizer, result)
+            }
+            else {
+                result << current
+            }
+        }
+
+        result
+    }
+
+    String consumeListValue( String current, StringTokenizer tokenizer, List<String> appender ) {
+
+        String remain = null
+        def result = new StringBuilder(current)
+
+        while( tokenizer.hasMoreTokens() ) {
+            String tkn = tokenizer.nextElement()
+            int p = tkn.indexOf(LIST_CLOSE_BRACKET)
+            if( p != -1 ) {
+                result << tkn.substring(0,p+1)
+                remain = tkn.substring(p+1)
+                break
+            }
+            else {
+                result << tkn
+            }
+
+        }
+
+        appender << result.toString()
+        if ( remain ) {
+            appender << remain
+        }
+    }
+
+
 }

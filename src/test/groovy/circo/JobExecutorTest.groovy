@@ -74,10 +74,9 @@ class JobExecutorTest extends Specification {
         req.script = '''
         cp $file1 file2
         run file1_txt
-        run file2_txt
+        run $not_a_context_var
         '''
         .stripIndent().trim()
-        req.get = ['file1']
         req.produce = ['file2']
         req.context = new JobContext().put(new FileRef('/path/on/the/fs/file1'))
 
@@ -89,7 +88,7 @@ class JobExecutorTest extends Specification {
         lines.size() == 3
         lines[0] == "cp /path/on/the/fs/file1 file2"
         lines[1] == "run file1_txt"
-        lines[2] == "run file2_txt"
+        lines[2] == 'run $not_a_context_var'
 
     }
 

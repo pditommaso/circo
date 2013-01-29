@@ -18,12 +18,17 @@
  */
 
 package circo.client.cmd
+
 import circo.client.ClientApp
+import circo.data.StringRef
 import circo.messages.JobContext
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.util.logging.Slf4j
+
+import static circo.Consts.LIST_CLOSE_BRACKET
+import static circo.Consts.LIST_OPEN_BRACKET
 
 /**
  * Command to manage the job context
@@ -62,48 +67,89 @@ class CmdContext extends AbstractCommand {
     @Override
     void execute(ClientApp client) throws IllegalArgumentException {
 
-        if( fGet ) {
-            println client.getContext().getValues(fGet).join(fDelim)
-            return
+        def text = apply(client.context)
+        if ( text && grep ) {
+            text.toString().eachLine { String it ->
+                if( it =~ /$grep/) println(it)
+            }
+        }
+        else if ( text ){
+            print text
         }
 
+
+    }
+
+    def apply(JobContext ctx, Map<String,String> environment = System.getenv()) {
+        /*
+         * The 'get' a value from the context and print it out to the console
+         */
+        if( fGet ) {
+            return valuesToStr(ctx.getValues(fGet))
+        }
+
+        /*
+         * 'set' a value in the context
+         */
         if( fSet ) {
             fSet.each { k, v ->
-                client.getContext().put(k,v)
+                ctx.put(k,v)
             }
             return
         }
 
+        /*
+         * 'remove' a value from the context
+         */
         if ( fUnset ) {
-            fUnset.each { client.context.removeAll(it) }
+            fUnset.each { ctx.removeAll(it) }
             return
         }
 
+        /*
+         * 'add' a value to an entry already existing in the context
+         */
         if( fAppend ) {
-            fAppend.each { k, v -> client.getContext().add(k,v)}
+            fAppend.each { k, v -> ctx.add(k,v)}
             return
         }
 
+        /*
+         * 'empty' remove all the entries in context
+         */
         if ( fEmpty ) {
-            client.getContext().clear()
+            ctx.clear()
             return
         }
 
+        /*
+         * 'import' the context from a file -or- the current environment using the keyword 'env'
+         */
         if ( fImport ) {
+            log.debug "grep: $grep"
+            log.debug "env : $environment"
+
             if( fImport == 'env' ) {
-                System.getenv().each { k, v -> client.context.put(k,v) }
+                environment?.each { k, v ->
+                    if( !grep || k =~ /$grep/) {   // -- filter by the 'grep' string when provided
+                    ctx.put(new StringRef(k,v))    // -- import ad 'string' token, i.e. do not parse 'list' and 'range' types
+                    }
+                }
             }
             else {
                 def file = new File(fImport)
                 if ( !file.exists() ) {
-                    println "The specified file does not exist: $file"
-                    return
+                    return "The specified file does not exist: $file"
                 }
 
                 def props = new Properties()
                 try {
                     props.load(new FileInputStream(file))
-                    props.each { String k, String v -> client.context.put(k,v) }
+                    props.each { String k, String v ->
+                        if ( !grep || k =~ /$grep/) {
+                            ctx.put(k, v)
+                        }
+                    }
                 }
                 catch( Exception e ) {
                     log.error "Unable to import the file specified -- Make sure entries are in the format 'name=value'", e
@@ -113,30 +159,28 @@ class CmdContext extends AbstractCommand {
         }
 
         // -- when nothing else is specified, print the current context
-        printContext(client.getContext())
+        return getContextString(ctx)
     }
 
-    def void printContext(JobContext context) {
+    /*
+     * print out the current context to the console screen
+     */
+    def String getContextString(JobContext context) {
 
+        def result = new StringBuilder()
         def names = context.getNames().sort()
         names.each { String it ->
-            println "$it=${valuesToStr(context.getValues(it))}"
+            result << "$it=${valuesToStr(context.getValues(it))}\n"
         }
-    }
 
-    def println( def text ) {
-        if ( text && grep )  {
-            text.toString().eachLine { String it ->
-                if( it =~ /$grep/) super.println(it)
-            }
-        }
-        else {
-            super.println(text)
-        }
+        result.toString()
     }
 
 
-    String itemToStr( def item ) {
+    /*
+     * Convert a generic item to a string
+     */
+    String str( def item ) {
         if( item instanceof File ) {
             return item.name
         }
@@ -145,25 +189,32 @@ class CmdContext extends AbstractCommand {
         }
     }
 
+    /**
+     *  Converts a collection of items to it string representation
+     */
     String valuesToStr( def items ) {
 
         if( items instanceof Range ) {
             items.toString()
         }
+
         else if ( items instanceof Collection ) {
             if ( items.size() == 0 ) return '-'
-            if ( items.size() == 1 ) return itemToStr(items[0])
 
-            def list = items.unique()
+            if ( items.size() == 1 ) return str(items[0])
+
+            // verify if the list is made up all of synonyms
+            def list = items.unique(false)
             if( list.size() == 1 ) {
-                return "${itemToStr(list[0])} (${items.size()})"
+                return "${str(list[0])} (${items.size()})"
             }
             else {
-                return list.collect { itemToStr(it) }.join(fDelim)
+                return LIST_OPEN_BRACKET + items.collect { str(it) }.join(fDelim) + LIST_CLOSE_BRACKET
             }
         }
+
         else {
-            itemToStr(items[0])
+            str(items)
         }
 
     }
