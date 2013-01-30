@@ -180,6 +180,10 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
         result != null && result.cancelled
     }
 
+    def boolean isDone() {
+       status == JobStatus.COMPLETE || status == JobStatus.FAILED || isCancelled()
+    }
+
 
     def boolean retryIsRequired() {
         // -- when terminated successfully no retry by definition
@@ -235,7 +239,7 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
     }
 
     /**
-     * Note, when a resutl object is specified, some job properties are modified accordingly the
+     * Note, when a result object is specified, some job properties are modified accordingly the
      * provided result
      *
      * @param result

@@ -360,7 +360,8 @@ class JobMaster extends UntypedActor  {
         catch( Exception failure ) {
 
             if( failure instanceof IllegalStateException ) {
-                log.warn( failure.getMessage() ?: failure.toString() )
+                // TODO promote to WARNING
+                log.debug( failure.getMessage() ?: failure.toString() )
             }
             else {
                 log.error("Unable to process message: $message", failure)

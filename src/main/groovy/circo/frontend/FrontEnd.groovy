@@ -212,22 +212,27 @@ class FrontEnd extends UntypedActor {
         /*
          * create a new job request for each times required
          */
-        def listOfJobs = []
+        List<JobEntry> listOfJobs = []
         if( command.times ) {
+            log.debug "sub times: ${command.times}"
             command.times.withStep().each  { index ->
                 listOfJobs << createJobEntry( command, index )
             }
         }
+
         /*
          * Create a job for each entry in the 'eachList'
          */
         else if ( command.eachItems ) {
+            log.debug "sub each: ${command.eachItems}"
             def index=0
             command.context.combinations( command.eachItems ) { List<DataRef> variables ->
-                listOfJobs << createJobEntry(command, index++, variables)
+                log.debug "Variables combination: ${variables}"
+                def entry = createJobEntry(command, index++, variables)
+                listOfJobs << entry
             }
-
         }
+
         else {
             listOfJobs << createJobEntry( command )
         }
@@ -237,10 +242,9 @@ class FrontEnd extends UntypedActor {
          * reply to the sender with JobId assigned to the received JobRequest
          */
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
-            log.debug "-> ${command} TO sender: ${getSender()}"
-
             def result = new SubReply(command.ticket)
             result.jobIds = listOfJobs .collect { it.id }
+            log.debug "Send confirmation to client: $result"
             getSender().tell( result, getSelf() )
         }
 

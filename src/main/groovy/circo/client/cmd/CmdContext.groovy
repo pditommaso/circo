@@ -204,10 +204,13 @@ class CmdContext extends AbstractCommand {
             // verify if the list is made up all of synonyms
             def list = items.collect{ str(it) }.unique(false)
             if( list.size() == 1 ) {
-                return "${str(list[0])} (${items.size()})"
+                return "${LIST_OPEN_BRACKET}${str(list[0])},..${items.size()-1} more${LIST_CLOSE_BRACKET}"
+            }
+            else if ( list.size() <= 10 ){
+                return LIST_OPEN_BRACKET + items.collect { str(it) }.join(fDelim) + LIST_CLOSE_BRACKET
             }
             else {
-                return LIST_OPEN_BRACKET + items.collect { str(it) }.join(fDelim) + LIST_CLOSE_BRACKET
+                return LIST_OPEN_BRACKET + items[0..9].collect { str(it) }.join(fDelim) + ",..${items.size()-10} more" + LIST_CLOSE_BRACKET
             }
         }
 

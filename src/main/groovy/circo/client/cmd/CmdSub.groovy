@@ -19,10 +19,12 @@
 
 package circo.client.cmd
 import circo.client.ClientApp
+import circo.data.FileRef
 import circo.messages.JobContext
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
+import groovy.io.FileType
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 import scala.concurrent.duration.Duration
@@ -64,6 +66,9 @@ class CmdSub extends AbstractCommand  {
     @Parameter(names='--each', description = 'Submit the command for each entry in the specified collection', listConverter = EachListConverter)
     List<String> eachItems
 
+    @Parameter(names='--each-file', description = 'Submit the command for each file specified. Linus wildcards are allowed')
+    List<String> eachFile
+
 
     /**
      * The command will be submitted the number of times specified the range
@@ -94,7 +99,7 @@ class CmdSub extends AbstractCommand  {
     def JobContext getContext() { context }
 
 
-    private init(JobContext context) {
+    private init(JobContext clientContext) {
 
         // -- the user who is submitting the request
         this.user = System.properties['user.name']
@@ -109,7 +114,7 @@ class CmdSub extends AbstractCommand  {
         }
 
         // -- the current execution context as defined in the client
-        this.context = JobContext.copy(context)
+        this.context = JobContext.copy(clientContext)
 
         def items = []
         this.eachItems?.each { String it ->
@@ -119,7 +124,7 @@ class CmdSub extends AbstractCommand  {
             if ( p != -1 ) {
                 def name = it.substring(0,p)
                 def value = it.substring(p+1)
-                context.put(name,value)
+                this.context.put(name,value)
                 items << name
             }
             else {
@@ -129,17 +134,50 @@ class CmdSub extends AbstractCommand  {
         this.eachItems = items
 
 
+        /*
+         * each file
+         */
+        def addedFileRefNames = new HashSet<String>()
+        this.eachFile?.each { String it ->
 
-    }
+            String name = null
+            String filePattern
+            def p = it.indexOf('=')
+            if( p == -1 ) {
+                filePattern = it
+            }
+            else {
+                name = it.substring(0,p)
+                filePattern = it.substring(p+1)
+            }
 
-    def int expectedReplies() {
-        if( this.syncOutput || this.printOutput ) {
-            // expect at least one more reply
-            return 2
+            def file = new File(filePattern)
+            String parent = file.parent ?: '.'
+            if ( parent == '~' ) {
+                parent = System.properties['user.home']
+            }
+            else if ( parent.startsWith('~/') ) {
+                parent = System.properties['user.home'] + parent.substring(1)
+            }
+
+
+            // replace any wildcards characters
+            // TODO give a try to http://code.google.com/p/wildcard/  -or- http://commons.apache.org/io/
+            filePattern = file.name.replace("?", ".?").replace("*", ".*?")
+
+            // scan to find the file with that name
+            new File(parent).eachFileMatch(FileType.FILES, ~/$filePattern/ ) { File found ->
+                def ref = new FileRef(name?:found.name, found)
+                context.add( ref )
+                // append this names to the eachItems
+                addedFileRefNames << ref.name
+            }
+
         }
 
-        // it should at least the command acknowledge
-        return 1
+        log.debug "Added file refs: ${addedFileRefNames}"
+        this.eachItems.addAll( addedFileRefNames )
+
     }
 
 

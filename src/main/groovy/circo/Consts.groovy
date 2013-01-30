@@ -45,12 +45,13 @@ class Consts {
 
     /**
      * The ascii art logo, displayed on start
+     * Made with font 'chunky' at http://www.network-science.de/ascii/
      */
     def static LOGO = """\
-       ___ _
-      / __(_)_ _ __ ___
-     | (__| | '_/ _/ _ \\
-      \\___|_|_| \\__\\___/   ver ${APP_VER}
+     ______ __
+    |      |__|.----.----.-----.
+    |   ---|  ||   _|  __|  _  |
+    |______|__||__| |____|_____|  ver. ${APP_VER}
 
     """
     .stripIndent()
@@ -59,11 +60,11 @@ class Consts {
 
     static final String APP_NAME = MAIN_PACKAGE
 
-    static final String APP_VER = "0.2.1"
+    static final String APP_VER = "0.2.2"
 
-    static final long APP_TIMESTAMP = 1359560172557
+    static final long APP_TIMESTAMP = 1359583086096
 
-    static final int APP_BUILDNUM = 214
+    static final int APP_BUILDNUM = 231
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 

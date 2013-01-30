@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,24 +17,7 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
-import circo.messages.JobId
-import groovy.transform.InheritConstructors
-/**
- *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
- */
-@InheritConstructors
-class SubReply extends AbstractReply {
 
-    /**
-     * The list of identifiers of the job created fulfilling the submitted request
-     */
-    List<JobId> jobIds
-
-    String toString() {
-        "${SubReply.class.simpleName}(ticket:$ticket, jobIds:$jobIds)"
-    }
-
-
-}
+File file = new File('./path/*')
+assert file.name == '*'
+assert file.parentFile == null

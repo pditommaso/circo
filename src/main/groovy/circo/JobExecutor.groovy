@@ -368,7 +368,7 @@ class JobExecutor extends UntypedActor {
 
             String name = null
             String filePattern
-            def p = it.indexOf(':')
+            def p = it.indexOf('=')
             if( p == -1 ) {
                 filePattern = it
             }

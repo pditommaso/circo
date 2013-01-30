@@ -77,8 +77,14 @@ class ClientApp {
                 if( message.class == SubReply ) {
                     def reply = message as SubReply
                     printJobIds(reply)
+                    // get the command
+                    def cmd = sink.command as CmdSub
                     // re-sync the barrier count based the real number of jobs submitted
-                    sink.delta = reply.jobIds.size()+1 - sink.count
+                    // note: only when the command have to print out the result - or - is sync
+                    if ( cmd.printOutput || cmd.syncOutput ) {
+                        sink.delta = reply?.jobIds?.size()
+                    }
+
                     // create the collection to hold all produced context */
                     sink.gatherResults = new ArrayList( reply.jobIds.size() )
                     sink.expectedResults = reply.jobIds.size()
@@ -124,7 +130,7 @@ class ClientApp {
             // -- print out the job result as requested by the user on the cmdline
             if( clazz == CmdSub ) {
                 def cmd = sink.command as CmdSub
-                if ( cmd.printOutput && reply.result?.output ) {
+                if ( cmd.printOutput && reply.result?.output && ReplySink.currentSink) {
                     print reply.result.output
                 }
 
@@ -142,7 +148,7 @@ class ClientApp {
                 }
 
             }
-            else if( clazz == CmdGet && reply.result?.output ) {
+            else if( clazz == CmdGet && reply.result?.output && ReplySink.currentSink) {
                 print reply.result?.output
             }
         }
@@ -295,7 +301,7 @@ class ClientApp {
          * if running in local mode, run a local cluster daemon
          */
         if( options.local ) {
-            localDaemon = ClusterDaemon.start('--local', '-p', '2')
+            localDaemon = ClusterDaemon.start('--local', '-p', options.cpu.toString())
             host = CircoHelper.fmt(localDaemon.getSelfAddress())
         }
 

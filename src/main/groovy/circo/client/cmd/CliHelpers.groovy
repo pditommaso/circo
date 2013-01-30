@@ -128,6 +128,9 @@ class AppOptions {
     @Parameter(names='--local', description = 'Run in local-only mode')
     boolean local
 
+    @Parameter(names='--cpu', description = 'Number of cpu to use (only when launched in --local mode)')
+    int cpu = 1
+
     @Parameter(names='--port', description = 'TCP port used by the client, if not specified will be chosen a free port automatically')
     int port
 

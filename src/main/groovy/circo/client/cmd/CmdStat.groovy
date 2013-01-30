@@ -154,12 +154,12 @@ class CmdStat extends AbstractCommand {
             println "   -           -      -               -"
         }
 
-        jobs?.each { JobEntry job ->
+        jobs?.sort { it.creationTime } ?.each { JobEntry job ->
 
             final String id = job.id.toFmtString()
             final state = job.status.toFmtString()
             final String timestamp = job.getStatusTimeFmt()
-            final String worker = job.worker?.toFmtString() ?: '-'
+            final String worker = (!job.done && job.worker) ? job.worker.toFmtString() : '-'
 
             println "${id.padRight(12)}   ${state.padRight(4)}  ${timestamp.padRight(10)}  ${worker}"
 
