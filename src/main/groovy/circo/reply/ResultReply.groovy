@@ -1,20 +1,27 @@
 package circo.reply
-
 import circo.messages.JobResult
+import groovy.transform.EqualsAndHashCode
 import groovy.transform.InheritConstructors
-import groovy.transform.ToString
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @InheritConstructors
-@ToString(includePackage = false)
+@EqualsAndHashCode(includes = 'ticket,result')
 class ResultReply extends AbstractReply {
 
     /**
      * A {@code JobResult} instance
      */
     JobResult result
+
+    ResultReply( UUID ticket, JobResult result ) {
+        super(ticket)
+        this.result = result
+    }
+
+    String toString() {
+        "${this.class.simpleName}(ticket=${ticket}, result=${result})"
+    }
 
 }

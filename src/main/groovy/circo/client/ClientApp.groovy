@@ -110,11 +110,11 @@ class ClientApp {
             else if ( count == 1 ) {
                 log.info "Your job ${list[0]} has been submitted"
             }
-            else if ( count < 10 ) {
+            else if ( count <= 10 ) {
                 log.info "Your jobs ${list.join(',')} have been submitted"
             }
             else {
-                log.info "Your jobs ${list.join(',')}.. and ${count-10} more have been submitted"
+                log.info "Your jobs ${list[0..9].join(',')}.. and ${count-10} more have been submitted"
             }
         }
 

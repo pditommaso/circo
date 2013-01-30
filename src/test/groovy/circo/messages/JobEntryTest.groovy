@@ -208,5 +208,16 @@ class JobEntryTest extends Specification {
 
     }
 
+    def 'test toString' () {
+
+        when:
+        def job = new JobEntry('1','echo x')
+        job.status = JobStatus.RUNNING
+
+        then:
+        job.toString() == "JobEntry(id=1, status=RUNNING, exitCode=-, failure=-, attempts=0, cancelled=0 )"
+
+    }
+
 
 }

@@ -181,7 +181,7 @@ class JobProcessor extends UntypedActor {
                 // -- notify the master of the failure
                 if( job.failed ) {
                     log.debug "-> WorkerFailure to $master"
-                    master.tell( new WorkerFailure(getSelf()) )
+                    master.tell( new WorkerFailure(getSelf()), self() )
                 }
 
                 // -- clear the current jobId
@@ -189,25 +189,19 @@ class JobProcessor extends UntypedActor {
 
                 // -- notify the work is done
                 log.debug "-> WorkIsDone($worker) to $master"
-                master.tell( new WorkIsDone(worker) )
-
-                // -- request more work
-                log.debug "-> WorkerRequestsWork($worker) to $master"
-                master.tell new WorkerRequestsWork(worker)
+                master.tell( new WorkIsDone(worker, jobId), self() )
 
                 // -- still some work pending, re-schedule to the master
                 if( job.retryIsRequired() ) {
                     log.debug "Job ${job.id} failed -- retry submitting to ${master}"
-                    master.tell( WorkToSpool.of(job.id) )
+                    master.tell( WorkToSpool.of(job.id), self() )
                 }
                 // -- notify the sender the result
                 else if( job.sender ) {
                     log.debug "Reply job result to sender -- ${job.id}"
-                    final reply = new ResultReply( job.req.ticket )
-                    reply.result = job.result
+                    final reply = new ResultReply( job.req.ticket, job.result )
                     job.sender.tell ( reply, worker )
                 }
-
 
                 // We're idle now
                 log.debug("[working] => [idle]")

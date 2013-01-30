@@ -19,13 +19,12 @@
 
 package circo.messages
 import akka.actor.ActorRef
-import circo.exception.MissingInputFileException
-import groovy.transform.EqualsAndHashCode
-import groovy.transform.ToString
+import akka.actor.Address
 import circo.data.WorkerRef
+import circo.exception.MissingInputFileException
 import circo.util.CircoHelper
 import circo.util.SerializeId
-
+import groovy.transform.EqualsAndHashCode
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -33,18 +32,18 @@ import circo.util.SerializeId
 
 @SerializeId
 @EqualsAndHashCode(includes = 'id')
-@ToString(includes = 'id', includePackage = false)
 class JobEntry implements Serializable, Comparable<JobEntry> {
 
+    /**
+     * The unique ID for this job
+     */
+
+    def final JobId id
     /**
      * The job status
      */
     def JobStatus status = JobStatus.VOID
 
-    /**
-     * The unique ID for this job
-     */
-    def final JobId id
 
     /**
      * The request that originated this job entry
@@ -105,6 +104,10 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
     def String getLaunchTimeFmt() { launchTime ? CircoHelper.getSmartTimeFormat(launchTime) : '-' }
 
     def String getCompletionTimeFmt() { completionTime ? CircoHelper.getSmartTimeFormat(completionTime) : '-' }
+
+    /** The node to which the job is currently assigned */
+    def Address assigned
+
 
     def JobEntry( JobId id, JobReq req ) {
         assert id
@@ -245,12 +248,28 @@ class JobEntry implements Serializable, Comparable<JobEntry> {
 
             if( isSuccess() ) {
                 setStatus(JobStatus.COMPLETE)
+                assigned = null
             }
             else if ( !retryIsRequired() || failed ) {
                 setStatus(JobStatus.FAILED)
+                assigned = null
             }
 
         }
+    }
+
+
+    String toString() {
+
+"JobEntry(id=$id,\
+ status=$status,\
+ hasResult=${result!=null}\
+ exitCode=${result?.exitCode?:'-'},\
+ failure=${result?.failure?.getMessage()?:'-'},\
+ cancelled=${result?.cancelled?:'-'}\
+ attemptTimes=$attempts,\
+ cancelledTimes=$cancelled )"
+
     }
 
 }

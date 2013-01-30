@@ -67,6 +67,8 @@ class WorkIsDone implements Serializable {
 
     final WorkerRef worker
 
+    final JobId jobId
+
 }
 
 @ToString(includePackage = false)

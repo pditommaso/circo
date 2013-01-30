@@ -19,6 +19,7 @@
 
 package circo
 import akka.testkit.JavaTestKit
+import circo.reply.ResultReply
 import groovy.util.logging.Slf4j
 import circo.data.*
 import circo.messages.*
@@ -40,6 +41,7 @@ class JobMasterTest extends ActorSpecification {
 
             selfAddress = addr(address)
             node = new NodeData( address: selfAddress );
+            node.status = NodeStatus.AVAIL
             store.putNodeData(node)
         }
 
@@ -357,7 +359,7 @@ class JobMasterTest extends ActorSpecification {
         master.actor.node.assignJobId(worker, jobId)
 
         when:
-        master.tell ( new WorkIsDone(worker) )
+        master.tell ( new WorkIsDone(worker, jobId) )
 
         then:
         master.actor.node.getWorkerData(worker).currentJobId == null
@@ -397,44 +399,36 @@ class JobMasterTest extends ActorSpecification {
         setup:
         final master = newTestActor(system, JobMasterMock)
         final senderProbe = new JavaTestKit(system)
-        final worker1 = new JavaTestKit(system)
-        final worker2 = new JavaTestKit(system)
-        final worker3 = new JavaTestKit(system)
-        final worker4 = new JavaTestKit(system)
 
         // this is SUCCESS, it must be notified to the sender
-        def result1
-        def job1 = new JobEntry( JobId.of('1'), new JobReq(script: '1') )
+        def ticket1 = UUID.randomUUID()
+        def job1 = new JobEntry( JobId.of('1'), new JobReq(ticket: ticket1, script: '1') )
         job1.setSender(senderProbe.getRef())
-        job1.result = result1 =  new JobResult(jobId:job1.id, exitCode: 0)
+        job1.result =  new JobResult(jobId:job1.id, exitCode: 0)
+        def result1 = new ResultReply(ticket1, job1.result)
 
         // this is FAILED, it must be rescheduled
-        def result2
+        def ticket2 = UUID.randomUUID()
         def job2 = new JobEntry( JobId.of('2'), new JobReq(script: '2') )
         job2.setSender(senderProbe.getRef())
-        job2.result = result2 = new JobResult(jobId:job2.id, exitCode: 127) // <-- the error condition
+        job2.result == new JobResult(jobId:job2.id, exitCode: 127) // <-- the error condition
+        def result2 = new ResultReply(ticket2, job2.result)
 
         // this is FAILED, BUT the number of attempts exceeded the maxAttempts,
         // so it must be notified to the sender
-        def result3
+        def ticket3 = UUID.randomUUID()
         def job3 = new JobEntry( JobId.of('3'), new JobReq(script: '3', maxAttempts: 2) )
         job3.attempts = 3
         job3.setSender(senderProbe.getRef())
-        job3.result = result3 = new JobResult(jobId:job3.id, exitCode: 127) // <-- the error condition
+        job3.result = new JobResult(jobId:job3.id, exitCode: 127) // <-- the error condition
+        def result3 = new ResultReply(ticket3, job3.result)
 
         dataStore.saveJob(job1)
         dataStore.saveJob(job2)
         dataStore.saveJob(job3)
 
         def node = new NodeData(address:addr('1.1.1.1'))
-        node.createWorkerData( worker1.getRef() )
-        node.createWorkerData( worker2.getRef() )
-        node.createWorkerData( worker3.getRef() )
-        node.createWorkerData( worker4.getRef() )
-
-        node.assignJobId( worker1.getRef(), job1.id  )
-        node.assignJobId( worker2.getRef(), job2.id  )
-        node.assignJobId( worker3.getRef(), job3.id  )
+        node.allJobs << job1.id << job2.id << job3.id
         dataStore.putNodeData(node)
 
         when:
@@ -511,6 +505,7 @@ class JobMasterTest extends ActorSpecification {
         // Node1 has TWO jobs in queue
         final probe1 = newProbe(system)
         final node1 = new NodeData( address: addr('1.1.1.1') )
+        node1.status = NodeStatus.AVAIL
         node1.createWorkerData(probe1.getRef())
         node1.queue.add(job1.id)
         node1.queue.add(job2.id)
@@ -519,6 +514,7 @@ class JobMasterTest extends ActorSpecification {
         // Node2 has THREE jobs in queue
         final probe2 = newProbe(system)
         final node2 = new NodeData( address: addr('2.2.2.2') )
+        node2.status = NodeStatus.AVAIL
         node2.createWorkerData(probe2.getRef())
         node2.queue.add(job3.id)
         node2.queue.add(job4.id)
@@ -541,6 +537,8 @@ class JobMasterTest extends ActorSpecification {
 
 
     }
+
+
 
 
 }

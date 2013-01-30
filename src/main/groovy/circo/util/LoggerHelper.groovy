@@ -23,6 +23,7 @@ import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.LoggerContext
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder
 import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.Appender
 import ch.qos.logback.core.ConsoleAppender
 import ch.qos.logback.core.CoreConstants
 import ch.qos.logback.core.LayoutBase
@@ -206,45 +207,53 @@ class LoggerHelper {
         def root = loggerContext.getLogger('ROOT')
         root.detachAndStopAllAppenders()
 
+
+        List<Appender> allAppender = []
+        if( !cmdLine.interactive ) {
+
+            def encoder = new PatternLayoutEncoder()
+            encoder.setPattern('%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n')
+            encoder.setContext(loggerContext)
+            encoder.start()
+
+            def consoleAppender = new ConsoleAppender()
+            consoleAppender.setContext(loggerContext)
+            consoleAppender.setEncoder(encoder)
+            consoleAppender.start()
+
+            allAppender << consoleAppender
+        }
+
+        // the file appender is always created
         def encoder = new PatternLayoutEncoder()
         encoder.setPattern('%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n')
         encoder.setContext(loggerContext)
         encoder.start()
 
-        def appender
-        if( !cmdLine.interactive ) {
-            appender = new ConsoleAppender()
-            appender.setContext(loggerContext)
-            appender.setEncoder(encoder)
-            appender.start()
-        }
-        else {
+        def fileAppender = new RollingFileAppender()
+        allAppender << fileAppender
 
-            appender = new RollingFileAppender()
+        def fileName = ".${Consts.APP_NAME}-daemon-${cmdLine.port}.log"
+        def timeBasedPolicy = new TimeBasedRollingPolicy( )
+        timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
+        timeBasedPolicy.setContext(loggerContext)
+        timeBasedPolicy.setParent(fileAppender)
+        timeBasedPolicy.start()
 
-            def fileName = ".${Consts.APP_NAME}-daemon-${cmdLine.port}.log"
-            def timeBasedPolicy = new TimeBasedRollingPolicy( )
-            timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
-            timeBasedPolicy.setContext(loggerContext)
-            timeBasedPolicy.setParent(appender)
-            timeBasedPolicy.start()
-
-            appender.file = fileName
-            appender.rollingPolicy = timeBasedPolicy
-            appender.encoder = encoder
-            appender.setContext(loggerContext)
-            appender.start()
-
-        }
+        fileAppender.file = fileName
+        fileAppender.rollingPolicy = timeBasedPolicy
+        fileAppender.encoder = encoder
+        fileAppender.setContext(loggerContext)
+        fileAppender.start()
 
         Logger logger = loggerContext.getLogger('ROOT')
         logger.setLevel(Level.INFO)
-        logger.addAppender(appender)
+        allAppender.each{ logger.addAppender(it) }
 
         logger = loggerContext.getLogger( Consts.MAIN_PACKAGE )
         logger.setLevel(Level.DEBUG)
         logger.setAdditive(false)
-        logger.addAppender(appender)
+        allAppender.each{ logger.addAppender(it) }
 
         def roots = ['root', 'true', '']
 
@@ -253,7 +262,7 @@ class LoggerHelper {
             logger = loggerContext.getLogger( clazz )
             logger.setLevel(Level.DEBUG)
             logger.setAdditive(false)
-            logger.addAppender(appender)
+            allAppender.each{ logger.addAppender(it) }
         }
 
         cmdLine.trace?.each { String it ->
@@ -262,7 +271,7 @@ class LoggerHelper {
             logger = loggerContext.getLogger( clazz )
             logger.setLevel(Level.TRACE)
             logger.setAdditive(false)
-            logger.addAppender(appender)
+            allAppender.each{ logger.addAppender(it) }
 
         }
 

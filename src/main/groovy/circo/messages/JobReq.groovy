@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@ToString
+@ToString(includePackage = false)
 @EqualsAndHashCode
 class JobReq implements Serializable {
 

@@ -36,6 +36,7 @@ import akka.cluster.ClusterEvent.MemberUp
 import akka.cluster.Member
 import circo.data.*
 import circo.messages.*
+import circo.reply.ResultReply
 import groovy.util.logging.Slf4j
 /**
  *  Based on
@@ -64,7 +65,6 @@ class JobMaster extends UntypedActor  {
     Map<Address,ActorRef> allMasters = new HashMap<>()
 
     int workerCount = 0
-
 
     private Map<Class,Closure> dispatchTable = new HashMap()
 
@@ -105,13 +105,17 @@ class JobMaster extends UntypedActor  {
     private onNewJobAddedListener = { JobEntry job ->
         log.debug "Add new Job event received for: $job"
         if( job.status != JobStatus.NEW ) {
-            log.debug "Skipping add for job ${job.id} status is ${job.status} != NEW"
+            log.debug "Skipping add for job: '${job}' since it is not NEW"
             return
         }
 
+        job.assigned = selfAddress
+        store.saveJob(job)
+
+        // add this job to the queue
         def message = WorkToSpool.of(job.id)
         log.debug "-> $message"
-        getSelf().tell(message)
+        getSelf().tell(message, getSelf())
     }
 
 
@@ -224,11 +228,11 @@ class JobMaster extends UntypedActor  {
         if( jobId ) {
             log.error("Blurgh! ${worker} died while processing: ${jobId}")
             // Send the work that it was doing back to ourselves for processing
-            someoneElse().tell(WorkToSpool.of(jobId))
+            someoneElse().tell(WorkToSpool.of(jobId), self())
         }
+
         log.debug "Removing worker: ${worker} from availables workers"
         node.removeWorkerData(worker)
-
 
     }
 
@@ -258,8 +262,10 @@ class JobMaster extends UntypedActor  {
         else {
             log.debug("Adding ${jobId} to queue")
             node.queue.add(jobId)
+
             // update the job status
             entry.status = JobStatus.PENDING
+            entry.assigned = selfAddress
             store.saveJob(entry)
             // notify workers
             notifyWorkers()
@@ -284,7 +290,6 @@ class JobMaster extends UntypedActor  {
         if ( workerCount++ == 0 ) {
             getSelf().tell( new WorkerRequestsWork(worker), getSelf() )
         }
-
     }
 
 
@@ -314,14 +319,11 @@ class JobMaster extends UntypedActor  {
             // YES -> ask work to other node
             // NO -> no work to done
 
-            log.debug "'$worker' isLocalWorker?: ${isLocalWorker}"
-            if( isLocalWorker ) {
-                def other = someoneWithWork()
+            def other
+            if( isLocalWorker && (other = someoneWithWork()) ) {
                 log.debug "=> Fwd Work Request to: '$other'"
-                other ?. forward(message, getContext())
+                other. forward(message, getContext())
             }
-            //log.debug "-> NoWorkToBeDone()"
-            //worker.tell( NoWorkToBeDone.getInstance() )
             return
         }
 
@@ -330,12 +332,12 @@ class JobMaster extends UntypedActor  {
         // NO -> send the work to the other node
         if( !isLocalWorker ) {
             ActorRef otherMaster = allMasters.get( worker.address() )
-            log.debug "Send work to remote node (1): '$otherMaster'"
+            log.debug "Send job id: '${jobId}' to remote node [step 1]: '$otherMaster'"
             if( !otherMaster ) {
                 otherMaster = someoneElse()
-                log.debug "Send work to remote mnode (2): '$otherMaster'"
+                log.debug "Send id: '${jobId}' remote node [step 2]: '$otherMaster'"
             }
-            otherMaster.tell( WorkToSpool.of(jobId) )
+            otherMaster.tell( WorkToSpool.of(jobId), self() )
             return
         }
 
@@ -365,17 +367,23 @@ class JobMaster extends UntypedActor  {
             }
 
             // re-queue the jobId that was unable to manage
-            someoneElse().tell( WorkToSpool.of(jobId) )
+            someoneElse().tell( WorkToSpool.of(jobId), self() )
         }
 
     }
 
 
     def void handleWorkIsDone(WorkIsDone message) {
-        final worker = message.worker
-        if( !node.removeJobId(worker) ) {
+
+        // free the worker
+        if( !node.removeJobId(message.worker) ) {
             log.error("Blurgh! ${message.worker} said it's done work but we didn't know about him")
         }
+
+        // -- request more work
+        log.debug "-> WorkerRequestsWork(${message.worker}) to master"
+        self().tell( new WorkerRequestsWork(message.worker), self() )
+
     }
 
 
@@ -535,41 +543,30 @@ class JobMaster extends UntypedActor  {
             return
         }
 
-        def jobs = extractLostJobs(deadNodeData)
 
-        jobs.each { JobEntry job  ->
+        List<JobEntry> jobsToRecover = store.findAll() .findAll { JobEntry entry -> entry.assigned == nodeAddress }
+        log.debug "Jobs to recover: ${jobsToRecover.size() ?: 'none'}"
+
+        jobsToRecover.each { JobEntry entry ->
+            log.debug "Recovering job: ${entry}"
+
             // -- notify the sender the result
-            if( job.retryIsRequired() ) {
-                log.debug "-> AddWorkToQueue(${job.id}) "
-                getAny().tell( WorkToSpool.of(job.id) )
+            boolean required = entry.retryIsRequired()
+            log.debug "Is Retry required for job id: ${entry.id}?: $required"
+            if( required ) {
+                def target = getAny()
+                def message = WorkToSpool.of(entry.id)
+                log.debug "Recover pending job id: '${entry.id}' -- sending $message to: ${target}"
+                target.tell( message, self() )
             }
-            else if( job.sender ) {
-                log.debug "-> ${job.result} to ${job.sender}"
-                job.sender.tell ( job.result )
+            else if( entry.sender ) {
+                log.debug "=> Notify sender of result of job: ${entry.id}"
+                entry.sender.tell ( new ResultReply( entry.req.ticket, entry.result ) )
             }
+
         }
 
-        deadNodeData.queue.each {
-            getAny().tell( WorkToSpool.of( it ) )
-        }
 
-
-    }
-
-    protected List<JobEntry> extractLostJobs( NodeData aNodeData )  {
-
-        def result = []
-        aNodeData.eachWorker { WorkerData it ->
-            if( it.currentJobId ) {
-                def entry = store.getJob(it.currentJobId)
-                if( entry ) { result << entry }
-                else {
-                    log.warn "Unable to retried JobEntry for ${it.currentJobId} "
-                }
-            }
-        }
-
-        return result
     }
 
 
