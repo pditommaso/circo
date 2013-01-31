@@ -15,7 +15,7 @@ echo === begin circo bootstrap ===
 #
 
 CIRCO_CLUSTER=${CIRCO_CLUSTER:-circotest1}
-CIRCO_NAME=${CIRCO_NAME:-circo-0.1.4}
+CIRCO_NAME=${CIRCO_NAME:-circo-0.2.2}
 CIRCO_TAR=${CIRCO_TAR:-http://cbcrg-eu.s3.amazonaws.com/$CIRCO_NAME.tgz}
 CIRCO_PORT=${CIRCO_PORT:-2551}
 CIRCO_USER=${CIRCO_USER:-$USER}
@@ -64,7 +64,7 @@ fi
 #
 # Launch the node
 #
-nohup $cmdline &> ./daemon.log &
+nohup $cmdline &> /dev/null &
 
 #
 # Tag this node, to mark it as included in the cluster

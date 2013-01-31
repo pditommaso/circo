@@ -123,6 +123,14 @@ task buildInfo << {
         println "WARN: Unable to find current build number"
     }
     file.text = src
+
+    // -- extra file
+    file = new File('./extras/circo-cloud-bootstrap.sh')
+    if( file.exists() ) {
+        def pattern = /CIRCO_NAME\:\-[A-Za-z\-\.\d]+/
+        file.text = file.text?.replaceFirst(pattern, "CIRCO_NAME:-circo-${version}" as String)
+    }
+
 }
 
 /*
@@ -203,7 +211,10 @@ gradle.taskGraph.afterTask { Task task, TaskState state ->
 task s3publish(type: Exec) {
     dependsOn dist
 
-    commandLine "s3cmd --acl-public -rr --disable-multipart put ${buildDir}/distributions/circo-${version}.tgz s3://cbcrg-eu".split(' ')
+    def files = []
+    files << "${buildDir}/distributions/circo-${version}.tgz"
+    files << './extras/circo-cloud-bootstrap.sh'
+    commandLine "s3cmd --acl-public -rr --disable-multipart put ${files.join(' ')}  s3://cbcrg-eu".split(' ')
 
 }
 
