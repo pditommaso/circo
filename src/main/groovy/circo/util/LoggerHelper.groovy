@@ -32,7 +32,7 @@ import ch.qos.logback.core.filter.Filter
 import ch.qos.logback.core.rolling.RollingFileAppender
 import ch.qos.logback.core.rolling.TimeBasedRollingPolicy
 import ch.qos.logback.core.spi.FilterReply
-import circo.Consts
+import circo.Const
 import org.slf4j.LoggerFactory
 /**
  * Helper methods to setup the logging subsystem
@@ -119,7 +119,7 @@ class LoggerHelper {
 
         // -- define the console appender
         Map<String,Level> packages = [:]
-        packages[Consts.MAIN_PACKAGE] = Level.INFO
+        packages[Const.MAIN_PACKAGE] = Level.INFO
         packages['akka'] = Level.WARN
         logConf.debug?.each { packages[it] = Level.DEBUG }
         logConf.trace?.each { packages[it] = Level.TRACE }
@@ -135,7 +135,7 @@ class LoggerHelper {
         consoleAppender.start()
 
         // -- the file appender
-        def fileName = ".${Consts.MAIN_PACKAGE}.log"
+        def fileName = ".${Const.MAIN_PACKAGE}.log"
         def fileAppender = new RollingFileAppender()
         def timeBasedPolicy = new TimeBasedRollingPolicy( )
         timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
@@ -160,8 +160,8 @@ class LoggerHelper {
         root.addAppender(consoleAppender)
 
         // -- main package logger
-        def mainLevel = packages[Consts.MAIN_PACKAGE]
-        def logger = loggerContext.getLogger(Consts.MAIN_PACKAGE)
+        def mainLevel = packages[Const.MAIN_PACKAGE]
+        def logger = loggerContext.getLogger(Const.MAIN_PACKAGE)
         logger.setLevel( mainLevel == Level.TRACE ? Level.TRACE : Level.DEBUG )
         logger.setAdditive(false)
         logger.addAppender(fileAppender)
@@ -233,7 +233,7 @@ class LoggerHelper {
         def fileAppender = new RollingFileAppender()
         allAppender << fileAppender
 
-        def fileName = ".${Consts.APP_NAME}-daemon-${cmdLine.port}.log"
+        def fileName = ".${Const.APP_NAME}-daemon-${cmdLine.port}.log"
         def timeBasedPolicy = new TimeBasedRollingPolicy( )
         timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
         timeBasedPolicy.setContext(loggerContext)
@@ -250,7 +250,7 @@ class LoggerHelper {
         logger.setLevel(Level.INFO)
         allAppender.each{ logger.addAppender(it) }
 
-        logger = loggerContext.getLogger( Consts.MAIN_PACKAGE )
+        logger = loggerContext.getLogger( Const.MAIN_PACKAGE )
         logger.setLevel(Level.DEBUG)
         logger.setAdditive(false)
         allAppender.each{ logger.addAppender(it) }

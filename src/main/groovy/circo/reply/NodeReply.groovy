@@ -19,13 +19,15 @@
 
 package circo.reply
 
+import circo.util.SerializeId
 import groovy.transform.InheritConstructors
-import circo.data.NodeData
+import circo.model.NodeData
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@SerializeId
 @InheritConstructors
 class NodeReply extends AbstractReply {
 

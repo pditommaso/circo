@@ -19,12 +19,11 @@
 
 package circo.client
 import akka.actor.*
-import circo.ClusterDaemon
-import circo.Consts
-import circo.client.cmd.*
-import circo.data.WorkerRef
+import circo.daemon.Daemon
+import circo.Const
+import circo.model.WorkerRef
 import circo.frontend.FrontEnd
-import circo.messages.JobContext
+import circo.model.TaskContext
 import circo.reply.AbstractReply
 import circo.reply.ResultReply
 import circo.reply.SubReply
@@ -139,8 +138,8 @@ class ClientApp {
                 sink.gatherResults << reply.result.context
 
                 if ( sink.expectedResults == 0  ) {
-                    def newContext = JobContext.copy(cmd.context)
-                    sink.gatherResults.each { JobContext delta ->
+                    def newContext = TaskContext.copy(cmd.context)
+                    sink.gatherResults.each { TaskContext delta ->
                         newContext += delta
                     }
                     // apply the new context
@@ -226,11 +225,11 @@ class ClientApp {
 
     private ConsoleReader console
 
-    private ClusterDaemon localDaemon
+    private Daemon localDaemon
 
     ConsoleReader getConsole() { console }
 
-    JobContext context
+    TaskContext context
 
     Map<String,String> aliases
 
@@ -238,11 +237,11 @@ class ClientApp {
     // -- common initialization
     {
         console = new ConsoleReader()
-        def historyFile = new File(Consts.APP_HOME_DIR, "history")
+        def historyFile = new File(Const.APP_HOME_DIR, "history")
         console.history = new FileHistory(historyFile)
         console.historyEnabled = true
 
-        context = new JobContext()
+        context = new TaskContext()
         aliases = new LinkedHashMap<String, String>()
     }
 
@@ -278,7 +277,7 @@ class ClientApp {
 
         // print the logo only when it will enter in interactive mode
         if ( !parsedCommand.hasCommand() ) {
-            print Consts.LOGO
+            print Const.LOGO
         }
 
 
@@ -293,7 +292,7 @@ class ClientApp {
         WorkerRef.init(system)
 
         def host = options.remoteHost?.toLowerCase() ?: System.getenv('CIRCO_HOST')
-        if( host?.toLowerCase() in Consts.LOCAL_NAMES || !host ) {
+        if( host?.toLowerCase() in Const.LOCAL_NAMES || !host ) {
             host = InetAddress.getLocalHost().getHostAddress()
         }
 
@@ -301,7 +300,7 @@ class ClientApp {
          * if running in local mode, run a local cluster daemon
          */
         if( options.local ) {
-            localDaemon = ClusterDaemon.start('--local', '-p', options.cpu.toString())
+            localDaemon = Daemon.start('--local', '-p', options.cpu.toString())
             host = CircoHelper.fmt(localDaemon.getSelfAddress())
         }
 
@@ -393,7 +392,7 @@ class ClientApp {
             println ""
 
             while( true ) {
-                def line = console.readLine("${Consts.APP_NAME}> ")
+                def line = console.readLine("${Const.APP_NAME}> ")
                 log.trace "Loop: $line"
 
                 if( !line ) {

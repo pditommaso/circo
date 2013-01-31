@@ -22,7 +22,7 @@ import akka.actor.*
 import akka.testkit.JavaTestKit
 import akka.testkit.TestActorRef
 import groovy.util.logging.Slf4j
-import circo.data.WorkerProbe
+import circo.model.WorkerProbe
 
 /**
  *

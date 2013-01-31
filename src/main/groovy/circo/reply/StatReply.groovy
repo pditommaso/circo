@@ -19,21 +19,22 @@
 
 package circo.reply
 
+import circo.util.SerializeId
 import groovy.transform.InheritConstructors
 import groovy.transform.ToString
-import circo.data.JobsStat
-import circo.messages.JobEntry
+import circo.model.TaskEntry
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@SerializeId
 @InheritConstructors
 @ToString(includePackage = false, includeSuper = true)
 class StatReply extends AbstractReply {
 
-    List<JobEntry> jobs
+    List<TaskEntry> jobs
 
-    JobsStat stats
+    StatReplyData stats
 
 
 }

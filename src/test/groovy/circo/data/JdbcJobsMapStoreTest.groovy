@@ -18,9 +18,10 @@
  */
 
 package circo.data
+
 import groovy.sql.Sql
-import circo.messages.JobEntry
-import circo.messages.JobId
+import circo.model.TaskEntry
+import circo.model.TaskId
 import spock.lang.Specification
 /**
  *
@@ -51,8 +52,8 @@ class JdbcJobsMapStoreTest extends Specification {
 
         setup:
         def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new JobEntry( '1122', 'Script1' )
-        def job2 = new JobEntry( '4455', 'Script2' )
+        def job1 = new TaskEntry( '1122', 'Script1' )
+        def job2 = new TaskEntry( '4455', 'Script2' )
 
         when:
         store.store(job1.id, job1)
@@ -62,21 +63,21 @@ class JdbcJobsMapStoreTest extends Specification {
         store.loadAllKeys().size() != 0
         store.loadAllKeys().size() == 2
         store.loadAllKeys() == [ job1.id, job2.id ] as Set
-        store.load( job1.id ) ==  new JobEntry( '1122', 'Script1' )
+        store.load( job1.id ) ==  new TaskEntry( '1122', 'Script1' )
         store.load( job1.id ).req.script == 'Script1'
-        store.load( job1.id ) !=  new JobEntry( '333', 'Script2' )
+        store.load( job1.id ) !=  new TaskEntry( '333', 'Script2' )
     }
 
     def 'test StoreAll ' () {
 
         setup:
         def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new JobEntry( '1122', 'Script1' )
-        def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
+        def job1 = new TaskEntry( '1122', 'Script1' )
+        def job2 = new TaskEntry( '4455', 'Script2' )
+        def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
+        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
 
-        def map = new HashMap<JobId,JobEntry>()
+        def map = new HashMap<TaskId,TaskEntry>()
         map[job1.id] = job1
         map[job2.id] = job2
         map[job3.id] = job3
@@ -89,10 +90,10 @@ class JdbcJobsMapStoreTest extends Specification {
 
         then:
         store.loadAllKeys().size() == 4
-        store.load( job1.id ).id == JobId.of('1122')
+        store.load( job1.id ).id == TaskId.of('1122')
         store.load( job1.id ).req.script == 'Script1'
 
-        store.load( job4.id ).id == JobId.of('7788')
+        store.load( job4.id ).id == TaskId.of('7788')
         store.load( job4.id ).req.script == 'Script4'
     }
 
@@ -100,12 +101,12 @@ class JdbcJobsMapStoreTest extends Specification {
     def 'test delete ' () {
         setup:
         def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new JobEntry( '1122', 'Script1' )
-        def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
+        def job1 = new TaskEntry( '1122', 'Script1' )
+        def job2 = new TaskEntry( '4455', 'Script2' )
+        def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
+        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
 
-        def map = new HashMap<JobId,JobEntry>()
+        def map = new HashMap<TaskId,TaskEntry>()
         map[job1.id] = job1
         map[job2.id] = job2
         map[job3.id] = job3
@@ -129,10 +130,10 @@ class JdbcJobsMapStoreTest extends Specification {
     def 'test deleteAll' () {
         setup:
         def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new JobEntry( '1122', 'Script1' )
-        def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
+        def job1 = new TaskEntry( '1122', 'Script1' )
+        def job2 = new TaskEntry( '4455', 'Script2' )
+        def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
+        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
 
         store.store( job1.id, job1 )
         store.store( job2.id, job2 )
@@ -151,10 +152,10 @@ class JdbcJobsMapStoreTest extends Specification {
     def 'test load' () {
         setup:
         def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new JobEntry( '1122', 'Script1' )
-        def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4456'), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
+        def job1 = new TaskEntry( '1122', 'Script1' )
+        def job2 = new TaskEntry( '4455', 'Script2' )
+        def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
+        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
 
 
         when:
@@ -167,18 +168,18 @@ class JdbcJobsMapStoreTest extends Specification {
         store.load( job1.id )  == job1
         store.load( job2.id ) != null
         store.load( job2.id ) != job1
-        store.load( JobId.fromString('777') )  == null
+        store.load( TaskId.fromString('777') )  == null
     }
 
     def 'test allKeys ' () {
         setup:
         def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new JobEntry( '1122', 'Script1' )
-        def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455'), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
+        def job1 = new TaskEntry( '1122', 'Script1' )
+        def job2 = new TaskEntry( '4455', 'Script2' )
+        def job3 = new TaskEntry( new TaskId('4455'), 'Script3' )
+        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
 
-        def map = new HashMap<JobId,JobEntry>()
+        def map = new HashMap<TaskId,TaskEntry>()
         map[job1.id] = job1
         map[job2.id] = job2
         map[job3.id] = job3
@@ -195,10 +196,10 @@ class JdbcJobsMapStoreTest extends Specification {
     def 'test loadAll' () {
         setup:
         def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new JobEntry( '1122', 'Script1' )
-        def job2 = new JobEntry( '4455', 'Script2' )
-        def job3 = new JobEntry( new JobId('4455'), 'Script3' )
-        def job4 = new JobEntry( new JobId('7788'), 'Script4' )
+        def job1 = new TaskEntry( '1122', 'Script1' )
+        def job2 = new TaskEntry( '4455', 'Script2' )
+        def job3 = new TaskEntry( new TaskId('4455'), 'Script3' )
+        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
 
 
         when:

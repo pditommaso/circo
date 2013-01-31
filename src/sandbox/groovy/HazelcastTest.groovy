@@ -1,8 +1,7 @@
-
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.IList
-import circo.messages.JobResult
+import circo.model.TaskResult
 import spock.lang.Specification
 
 import java.util.concurrent.BlockingQueue
@@ -49,9 +48,9 @@ class HazelcastTest extends Specification {
 
         when:
         HazelcastInstance hz = Hazelcast.newHazelcastInstance(null);
-        JobResult item = new JobResult(exitCode: 1)
+        TaskResult item = new TaskResult(exitCode: 1)
 
-        IList<JobResult> list  = hz.getList('somelist')
+        IList<TaskResult> list  = hz.getList('somelist')
         list.add(item)
 
         list.get(0).exitCode = 2

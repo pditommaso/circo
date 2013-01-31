@@ -1,10 +1,12 @@
 package circo.data
 
+import circo.model.NodeData
+import circo.model.WorkerRefMock
 import com.hazelcast.core.Hazelcast
-import circo.messages.JobEntry
-import circo.messages.JobId
-import circo.messages.JobReq
-import circo.messages.JobStatus
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskReq
+import circo.model.TaskStatus
 import spock.lang.Specification
 
 import static test.TestHelper.addr
@@ -24,16 +26,16 @@ class DataStoreTest extends Specification {
     def testSaveAndGet( ) {
 
         when:
-        def id = JobId.of(1)
-        def entry = new JobEntry( id, new JobReq(script: 'Hola') )
+        def id = TaskId.of(1)
+        def entry = new TaskEntry( id, new TaskReq(script: 'Hola') )
         def result = store.saveJob(entry)
 
 
         then:
         result == true
         entry == store.getJob(id)
-        entry == store.getJob(JobId.of(1))
-        null == store.getJob( JobId.of(321) )
+        entry == store.getJob(TaskId.of(1))
+        null == store.getJob( TaskId.of(321) )
 
         cleanup:
         shutdown(store)
@@ -45,17 +47,17 @@ class DataStoreTest extends Specification {
     def 'test get' () {
 
         setup:
-        def id0 = JobId.of('123')
-        def id1 = JobId.of('abc')
-        def id2 = JobId.of(222)
+        def id0 = TaskId.of('123')
+        def id1 = TaskId.of('abc')
+        def id2 = TaskId.of(222)
 
-        store.saveJob( JobEntry.create(id1) { it.req.script = 'script1' } )
-        store.saveJob( JobEntry.create(id2) { it.req.script = 'script2' } )
+        store.saveJob( TaskEntry.create(id1) { it.req.script = 'script1' } )
+        store.saveJob( TaskEntry.create(id2) { it.req.script = 'script2' } )
 
         expect:
         store.getJob(id0) == null
-        store.getJob(JobId.of('abc')).req.script == 'script1'
-        store.getJob(JobId.of(222)).req.script == 'script2'
+        store.getJob(TaskId.of('abc')).req.script == 'script1'
+        store.getJob(TaskId.of(222)).req.script == 'script2'
 
         cleanup:
         shutdown(store)
@@ -68,11 +70,11 @@ class DataStoreTest extends Specification {
     def testUpdate() {
 
         when:
-        def id = JobId.of(1)
-        def entry = new JobEntry( id, new JobReq(script: 'Hola') )
+        def id = TaskId.of(1)
+        def entry = new TaskEntry( id, new TaskReq(script: 'Hola') )
         def resultNew = store.saveJob(entry)
 
-        def resultUpdate = store.updateJob( id ) { JobEntry it ->
+        def resultUpdate = store.updateJob( id ) { TaskEntry it ->
             it.attempts = 2
         }
 
@@ -91,9 +93,9 @@ class DataStoreTest extends Specification {
 
     def 'test add listener' () {
         when:
-        JobEntry invoked = null
+        TaskEntry invoked = null
         def times = []
-        def entry = JobEntry.create( 1243 )
+        def entry = TaskEntry.create( 1243 )
         store.addNewJobListener { it ->
             invoked = it
             times << 1
@@ -115,7 +117,7 @@ class DataStoreTest extends Specification {
 
         when:
         def invoked
-        def entry = JobEntry.create( 1243 )
+        def entry = TaskEntry.create( 1243 )
         def count=0
         def callback = { count++ }
         store.addNewJobListener( callback )
@@ -136,12 +138,12 @@ class DataStoreTest extends Specification {
     def 'test findJobsByStatus' () {
 
         setup:
-        def job1 = JobEntry.create('1') { it.status = JobStatus.NEW }
-        def job2 = JobEntry.create('2') { it.status = JobStatus.PENDING }
-        def job3 = JobEntry.create('3') { it.status = JobStatus.PENDING }
-        def job4 = JobEntry.create('4') { it.status = JobStatus.COMPLETE }
-        def job5 = JobEntry.create('5') { it.status = JobStatus.COMPLETE }
-        def job6 = JobEntry.create('6') { it.status = JobStatus.COMPLETE }
+        def job1 = TaskEntry.create('1') { it.status = TaskStatus.NEW }
+        def job2 = TaskEntry.create('2') { it.status = TaskStatus.PENDING }
+        def job3 = TaskEntry.create('3') { it.status = TaskStatus.PENDING }
+        def job4 = TaskEntry.create('4') { it.status = TaskStatus.COMPLETE }
+        def job5 = TaskEntry.create('5') { it.status = TaskStatus.COMPLETE }
+        def job6 = TaskEntry.create('6') { it.status = TaskStatus.COMPLETE }
 
         store.saveJob(job1)
         store.saveJob(job2)
@@ -151,11 +153,11 @@ class DataStoreTest extends Specification {
         store.saveJob(job6)
 
         expect:
-        store.findJobsByStatus(JobStatus.NEW).toSet() == [job1] as Set
-        store.findJobsByStatus(JobStatus.PENDING).toSet() == [job2,job3] as Set
-        store.findJobsByStatus(JobStatus.COMPLETE).toSet() == [job4,job5,job6] as Set
-        store.findJobsByStatus(JobStatus.READY) == []
-        store.findJobsByStatus(JobStatus.NEW, JobStatus.PENDING).toSet() == [job1,job2,job3] as Set
+        store.findJobsByStatus(TaskStatus.NEW).toSet() == [job1] as Set
+        store.findJobsByStatus(TaskStatus.PENDING).toSet() == [job2,job3] as Set
+        store.findJobsByStatus(TaskStatus.COMPLETE).toSet() == [job4,job5,job6] as Set
+        store.findJobsByStatus(TaskStatus.READY) == []
+        store.findJobsByStatus(TaskStatus.NEW, TaskStatus.PENDING).toSet() == [job1,job2,job3] as Set
 
         cleanup:
         shutdown(store)
@@ -169,12 +171,12 @@ class DataStoreTest extends Specification {
 
         setup:
 
-        def job1 = JobEntry.create( '11' )
-        def job2 = JobEntry.create( '23' )
-        def job3 = JobEntry.create( '33' )
-        def job4 = JobEntry.create( '34' )
-        def job5 = JobEntry.create( '35' )
-        def job6 = JobEntry.create( '36' )
+        def job1 = TaskEntry.create( '11' )
+        def job2 = TaskEntry.create( '23' )
+        def job3 = TaskEntry.create( '33' )
+        def job4 = TaskEntry.create( '34' )
+        def job5 = TaskEntry.create( '35' )
+        def job6 = TaskEntry.create( '36' )
 
         store.saveJob(job1)
         store.saveJob(job2)

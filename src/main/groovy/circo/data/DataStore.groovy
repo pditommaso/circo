@@ -19,10 +19,12 @@
 
 package circo.data
 import akka.actor.Address
+import circo.model.NodeData
+import circo.reply.StatReplyData
 import groovy.transform.CompileStatic
-import circo.messages.JobEntry
-import circo.messages.JobId
-import circo.messages.JobStatus
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskStatus
 
 /**
  * Define the operations provided by the data storage system
@@ -33,37 +35,37 @@ import circo.messages.JobStatus
 interface DataStore {
 
 
-    JobId nextJobId()
+    TaskId nextJobId()
 
     /**
-     * Save a {@code JobEntry} in the underlying storage implementation
-     * @param job A {@code JobEntry} instance
+     * Save a {@code TaskEntry} in the underlying storage implementation
+     * @param job A {@code TaskEntry} instance
      * @return {@code true} if {@code job} was created as a new entry, {@code false} when the entry is updated
      */
-    boolean saveJob( JobEntry job )
+    boolean saveJob( TaskEntry job )
 
     /**
      * Get a job with the specified ID
      *
-     * @param jobId The ID of the requested {@code JobEntry}
-     * @return The {@code JobEntry} instance associated with specified ID or {@code null} if the job does not exist
+     * @param jobId The ID of the requested {@code TaskEntry}
+     * @return The {@code TaskEntry} instance associated with specified ID or {@code null} if the job does not exist
      */
-    JobEntry getJob( JobId jobId )
+    TaskEntry getJob( TaskId jobId )
 
     /**
      *
      * @param jobId
      * @return
      */
-    List<JobEntry> findJobsById( String jobId );
+    List<TaskEntry> findJobsById( String jobId );
 
     /**
      * @return The list of all defined jobs
      */
-    List<JobEntry> findAll()
+    List<TaskEntry> findAll()
 
     /**
-     * Add a new listener closure invoke when a new {@code JobEntry} in added in the storage
+     * Add a new listener closure invoke when a new {@code TaskEntry} in added in the storage
      *
      * @param listener
      */
@@ -83,24 +85,24 @@ interface DataStore {
      * @param status An open array of job status, it CANNOT be empty
      * @return The list of jobs in status specified, or an empty list when no job matches the status specified
      */
-    List<JobEntry> findJobsByStatus( JobStatus... status )
+    List<TaskEntry> findJobsByStatus( TaskStatus... status )
 
     /**
      * The job status statistics i.e. how many jobs for each status
      */
-    JobsStat findJobsStats()
+    StatReplyData findJobsStats()
 
     /**
-     * Find the {@code JobEntry} instance by the specified ID, apply the specified closure and save it
+     * Find the {@code TaskEntry} instance by the specified ID, apply the specified closure and save it
      *
      * @param jobId
      * @param closure
      * @return {@code true} if saved successfully, @{Code false} otherwise
      */
-    boolean updateJob( JobId jobId, Closure closure )
+    boolean updateJob( TaskId jobId, Closure closure )
 
     /**
-     * @return The count of {@code JobEntry} stored
+     * @return The count of {@code TaskEntry} stored
      */
     long countJobs()
 

@@ -23,8 +23,8 @@ import com.hazelcast.core.MapStore
 import groovy.sql.Sql
 import groovy.util.logging.Slf4j
 import org.apache.commons.lang.SerializationUtils
-import circo.messages.JobEntry
-import circo.messages.JobId
+import circo.model.TaskEntry
+import circo.model.TaskId
 
 import javax.sql.DataSource
 /**
@@ -33,7 +33,7 @@ import javax.sql.DataSource
  */
 
 @Slf4j
-class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
+class JdbcJobsMapStore implements MapStore<TaskId,TaskEntry> {
 
 
     def static createTable( def Sql sql ) {
@@ -79,7 +79,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
     }
 
     @Override
-    void store(JobId key, JobEntry value) {
+    void store(TaskId key, TaskEntry value) {
         assert key
 
         // -- delete it eventually
@@ -92,7 +92,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
     }
 
     @Override
-    void storeAll(Map<JobId, JobEntry> map) {
+    void storeAll(Map<TaskId, TaskEntry> map) {
         assert map
 
         if( map.size() == 0 ) return
@@ -113,13 +113,13 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
     }
 
     @Override
-    void delete(JobId key) {
+    void delete(TaskId key) {
         assert key
         sql.execute("delete from JOBS where id = ?", [key.value])
     }
 
     @Override
-    void deleteAll(Collection<JobId> keys) {
+    void deleteAll(Collection<TaskId> keys) {
         assert keys
         if ( !keys ) return
 
@@ -131,7 +131,7 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
     }
 
     @Override
-    JobEntry load(JobId key) {
+    TaskEntry load(TaskId key) {
         assert key
 
         def row = sql.firstRow("select OBJ from JOBS where ID = ?", [key.value])
@@ -139,13 +139,13 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
             return null
         }
 
-        row[0] ? SerializationUtils.deserialize( row[0] as byte[] ) as JobEntry : JobEntry.create(key)
+        row[0] ? SerializationUtils.deserialize( row[0] as byte[] ) as TaskEntry : TaskEntry.create(key)
     }
 
     @Override
-    Map<JobId, JobEntry> loadAll(Collection<JobId> keys) {
+    Map<TaskId, TaskEntry> loadAll(Collection<TaskId> keys) {
 
-        def result = new HashMap<JobId,JobEntry>( keys.size() )
+        def result = new HashMap<TaskId,TaskEntry>( keys.size() )
         if( !keys ) { return result }
 
         def params = ['?'] * keys.size()
@@ -154,20 +154,20 @@ class JdbcJobsMapStore implements MapStore<JobId,JobEntry> {
 
         sql.eachRow(statement, values) { row ->
 
-            final id = JobId.of( row[0] )
+            final id = TaskId.of( row[0] )
             final job = row[1] ? SerializationUtils.deserialize(row[1] as byte[]) : null
-            result.put( id, job as JobEntry)
+            result.put( id, job as TaskEntry)
         }
 
         return result
     }
 
     @Override
-    Set<JobId> loadAllKeys() {
+    Set<TaskId> loadAllKeys() {
 
-        def result = new LinkedHashSet<JobId>()
+        def result = new LinkedHashSet<TaskId>()
         sql.eachRow("select ID from JOBS ") { row ->
-            result << JobId.of( row[0] )
+            result << TaskId.of( row[0] )
         }
 
         return result

@@ -22,9 +22,9 @@ package circo.ui
 import akka.actor.Address
 import groovy.transform.EqualsAndHashCode
 import circo.data.DataStore
-import circo.data.NodeData
-import circo.data.WorkerData
-import circo.messages.JobEntry
+import circo.model.NodeData
+import circo.model.WorkerData
+import circo.model.TaskEntry
 import org.fusesource.jansi.Ansi
 
 import static org.fusesource.jansi.Ansi.ansi
@@ -109,7 +109,7 @@ class NodeRender extends DataHolder {
 class WorkerRenderer extends DataHolder {
 
 
-    def WorkerRenderer(WorkerData data, JobEntry jobEntry) {
+    def WorkerRenderer(WorkerData data, TaskEntry jobEntry) {
         assert data
 
         this.worker = TextLabel.of(data.worker.path().name()).pad(15)

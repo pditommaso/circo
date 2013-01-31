@@ -19,7 +19,7 @@
 
 package circo.util
 
-import circo.Consts
+import circo.Const
 import com.beust.jcommander.Parameter
 /**
  *
@@ -31,7 +31,7 @@ class CmdLine {
     def List<String> args
 
     @Parameter(names=['--port'], description='TCP port to use to run this node instance')
-    def int port = Consts.DEFAULT_AKKA_PORT
+    def int port = Const.DEFAULT_AKKA_PORT
 
     @Parameter(names=['-i','--interactive'], description='Run this node in interactive mode, showing stats information')
     def boolean interactive = false

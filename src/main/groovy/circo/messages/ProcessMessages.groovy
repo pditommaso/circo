@@ -18,6 +18,8 @@
  */
 
 package circo.messages
+
+import circo.model.TaskEntry
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
@@ -30,7 +32,7 @@ import groovy.transform.TupleConstructor
 @ToString(includePackage = false)
 class ProcessStarted implements Serializable {
 
-    final JobEntry jobEntry
+    final TaskEntry jobEntry
 
 }
 
@@ -55,6 +57,6 @@ class ProcessIsAlive implements Serializable {
 @ToString(includePackage = false)
 class ProcessToRun implements Serializable {
 
-    final JobEntry jobEntry
+    final TaskEntry jobEntry
 
 }

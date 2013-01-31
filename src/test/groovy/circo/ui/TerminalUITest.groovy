@@ -22,8 +22,8 @@ import akka.actor.Props
 import akka.actor.UntypedActorFactory
 import akka.testkit.JavaTestKit
 import akka.testkit.TestActorRef
-import circo.data.NodeData
-import circo.messages.JobId
+import circo.model.NodeData
+import circo.model.TaskId
 import test.ActorSpecification
 
 import static test.TestHelper.addr
@@ -51,19 +51,19 @@ class TerminalUITest extends ActorSpecification {
         nodeData.failed = 6
 
         w1.with {
-            currentJobId = JobId.of('123')
+            currentJobId = TaskId.of('123')
             processed = 123
             failed = 3
         }
 
         w2.with {
-            currentJobId = JobId.of('555')
+            currentJobId = TaskId.of('555')
             processed = 943
             failed = 76
         }
 
         w3.with {
-            currentJobId = JobId.of('6577')
+            currentJobId = TaskId.of('6577')
             processed = 7843
             failed = 111
         }

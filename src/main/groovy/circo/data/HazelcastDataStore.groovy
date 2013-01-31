@@ -19,9 +19,9 @@
 
 package circo.data
 
-import circo.messages.JobEntry
-import circo.messages.JobId
-import circo.messages.JobStatus
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskStatus
 import com.hazelcast.config.*
 import com.hazelcast.core.*
 import com.hazelcast.query.SqlPredicate
@@ -157,7 +157,7 @@ class HazelcastDataStore extends AbstractDataStore {
         this.idGen = hazelcast.getAtomicNumber('idGenerator')
     }
 
-    JobId nextJobId() { new JobId( idGen.addAndGet(1) ) }
+    TaskId nextJobId() { new TaskId( idGen.addAndGet(1) ) }
 
 
     @Override
@@ -165,7 +165,7 @@ class HazelcastDataStore extends AbstractDataStore {
         hazelcast.getLock(key)
     }
 
-    List<JobEntry> findJobsById( final String jobId ) {
+    List<TaskEntry> findJobsById( final String jobId ) {
         assert jobId
 
         boolean likeOp = false
@@ -186,16 +186,16 @@ class HazelcastDataStore extends AbstractDataStore {
         def criteria = likeOp ? "id.toString() LIKE '$value'" : "id.toString() = '$value'"
 
         def result = (jobsMap as IMap) .values(new SqlPredicate(criteria))
-        new ArrayList<JobEntry>(result as Collection<JobEntry>)
+        new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
     }
 
 
-    List<JobEntry> findJobsByStatus( JobStatus[] status ) {
+    List<TaskEntry> findJobsByStatus( TaskStatus[] status ) {
         assert status
 
         def criteria = new SqlPredicate("status IN (${status.join(',')})  ")
         def result = (jobsMap as IMap) .values(criteria)
-        new ArrayList<JobEntry>(result as Collection<JobEntry>)
+        new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
 
     }
 

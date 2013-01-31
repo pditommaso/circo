@@ -21,9 +21,9 @@ package circo.util
 
 import akka.actor.Address
 import akka.actor.Address as AkkaAddress
-import circo.Consts
-import circo.client.cmd.CustomIntRange
-import circo.client.cmd.CustomStringRange
+import circo.Const
+import circo.client.CustomIntRange
+import circo.client.CustomStringRange
 import groovy.util.logging.Slf4j
 
 import java.text.DecimalFormat
@@ -132,7 +132,7 @@ class CircoHelper {
      * @param protocol The akka protocol to be used if it is not specified by the string value. Default {@code Consts#DEFAULT_AKKA_PROTOCOL}
      * @return
      */
-    def static Address parseAddress(String str, int port = Consts.DEFAULT_AKKA_PORT, String system = Consts.DEFAULT_AKKA_SYSTEM, String protocol = Consts.DEFAULT_AKKA_PROTOCOL) {
+    def static Address parseAddress(String str, int port = Const.DEFAULT_AKKA_PORT, String system = Const.DEFAULT_AKKA_SYSTEM, String protocol = Const.DEFAULT_AKKA_PROTOCOL) {
         assert str
 
         int p = str.indexOf('@')
@@ -201,10 +201,10 @@ class CircoHelper {
     static def String version(boolean full=false) {
 
         if ( !full ) {
-            "${Consts.APP_VER}.${Consts.APP_BUILDNUM}"
+            "${Const.APP_VER}.${Const.APP_BUILDNUM}"
         }
         else {
-            "${Consts.APP_VER} - Build on ${CircoHelper.fmt(new Date(Consts.APP_TIMESTAMP))} - build # ${Consts.APP_BUILDNUM}"
+            "${Const.APP_VER} - Build on ${CircoHelper.fmt(new Date(Const.APP_TIMESTAMP))} - build # ${Const.APP_BUILDNUM}"
         }
 
     }

@@ -18,14 +18,14 @@
  */
 
 package circo.frontend
-import circo.client.cmd.CmdNode
-import circo.client.cmd.CmdStat
-import circo.client.cmd.CmdSub
-import circo.data.NodeDataTest
-import circo.messages.JobContext
-import circo.messages.JobEntry
-import circo.messages.JobId
-import circo.messages.JobStatus
+import circo.client.CmdNode
+import circo.client.CmdStat
+import circo.client.CmdSub
+import circo.model.NodeDataTest
+import circo.model.TaskContext
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskStatus
 import circo.reply.NodeReply
 import circo.reply.StatReply
 import circo.reply.SubReply
@@ -114,7 +114,7 @@ class FrontEndTest extends ActorSpecification {
         // the context contains two variables
         // - X == 1..2
         // - Y == [ alpha, beta ]
-        sub.context = new JobContext().put('X','1..2').put('Y','[alpha,beta]')
+        sub.context = new TaskContext().put('X','1..2').put('Y','[alpha,beta]')
 
         // submit for each values in the (X,Y) pair, so there ae 4 combinations
         sub.eachItems = ['X','Y']
@@ -131,7 +131,7 @@ class FrontEndTest extends ActorSpecification {
 
         then:
         result.jobIds.size() == 4
-        result.jobIds[0] == JobId.of(1)
+        result.jobIds[0] == TaskId.of(1)
         entry0.req.environment['JOB_ID'] == entry0.id.toFmtString()
         entry0.req.context.getData('X') == '1'
         entry0.req.context.getData('Y') == 'alpha'
@@ -154,8 +154,8 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd job with some id' () {
 
         setup:
-        final job1 = new JobEntry('1','echo 1')
-        final job2 = new JobEntry('2','echo 2')
+        final job1 = new TaskEntry('1','echo 1')
+        final job2 = new TaskEntry('2','echo 2')
         dataStore.saveJob(job1)
         dataStore.saveJob(job2)
 
@@ -178,10 +178,10 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd stat' () {
 
         setup:
-        final job1 = new JobEntry(1,'echo 1')
-        final job2 = JobEntry.create('2')  { it.status = JobStatus.COMPLETE }
-        final job3 = new JobEntry(3,'echo 3')
-        final job4 = JobEntry.create('4')  { it.status = JobStatus.COMPLETE }
+        final job1 = new TaskEntry(1,'echo 1')
+        final job2 = TaskEntry.create('2')  { it.status = TaskStatus.COMPLETE }
+        final job3 = new TaskEntry(3,'echo 3')
+        final job4 = TaskEntry.create('4')  { it.status = TaskStatus.COMPLETE }
 
         dataStore.saveJob(job1)
         dataStore.saveJob(job2)
@@ -191,7 +191,7 @@ class FrontEndTest extends ActorSpecification {
         def sender = newProbe(system)
         def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
         def cmd = new CmdStat()
-        cmd.status = [ JobStatus.COMPLETE ]
+        cmd.status = [ TaskStatus.COMPLETE ]
 
         when:
         frontend.tell( cmd, sender.getRef() )

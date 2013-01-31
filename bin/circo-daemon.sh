@@ -19,7 +19,7 @@
 #    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-MAIN_CLASS='circo.ClusterDaemon'
+MAIN_CLASS='circo.daemon.Daemon'
 JVM_ARGS='-server -Xms128m -Xmx1G'
 
 . "$(dirname $0)/run.sh"

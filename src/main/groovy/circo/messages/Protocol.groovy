@@ -19,10 +19,12 @@
 
 package circo.messages
 import akka.actor.ActorRef
+import circo.model.TaskId
+import circo.model.TaskResult
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
-import circo.data.WorkerRef
+import circo.model.WorkerRef
 
 /**
  *
@@ -67,7 +69,7 @@ class WorkIsDone implements Serializable {
 
     final WorkerRef worker
 
-    final JobId jobId
+    final TaskId jobId
 
 }
 
@@ -76,7 +78,7 @@ class WorkIsDone implements Serializable {
 @TupleConstructor
 class WorkToBeDone implements Serializable {
 
-    final JobId jobId
+    final TaskId jobId
 
 }
 
@@ -91,7 +93,7 @@ class WorkIsReady implements  Serializable { }
 @ToString(includePackage = false)
 class WorkComplete implements Serializable {
 
-    final JobResult result
+    final TaskResult result
 
 }
 
@@ -100,9 +102,9 @@ class WorkComplete implements Serializable {
 @EqualsAndHashCode
 class WorkToSpool implements Serializable {
 
-    final JobId JobId
+    final TaskId JobId
 
-    static WorkToSpool of( JobId jobId )  { new WorkToSpool(jobId) }
+    static WorkToSpool of( TaskId jobId )  { new WorkToSpool(jobId) }
 
 }
 

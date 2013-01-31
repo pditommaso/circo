@@ -110,7 +110,7 @@ task classpathCompile(dependsOn: configurations.compile) << {
  */
 task buildInfo << {
 
-    def file = new File('./src/main/groovy/circo/Consts.groovy')
+    def file = new File('./src/main/groovy/circo/Const.groovy')
     def buildNum = 0
     def src = file.text
     src.find(/APP_BUILDNUM *= *([0-9]*)/) { buildNum = it[1]?.toInteger()+1 }

@@ -23,13 +23,22 @@ package circo.frontend
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.UntypedActor
-import circo.JobMaster
-import circo.client.cmd.*
-import circo.data.DataRef
+import circo.client.AbstractCommand
+import circo.client.CmdGet
+import circo.client.CmdNode
+import circo.client.CmdStat
+import circo.client.CmdSub
+import circo.daemon.NodeMaster
+import circo.model.DataRef
 import circo.data.DataStore
-import circo.data.NodeData
-import circo.data.WorkerRef
+import circo.model.NodeData
+import circo.model.WorkerRef
 import circo.messages.*
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskReq
+import circo.model.TaskStatus
+import circo.model.TaskContext
 import circo.reply.NodeReply
 import circo.reply.ResultReply
 import circo.reply.StatReply
@@ -62,7 +71,7 @@ class FrontEnd extends UntypedActor {
 
         // if not injected by someone else, get a reference to the 'master' actor -- useful for testing
         if( !master ) {
-            master = getContext().system().actorFor("/user/${JobMaster.ACTOR_NAME}")
+            master = getContext().system().actorFor("/user/${NodeMaster.ACTOR_NAME}")
         }
     }
 
@@ -119,7 +128,7 @@ class FrontEnd extends UntypedActor {
 
             def reply = new ResultReply(command.ticket)
             try {
-                def entry = dataStore.getJob(JobId.of(value))
+                def entry = dataStore.getJob(TaskId.of(value))
                 if( entry ) {
                     reply.result = entry.result
                 }
@@ -143,10 +152,10 @@ class FrontEnd extends UntypedActor {
         assert command
 
         def result = new StatReply(command.ticket)
-        List<JobEntry> list = null
+        List<TaskEntry> list = null
 
         /*
-         * Return all JobEntry which IDs have been specified by teh command
+         * Return all TaskEntry which IDs have been specified by teh command
          */
         if( command.jobs ) {
 
@@ -204,7 +213,7 @@ class FrontEnd extends UntypedActor {
     }
 
     /*
-     * The client send a 'JobReq' to the coordinator in order to submit a new job request
+     * The client send a 'TaskReq' to the coordinator in order to submit a new job request
      */
     void handleCmdSub(CmdSub command) {
         assert command
@@ -212,7 +221,7 @@ class FrontEnd extends UntypedActor {
         /*
          * create a new job request for each times required
          */
-        List<JobEntry> listOfJobs = []
+        List<TaskEntry> listOfJobs = []
         if( command.times ) {
             log.debug "sub times: ${command.times}"
             command.times.withStep().each  { index ->
@@ -239,7 +248,7 @@ class FrontEnd extends UntypedActor {
 
 
         /*
-         * reply to the sender with JobId assigned to the received JobRequest
+         * reply to the sender with TaskId assigned to the received JobRequest
          */
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
             def result = new SubReply(command.ticket)
@@ -260,13 +269,13 @@ class FrontEnd extends UntypedActor {
     }
 
     /**
-     * @return Convert this job submit command to a valid {@code JobReq} instance
+     * @return Convert this job submit command to a valid {@code TaskReq} instance
      */
-    private JobReq createReq(CmdSub sub) {
+    private TaskReq createReq(CmdSub sub) {
         assert sub.ticket
         assert sub.command
 
-        def request = new JobReq()
+        def request = new TaskReq()
         request.ticket = sub.ticket
         request.environment = new HashMap<>(sub.env)
         request.script = sub.command.join(' ')
@@ -285,7 +294,7 @@ class FrontEnd extends UntypedActor {
         return request
     }
 
-    private JobEntry createJobEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
+    private TaskEntry createJobEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
 
         // -- create a new ID for this job
         final id = dataStore.nextJobId()
@@ -299,7 +308,7 @@ class FrontEnd extends UntypedActor {
         // -- update the context
         if ( variables ) {
             // create a copy of context obj
-            request.context = JobContext.copy(command.context)
+            request.context = TaskContext.copy(command.context)
 
             // add the variable to the context
             variables.each { request.context.put(it) }
@@ -317,9 +326,9 @@ class FrontEnd extends UntypedActor {
 //            request.environment['SGE_TASK_LAST'] = range.to.toString()
 //        }
 
-        final entry = new JobEntry(id, request )
+        final entry = new TaskEntry(id, request )
         entry.sender = new WorkerRef(getSender())
-        entry.status = JobStatus.NEW
+        entry.status = TaskStatus.NEW
 
         return entry
     }
@@ -395,7 +404,7 @@ class FrontEnd extends UntypedActor {
         }
 
         targetNodes.each { Address address ->
-            def actor = getContext().system().actorFor("${address}/user/${JobMaster.ACTOR_NAME}")
+            def actor = getContext().system().actorFor("${address}/user/${NodeMaster.ACTOR_NAME}")
             actor.tell( message, getSelf() )
         }
 

@@ -19,10 +19,10 @@
 
 package circo.ui
 import akka.testkit.JavaTestKit
-import circo.data.NodeData
-import circo.messages.JobEntry
-import circo.messages.JobId
-import circo.messages.JobReq
+import circo.model.NodeData
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskReq
 import test.ActorSpecification
 
 import static test.TestHelper.addr
@@ -52,9 +52,9 @@ class ScreenRendererTest extends ActorSpecification {
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node2)
 
-        dataStore.saveJob( new JobEntry(JobId.of(1), new JobReq(script: 'do this')) )
-        dataStore.saveJob( new JobEntry(JobId.of(2), new JobReq(script: 'do that')) )
-        dataStore.saveJob( new JobEntry(JobId.of(3), new JobReq(script: 'do more')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
 
 
         when:
@@ -83,9 +83,9 @@ class ScreenRendererTest extends ActorSpecification {
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node2)
 
-        dataStore.saveJob( new JobEntry(JobId.of(1), new JobReq(script: 'do this')) )
-        dataStore.saveJob( new JobEntry(JobId.of(2), new JobReq(script: 'do that')) )
-        dataStore.saveJob( new JobEntry(JobId.of(3), new JobReq(script: 'do more')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
 
 
         when:
@@ -155,9 +155,9 @@ class ScreenRendererTest extends ActorSpecification {
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node2)
 
-        dataStore.saveJob( new JobEntry(JobId.of(1), new JobReq(script: 'do this')) )
-        dataStore.saveJob( new JobEntry(JobId.of(2), new JobReq(script: 'do that')) )
-        dataStore.saveJob( new JobEntry(JobId.of(3), new JobReq(script: 'do more')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
+        dataStore.saveJob( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
 
 
         when:

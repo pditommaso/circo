@@ -19,9 +19,9 @@
 
 package circo.data
 
-import circo.messages.JobEntry
-import circo.messages.JobId
-import circo.messages.JobStatus
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskStatus
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 
@@ -47,7 +47,7 @@ class LocalDataStore extends AbstractDataStore {
         nodeDataMap = new ConcurrentHashMap<>()
     }
 
-    JobId nextJobId() { new JobId( idGen.addAndGet(1) ) }
+    TaskId nextJobId() { new TaskId( idGen.addAndGet(1) ) }
 
     @Override
     protected Lock getLock(key) {
@@ -55,12 +55,12 @@ class LocalDataStore extends AbstractDataStore {
     }
 
 
-    List<JobEntry> findJobsByStatus( JobStatus... status ) {
+    List<TaskEntry> findJobsByStatus( TaskStatus... status ) {
         assert status
-        jobsMap.values().findAll { JobEntry job -> job.status in status  }
+        jobsMap.values().findAll { TaskEntry job -> job.status in status  }
     }
 
-    boolean saveJob( JobEntry job ) {
+    boolean saveJob( TaskEntry job ) {
         def isNew = super.saveJob(job)
 
         if( isNew && jobsListeners )  {
@@ -68,7 +68,7 @@ class LocalDataStore extends AbstractDataStore {
                 jobsListeners.each{ Closure it -> it.call(job) }
             }
             catch( Exception e ) {
-                log.error "Failed invoking Add New JobEntry listener", e
+                log.error "Failed invoking Add New TaskEntry listener", e
             }
 
         }
@@ -76,7 +76,7 @@ class LocalDataStore extends AbstractDataStore {
         return isNew
     }
 
-    List<JobEntry> findJobsById( final String jobId ) {
+    List<TaskEntry> findJobsById( final String jobId ) {
         assert jobId
 
         def value
@@ -90,7 +90,7 @@ class LocalDataStore extends AbstractDataStore {
         // remove '0' prefix
         while( value.size()>1 && value.startsWith('0') ) { value = value.substring(1) }
 
-        jobsMap.values().findAll { JobEntry job -> job.id.toFmtString() ==~ /$value/ }
+        jobsMap.values().findAll { TaskEntry job -> job.id.toFmtString() ==~ /$value/ }
 
     }
 

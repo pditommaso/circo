@@ -19,11 +19,13 @@
 
 package circo.data
 import akka.actor.Address
+import circo.reply.StatReplyData
+import circo.model.NodeData
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-import circo.messages.JobEntry
-import circo.messages.JobId
-import circo.messages.JobStatus
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskStatus
 
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeoutException
@@ -36,13 +38,13 @@ import java.util.concurrent.locks.Lock
 @CompileStatic
 abstract class AbstractDataStore implements DataStore {
 
-    protected ConcurrentMap<JobId, JobEntry> jobsMap
+    protected ConcurrentMap<TaskId, TaskEntry> jobsMap
 
     protected ConcurrentMap<Address, NodeData> nodeDataMap
 
     protected abstract Lock getLock( def key )
 
-    final protected void withLock(JobId jobId, Closure closure) {
+    final protected void withLock(TaskId jobId, Closure closure) {
         def lock = getLock(jobId)
         lock.lock()
         try {
@@ -54,19 +56,19 @@ abstract class AbstractDataStore implements DataStore {
         }
     }
     
-    boolean saveJob( JobEntry job ) {
+    boolean saveJob( TaskEntry job ) {
         assert job
 
         jobsMap.put( job.id, job ) == null
     }
 
     @Override
-    JobEntry getJob( JobId id ) {
+    TaskEntry getJob( TaskId id ) {
         assert id
         jobsMap.get(id)
     }
 
-    boolean updateJob( JobId jobId, Closure closure ) {
+    boolean updateJob( TaskId jobId, Closure closure ) {
         def entry = getJob(jobId)
         closure.call(entry)
         saveJob( entry )
@@ -75,10 +77,10 @@ abstract class AbstractDataStore implements DataStore {
     long countJobs() { jobsMap.size() }
 
 
-    JobsStat findJobsStats() {
-        def result = new JobsStat()
+    StatReplyData findJobsStats() {
+        def result = new StatReplyData()
 
-        JobStatus.values().each { JobStatus status ->
+        TaskStatus.values().each { TaskStatus status ->
             int count = findJobsByStatus( status ).size()
             result.put(status, count)
         }
@@ -88,7 +90,7 @@ abstract class AbstractDataStore implements DataStore {
 
     }
 
-    List<JobEntry> findAll() {
+    List<TaskEntry> findAll() {
         new LinkedList<>(jobsMap.values())
     }
 

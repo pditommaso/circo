@@ -1,12 +1,17 @@
+#
+# Split a FASTA file by sequence 
+# and run BLAST search for each of them 
+#
+
 # define the Context
-ctx -s fasta=/Users/ptommaso/Downloads/Support/sample/sample.fa
-ctx -s DB=/Users/ptommaso/tools/blast-db/pdb/pdb
+ctx --set fasta=/Users/ptommaso/sample.fa
+ctx --set DB=/Users/ptommaso/tools/blast-db/pdb/pdb
 
 ## Split the FASTA file
-sub --produce seq:seq_* --print "gcsplit $fasta '%^>%' '/^>/' '{*}' -f seq_"
+sub "gcsplit $fasta '%^>%' '/^>/' '{*}' -f seq_" --produce seq=seq_* --print
 
 ## execute a BLAST foreach sequence
-sub --each seq 'blastp -db $DB -query $seq -outfmt 6 > blast_result' --produce blast_result
+sub --each seq 'blastp -db $DB -query $seq -outfmt 6 > blast_result' --produce blast_result --print
 
 ## collect the result, sort and print it 
 sub 'sort $blast_result | cat -'  --print

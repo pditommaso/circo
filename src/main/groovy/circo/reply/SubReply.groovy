@@ -18,19 +18,22 @@
  */
 
 package circo.reply
-import circo.messages.JobId
+
+import circo.model.TaskId
+import circo.util.SerializeId
 import groovy.transform.InheritConstructors
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@SerializeId
 @InheritConstructors
 class SubReply extends AbstractReply {
 
     /**
      * The list of identifiers of the job created fulfilling the submitted request
      */
-    List<JobId> jobIds
+    List<TaskId> jobIds
 
     String toString() {
         "${SubReply.class.simpleName}(ticket:$ticket, jobIds:$jobIds)"

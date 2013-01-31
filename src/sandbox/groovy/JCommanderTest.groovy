@@ -20,10 +20,10 @@
 
 
 import com.beust.jcommander.JCommander
-import circo.client.cmd.AppOptions
-import circo.client.cmd.CmdNode
-import circo.client.cmd.CmdStat
-import circo.client.cmd.CmdSub
+import circo.client.AppOptions
+import circo.client.CmdNode
+import circo.client.CmdStat
+import circo.client.CmdSub
 import spock.lang.Specification
 /**
  *
