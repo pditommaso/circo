@@ -305,7 +305,7 @@ class NodeMaster extends UntypedActor  {
         }
 
         // -- forward to somebody else
-        if( entry.worker?.address() == selfAddress && allMasters.size()>1 ) {
+        if( entry.worker && node.hasWorkerData(entry.worker) && allMasters.size()>1 ) {
             def target = someoneElse()
             log.debug "=> fwd: ${message} TO someoneElse: ${someoneElse()}"
             target.forward(message,getContext())
@@ -500,7 +500,7 @@ class NodeMaster extends UntypedActor  {
 
     protected void handleMemberTerminated(MemberEvent message) {
         removeMasterAddress( message.member().address() )
-        resumeTasks( message.member().address() )
+        manageMemberDowned( message.member().address() )
     }
 
     protected boolean addMasterAddress( Address address ) {
@@ -573,7 +573,7 @@ class NodeMaster extends UntypedActor  {
     }
 
 
-    protected void resumeTasks( Address nodeAddress ) {
+    protected void manageMemberDowned( Address nodeAddress ) {
         assert nodeAddress
 
         List<NodeData> nodes = store.findNodeDataByAddressAndStatus( nodeAddress, NodeStatus.ALIVE )
@@ -652,7 +652,6 @@ class NodeMaster extends UntypedActor  {
             else {
                 toBeIgnored << entry.id
             }
-
         }
 
 

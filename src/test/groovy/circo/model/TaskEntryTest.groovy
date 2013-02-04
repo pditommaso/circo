@@ -30,7 +30,7 @@ class TaskEntryTest extends Specification {
 
         def job3 = TaskEntry.create('3')
         job3.status = TaskStatus.RUNNING
-        job3.status = TaskStatus.COMPLETE
+        job3.status = TaskStatus.TERMINATED
 
         then:
         job1.creationTime >= timestamp
@@ -42,7 +42,7 @@ class TaskEntryTest extends Specification {
         job2.launchTime >= timestamp
         job2.completionTime == 0
 
-        job3.status == TaskStatus.COMPLETE
+        job3.status == TaskStatus.TERMINATED
         job3.creationTime >= timestamp
         job3.launchTime >= timestamp
         job3.completionTime >= timestamp
@@ -138,7 +138,6 @@ class TaskEntryTest extends Specification {
 
     def 'test setResult ' () {
 
-
         when:
         // this JOB is OK
         def job1 = TaskEntry.create(1)
@@ -161,55 +160,48 @@ class TaskEntryTest extends Specification {
 
         then:
         // this is OK
-        job1.status == TaskStatus.COMPLETE
+        job1.status == TaskStatus.TERMINATED
         job1.isSuccess()
         !job1.isFailed()
         !job1.cancelled
         !job1.isRetryRequired()
-        job1.isDone()
 
-        // terminated with error BUT not completed because it can be retried
-        job2.status != TaskStatus.COMPLETE
+        // unsuccessful - BUT - not terminated because it can be resubmitted
+        !job2.terminated
         !job2.isSuccess()
         job2.isFailed()
         !job2.cancelled
         job2.isRetryRequired()
-        job2.isDone()
 
         // cancelled, so NOT completed, NOT failed, it can be retried
-        job3.status != TaskStatus.COMPLETE
+        !job2.terminated
         !job3.isSuccess()
         !job3.isFailed()
         job3.isCancelled()
         job3.isRetryRequired()
-        job3.isDone()
 
         // error result - and - max number of attempts met,
         // job FAILED
-        job4.status == TaskStatus.FAILED
+        job4.terminated
         !job4.isSuccess()
         job4.isFailed()
         !job4.isCancelled()
         !job4.isRetryRequired()
-        job4.isDone()
 
         // job at last attempt - BUT CANCELLED
         // so it can re retried
-        job5.status != TaskStatus.FAILED
-        job5.status != TaskStatus.COMPLETE
+        !job5.terminated
         !job5.isSuccess()
         !job5.isFailed()
         job5.isCancelled()
         job5.isRetryRequired()
-        job5.isDone()
 
         // job with exit code == 0 BUT failure not null
-        job6.status == TaskStatus.FAILED
+        !job6.terminated
         !job6.isSuccess()
         job6.isFailed()
         !job6.isCancelled()
         job6.isRetryRequired()
-        job6.isDone()
 
     }
 

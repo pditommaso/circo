@@ -27,13 +27,11 @@ package circo.model
 enum TaskStatus {
 
     VOID('-'),       // no status defined - when it is created
-    NEW('N'),        // the jobs has been acquired by the system
-    PENDING('P'),     // the jobs has been added to a working queue
-    READY('A'),      // the job is ready to be executed
-    RUNNING('R'),    // the job execution has been launched
-    COMPLETE('C'),   // complete successfully
-    FAILED('E')      // terminated with error
-
+    NEW('N'),        // the task has been acquired by the system
+    PENDING('P'),     // the task has been added to a working queue
+    READY('A'),      // the task is ready to be executed
+    RUNNING('R'),    // the task execution has been launched
+    TERMINATED('T'),   // the task terminated whatever reason
 
     private shortNotation;
 
@@ -56,9 +54,8 @@ enum TaskStatus {
             case 'N': return NEW
             case 'P': return PENDING
             case 'A': return READY
-            case "R": return RUNNING
-            case 'C': return COMPLETE
-            case 'E': return FAILED
+            case 'R': return RUNNING
+            case 'T': return TERMINATED
             default:
                 throw new IllegalArgumentException("String '$value' is not a valid ${TaskStatus.simpleName} value")
         }

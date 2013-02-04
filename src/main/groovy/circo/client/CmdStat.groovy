@@ -18,17 +18,14 @@
  */
 
 package circo.client
-
+import circo.model.TaskEntry
+import circo.reply.StatReply
+import circo.reply.StatReplyData
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 import org.apache.commons.lang.exception.ExceptionUtils
-import circo.reply.StatReplyData
-import circo.reply.StatReply
-import circo.model.TaskEntry
-import circo.model.TaskStatus
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -41,8 +38,8 @@ class CmdStat extends AbstractCommand {
     @Parameter(names=['-j','--job'], description = 'Show detailed information about the specified job-id(s)')
     List<String> jobs
 
-    @Parameter(names=['-s','--status'], description = 'Comma separated list of job status (Pending|Running|Complete)', converter = JobStatusArrayConverter)
-    TaskStatus[] status
+    @Parameter(names=['-s','--status'], description = 'Comma separated list of job status (Pending|Running|Terminated|Success|Failed)' )
+    String status
 
     /** returns all jobs */
     @Parameter(names=['-a','--all'], hidden = true)
@@ -85,10 +82,10 @@ class CmdStat extends AbstractCommand {
         println """
         cluster status
         --------------
-        pending : ${ stats[ TaskStatus.PENDING ].toString().padLeft(4) }
-        running : ${ stats[ TaskStatus.RUNNING].toString().padLeft(4)  }
-        complete: ${ stats[ TaskStatus.COMPLETE].toString().padLeft(4)  }
-        failed  : ${ stats[ TaskStatus.FAILED].toString().padLeft(4)  }
+        pending: ${ stats.pending.toString().padLeft(4) }
+        running: ${ stats.running.toString().padLeft(4)  }
+        success: ${ stats.successful.toString().padLeft(4)  }
+        failed : ${ stats.failed.toString().padLeft(4) }
         """
         .stripIndent()
     }
@@ -104,22 +101,22 @@ class CmdStat extends AbstractCommand {
             }
 
             def result = """
-            id        : ${entry.id.toFmtString()}
-            command   : ${entry.req?.script?:'-'}
-            produce   : ${entry.req?.produce?:'-'}
-            status    : ${entry.status}
-            sender    : ${entry.sender?.toFmtString()}
-            worker    : ${entry.worker?.toFmtString()}
-            assigned  : ${entry.ownerId}
-            tmpdir    : ${entry.workDir}
-            linux pid : ${entry.pid}
-            attempts  : ${entry.attempts}
-            user      : ${entry?.req?.user}
-            created   : ${entry.getCreationTimeFmt()}
-            launched  : ${entry.getLaunchTimeFmt()}
-            completed : ${entry.getCompletionTimeFmt()}
-            exit code : ${entry.result?.exitCode?.toString() ?: '-'}
-            failure   : ${entry.result?.failure ? '\n'+ExceptionUtils.getStackTrace(entry.result?.failure) : '-' }
+            id       : ${entry.id.toFmtString()}
+            command  : ${entry.req?.script?:'-'}
+            produce  : ${entry.req?.produce?:'-'}
+            status   : ${entry.status} ${entry.terminated ? "- " + entry.terminatedReason : ''}
+            sender   : ${entry.sender?.toFmtString()}
+            worker   : ${entry.worker?.toFmtString()}
+            owner    : ${entry.ownerId}
+            tmpdir   : ${entry.workDir}
+            linux pid: ${entry.pid}
+            attempts : ${entry.attempts}
+            user     : ${entry?.req?.user}
+            created  : ${entry.getCreationTimeFmt()}
+            launched : ${entry.getLaunchTimeFmt()}
+            completed: ${entry.getCompletionTimeFmt()}
+            exit code: ${entry.result?.exitCode?.toString() ?: '-'}
+            failure  : ${entry.result?.failure ? '\n'+ExceptionUtils.getStackTrace(entry.result?.failure) : '-' }
             """
             .stripIndent()
 
@@ -157,9 +154,9 @@ class CmdStat extends AbstractCommand {
         tasks?.sort { it.creationTime } ?.each { TaskEntry it ->
 
             final String id = it.id.toFmtString()
-            final state = it.status.toFmtString()
+            final state = it.status.toFmtString() + ( it.terminatedReason?.substring(0,1) ?: '' )
             final String timestamp = it.getStatusTimeFmt()
-            final String worker = (!it.done && it.worker) ? it.worker.toFmtString() : '-'
+            final String worker = (!it.terminated && it.worker) ? it.worker.toFmtString() : '-'
 
             println "${id.padRight(12)}   ${state.padRight(4)}  ${timestamp.padRight(10)}  ${worker}"
 

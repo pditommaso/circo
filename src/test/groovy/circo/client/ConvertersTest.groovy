@@ -19,13 +19,6 @@
 
 package circo.client
 
-import circo.client.CommaSeparatedListConverter
-import circo.client.CustomIntRange
-import circo.client.CustomStringRange
-import circo.client.EachConverter
-import circo.client.EachListConverter
-import circo.client.IntRangeConverter
-import circo.client.JobStatusArrayConverter
 import circo.model.TaskStatus
 import org.apache.commons.lang.SerializationUtils
 import spock.lang.Specification
@@ -82,8 +75,8 @@ class ConvertersTest extends Specification {
         new JobStatusArrayConverter().convert(null) == []
         new JobStatusArrayConverter().convert('R') == [ TaskStatus.RUNNING ]
         new JobStatusArrayConverter().convert('r') == [ TaskStatus.RUNNING ]
-        new JobStatusArrayConverter().convert('R,C,e') == [ TaskStatus.RUNNING, TaskStatus.COMPLETE, TaskStatus.FAILED ]
-        new JobStatusArrayConverter().convert('R,C,R,C') == [ TaskStatus.RUNNING, TaskStatus.COMPLETE ]
+        new JobStatusArrayConverter().convert('R,T') == [ TaskStatus.RUNNING, TaskStatus.TERMINATED  ]
+        new JobStatusArrayConverter().convert('R,T,R,T') == [ TaskStatus.RUNNING, TaskStatus.TERMINATED ]
 
     }
 
@@ -95,7 +88,7 @@ class ConvertersTest extends Specification {
         new CommaSeparatedListConverter().convert('a,b b,c') == ['a','b b', 'c']
     }
 
-    def 'test IntRange serialize-deserialize' () {
+    def 'test IntRange serialize/de-serialize' () {
 
         when:
         CustomIntRange range1 = new CustomIntRange( 1, 10 )
@@ -112,7 +105,7 @@ class ConvertersTest extends Specification {
 
     }
 
-    def 'test StringRange serialize-deserialize' () {
+    def 'test StringRange serialize/de-serialize' () {
 
         when:
         CustomStringRange range1 = new CustomStringRange( 'b', 'e' )

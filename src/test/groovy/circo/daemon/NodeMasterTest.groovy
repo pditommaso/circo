@@ -28,7 +28,6 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import akka.testkit.JavaTestKit
 import circo.messages.WorkIsDone
-import circo.messages.WorkIsReady
 import circo.messages.WorkToBeDone
 import circo.messages.WorkToSpool
 import circo.messages.WorkerCreated
@@ -43,7 +42,6 @@ import circo.model.TaskResult
 import circo.model.TaskStatus
 import circo.model.WorkerData
 import circo.model.WorkerRef
-import circo.model.WorkerRefMock
 import circo.reply.ResultReply
 import groovy.util.logging.Slf4j
 import test.ActorSpecification
@@ -95,26 +93,15 @@ class NodeMasterTest extends ActorSpecification {
         final master = newTestActor(system, NodeMasterMock)
         final JavaTestKit probe = new JavaTestKit(system);
 
-        final def worker1 = newWorkerProbe(system)
-        final def worker2 = newWorkerProbe(system)
-        final def worker3 = newWorkerProbe(system)
-
-        // setup the workers map --> two are free and the last is busy
-        // only the free workers will be notified
-        master.getActor().node.putWorkerData(WorkerData.of(worker1))
-        master.getActor().node.putWorkerData(WorkerData.of(worker2))
-        master.getActor().node.putWorkerData(WorkerData.of(worker3) { it.currentTaskId = TaskId.of('99') } )
-
         when:
         // -- the message to add the Job to the processing queue
         master.tell( new WorkToSpool(theJobId), probe.getRef() )
 
         then:
-        entry.ownerId == master.getActor().node.id
+        dataStore.getTask(theJobId).ownerId == master.getActor().node.id
+        dataStore.getTask(theJobId).status == TaskStatus.PENDING
+
         master.underlyingActor().node.queue.poll() == theJobId
-        worker1.probe.expectMsgEquals( WorkIsReady.getInstance() )
-        worker2.probe.expectMsgEquals( WorkIsReady.getInstance() )
-        worker3.probe.expectNoMsg()
 
     }
 
@@ -167,15 +154,14 @@ class NodeMasterTest extends ActorSpecification {
         //
         def theJobId = TaskId.of('2')
         def entry = new TaskEntry ( theJobId, new TaskReq(script: 'Hello') )
-        entry.worker = new WorkerRefMock( master1.actor.selfAddress.toString() + '/processor0' )
+        entry.worker = workerRef1
         dataStore.saveTask(entry)
 
         // setup the workers map --> two are free and the last is busy
         // only the free workers will be notified
-        master1.actor.node.putWorkerData(WorkerData.of(workerRef1))
-        master1.actor.node.putWorkerData(WorkerData.of(workerRef2))
+        master1.actor.node.createWorkerData(workerRef1)
+        master1.actor.node.createWorkerData(workerRef2)
         master1.actor.allMasters.put( master2.actor.selfAddress, master2.actor.getSelf() )
-
 
         when:
         // -- the message to add the task to the processing queue
@@ -304,6 +290,9 @@ class NodeMasterTest extends ActorSpecification {
 
     }
 
+    /*
+     * TODO +++ fix
+     */
     def "test WorkerRequestsWork when no local work BUT someone else HAS it (2)" () {
 
         setup:
@@ -322,56 +311,32 @@ class NodeMasterTest extends ActorSpecification {
         master1.actor.allMasters.put( addr('2.2.2.2'), master2.actor.getSelf() )
         master2.actor.allMasters.put( addr('1.1.1.1'), master1.actor.getSelf() )
 
+        final worker1Probe = newProbe(system)
+        master1.actor.node.createWorkerData(worker1Probe.getRef())
+
         // -- Master1 has some jobs to be processed
         master2.actor.node.queue.add(job1.id)
         master2.actor.node.queue.add(job2.id)
         master2.actor.node.queue.add(job3.id)
         dataStore.putNodeData(master2.actor.node)
 
-        final worker1Probe = newProbe(system)
-
 
         when:
-        master2.tell( new WorkerRequestsWork(worker1Probe.getRef()), worker1Probe.getRef() )
+        /*
+         * the 'master1' is asked for tasks from its one worker
+         * but it doesn't have
+         */
+        master1.tell( new WorkerRequestsWork(worker1Probe.getRef()), worker1Probe.getRef() )
 
         then:
-        master2.actor.node.queue.size() == 2
+        /*
+         * the request is forwarded to 'Master2'
+         */
+        master2.probe.expectMsgClass(WorkerRequestsWork)
 
-        //TODO ++ must be improved - Check also
-        // - master1 has one job in its queue
-        // - worker worker1 received WorkIsReady message
-        //master1.underlyingActor().data.queue.size() == 1
-
-        master1.probe.expectMsgEquals(new WorkToSpool(TaskId.of(1)))
-        //worker1Probe.expectMsgEquals(WorkIsReady.getInstance())
 
     }
 
-    def "test WorkerRequestsWork with failed update" () {
-
-        setup:
-        final task = new TaskEntry( TaskId.of(3), new TaskReq(script:'Hello') )
-        dataStore.saveTask(task)
-
-
-        final probe = newProbe(system)
-        final master = newTestActor(system, NodeMasterMock )
-        master.actor.node.queue.add(task.id)
-
-        // -- The worker is not added to the NodeData
-        //    So the worker request will fail and a message to re-queue the jobId is sent
-
-        //master.underlyingActor().nodeData.createWorkerData(worker)
-
-        when:
-        master.tell( new WorkerRequestsWork(probe.getRef()) )
-
-        then:
-        // TODO ??? how expect message sent to itself ???
-        //master.underlyingActor().data.queue.size() == 1
-        master.probe.expectMsgEquals(WorkToSpool.of(task.id))
-
-    }
 
     /*
      * Worker send a message 'WorkIsDone' to signal that is has processed the
@@ -428,25 +393,34 @@ class NodeMasterTest extends ActorSpecification {
      * When a member goes down unpredictably, check pending jobs that need
      * to be rescheduled
      */
+
     def void "test resumeJobs" () {
 
         setup:
-        final master = newTestActor(system, NodeMasterMock)
+        /*
+         * there are two master nodes in this cluster
+         */
+        final master1 = newTestActor(system, NodeMasterMock)
+        final master2 = newTestActor(system, NodeMasterMock)
         final senderProbe = new JavaTestKit(system)
+
+        /*
+         * the following tasks are assigned to 'master1'
+         */
 
         // this is SUCCESS, it must be notified to the sender
         def ticket1 = UUID.randomUUID()
         def job1 = new TaskEntry( TaskId.of('1'), new TaskReq(ticket: ticket1, script: '1') )
         job1.setSender(senderProbe.getRef())
         job1.result =  new TaskResult(taskId:job1.id, exitCode: 0)
-        job1.ownerId = master.actor.nodeId
+        job1.ownerId = master1.actor.nodeId
         def result1 = new ResultReply(ticket1, job1.result)
 
         // this is FAILED, it must be rescheduled
         def ticket2 = UUID.randomUUID()
         def job2 = new TaskEntry( TaskId.of('2'), new TaskReq(script: '2') )
         job2.setSender(senderProbe.getRef())
-        job2.ownerId = master.actor.nodeId
+        job2.ownerId = master1.actor.nodeId
         job2.result == new TaskResult(taskId:job2.id, exitCode: 127) // <-- the error condition
         def result2 = new ResultReply(ticket2, job2.result)
 
@@ -456,26 +430,47 @@ class NodeMasterTest extends ActorSpecification {
         def job3 = new TaskEntry( TaskId.of('3'), new TaskReq(script: '3', maxAttempts: 2) )
         job3.status = TaskStatus.NEW
         job3.setSender(senderProbe.getRef())
-        job3.ownerId = master.actor.nodeId
+        job3.ownerId = master1.actor.nodeId
+
+
+        /*
+         * this task belongs to 'master2'
+         */
+        def ticket4 = UUID.randomUUID()
+        def job4 = new TaskEntry( TaskId.of('4'), new TaskReq(script: '4') )
+        job4.status = TaskStatus.NEW
+        job4.setSender(senderProbe.getRef())
+        job4.ownerId = master2.actor.nodeId
 
         dataStore.saveTask(job1)
         dataStore.saveTask(job2)
         dataStore.saveTask(job3)
+        dataStore.saveTask(job4)
+
+        master2.actor.node.queue << job4.id
 
         when:
-        master.underlyingActor().resumeTasks( master.actor.selfAddress )
+        /*
+         * master1 dies the other node (master2) will handle the situation
+         */
+        master2.underlyingActor().manageMemberDowned( master1.actor.selfAddress )
+
 
         then:
         // the NodeData for the dead node has been removed
         // so, getNodeData returns null
-        dataStore.getNodeData(master.actor.nodeId).status == NodeStatus.DEAD
+        dataStore.getNodeData(master1.actor.nodeId).status == NodeStatus.DEAD
 
         // The job finished (successfully or with errors) are sent back to the sender
         senderProbe.expectMsgAllOf(result1)
 
-        // The job not finished are retried, e.i. added to the spool queue
-        // of the master node in this case
-        master.probe.expectMsgAllOf( WorkToSpool.of(job2.id), WorkToSpool.of(job3.id) )
+        // the recovered tasks now belongs to 'master2'
+        job2.ownerId == master2.actor.nodeId
+        job3.ownerId == master2.actor.nodeId
+        job4.ownerId == master2.actor.nodeId
+
+        // they are queued into 'master2' queue
+        master2.actor.node.queue.toSet() == [job2.id, job3.id, job4.id] as Set
 
     }
 

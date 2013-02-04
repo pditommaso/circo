@@ -139,9 +139,9 @@ class DataStoreTest extends Specification {
         def job1 = TaskEntry.create('1') { it.status = TaskStatus.NEW }
         def job2 = TaskEntry.create('2') { it.status = TaskStatus.PENDING }
         def job3 = TaskEntry.create('3') { it.status = TaskStatus.PENDING }
-        def job4 = TaskEntry.create('4') { it.status = TaskStatus.COMPLETE }
-        def job5 = TaskEntry.create('5') { it.status = TaskStatus.COMPLETE }
-        def job6 = TaskEntry.create('6') { it.status = TaskStatus.COMPLETE }
+        def job4 = TaskEntry.create('4') { it.status = TaskStatus.TERMINATED }
+        def job5 = TaskEntry.create('5') { it.status = TaskStatus.TERMINATED }
+        def job6 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
 
         store.saveTask(job1)
         store.saveTask(job2)
@@ -153,7 +153,7 @@ class DataStoreTest extends Specification {
         expect:
         store.findTasksByStatus(TaskStatus.NEW).toSet() == [job1] as Set
         store.findTasksByStatus(TaskStatus.PENDING).toSet() == [job2,job3] as Set
-        store.findTasksByStatus(TaskStatus.COMPLETE).toSet() == [job4,job5,job6] as Set
+        store.findTasksByStatus(TaskStatus.TERMINATED).toSet() == [job4,job5,job6] as Set
         store.findTasksByStatus(TaskStatus.READY) == []
         store.findTasksByStatus(TaskStatus.NEW, TaskStatus.PENDING).toSet() == [job1,job2,job3] as Set
 

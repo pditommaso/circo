@@ -62,9 +62,9 @@ class Const {
 
     static final String APP_VER = "0.2.2"
 
-    static final long APP_TIMESTAMP = 1359982332650
+    static final long APP_TIMESTAMP = 1359992615422
 
-    static final int APP_BUILDNUM = 299
+    static final int APP_BUILDNUM = 305
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 

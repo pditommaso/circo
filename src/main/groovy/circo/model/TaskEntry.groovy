@@ -178,8 +178,15 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         result != null && result.cancelled
     }
 
-    def boolean isDone() {
-       status == TaskStatus.COMPLETE || status == TaskStatus.FAILED || isCancelled()
+    def boolean isTerminated() {
+       status == TaskStatus.TERMINATED
+    }
+
+    def String getTerminatedReason() {
+        if( !terminated ) return null
+        if( success ) return 'success'
+        if( failed ) return 'fail'
+        if ( cancelled ) return cancelled
     }
 
 
@@ -210,7 +217,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         if( !launchTime && status == TaskStatus.RUNNING  ) {
             launchTime = System.currentTimeMillis()
         }
-        else if ( !completionTime && status in [ TaskStatus.COMPLETE, TaskStatus.FAILED ]) {
+        else if ( !completionTime && status == TaskStatus.TERMINATED ) {
             completionTime = System.currentTimeMillis()
         }
 
@@ -224,7 +231,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
      */
     def String getStatusTimeFmt() {
 
-        if( status in [ TaskStatus.COMPLETE, TaskStatus.FAILED ] ) {
+        if( status == TaskStatus.TERMINATED ) {
             getCompletionTimeFmt()
         }
         else if( status == TaskStatus.RUNNING ) {
@@ -248,12 +255,8 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
             // increment the number of times this job has been cancelled
             if ( result.cancelled ) this.cancelled++
 
-            if( isSuccess() ) {
-                setStatus(TaskStatus.COMPLETE)
-                ownerId = null
-            }
-            else if ( !isRetryRequired() || failed ) {
-                setStatus(TaskStatus.FAILED)
+            if( isSuccess() || !isRetryRequired() ) {
+                setStatus(TaskStatus.TERMINATED)
                 ownerId = null
             }
 

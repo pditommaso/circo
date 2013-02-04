@@ -179,9 +179,9 @@ class FrontEndTest extends ActorSpecification {
 
         setup:
         final job1 = new TaskEntry(1,'echo 1')
-        final job2 = TaskEntry.create('2')  { it.status = TaskStatus.COMPLETE }
+        final job2 = TaskEntry.create('2')  { it.status = TaskStatus.TERMINATED }
         final job3 = new TaskEntry(3,'echo 3')
-        final job4 = TaskEntry.create('4')  { it.status = TaskStatus.COMPLETE }
+        final job4 = TaskEntry.create('4')  { it.status = TaskStatus.TERMINATED }
 
         dataStore.saveTask(job1)
         dataStore.saveTask(job2)
@@ -191,7 +191,7 @@ class FrontEndTest extends ActorSpecification {
         def sender = newProbe(system)
         def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
         def cmd = new CmdStat()
-        cmd.status = [ TaskStatus.COMPLETE ]
+        cmd.status = [ TaskStatus.TERMINATED ]
 
         when:
         frontend.tell( cmd, sender.getRef() )

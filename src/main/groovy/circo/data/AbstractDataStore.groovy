@@ -29,14 +29,12 @@ import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
 import circo.reply.StatReplyData
-import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
-@CompileStatic
 abstract class AbstractDataStore implements DataStore {
 
     protected ConcurrentMap<TaskId, TaskEntry> jobsMap
@@ -60,7 +58,7 @@ abstract class AbstractDataStore implements DataStore {
     boolean saveTask( TaskEntry task ) {
         assert task
         def old = jobsMap.put( task.id, task )
-        log.debug "## save ${task.dump()} -- was ${old?.dump()}"
+        log.trace "## save ${task.dump()} -- was ${old?.dump()}"
 
         return old == null
     }
@@ -83,14 +81,27 @@ abstract class AbstractDataStore implements DataStore {
     StatReplyData findTasksStat() {
         def result = new StatReplyData()
 
-        TaskStatus.values().each { TaskStatus status ->
-            int count = findTasksByStatus( status ).size()
-            result.put(status, count)
-        }
+        result.pending = findTasksByStatus( TaskStatus.PENDING ).size()
+        result.running = findTasksByStatus( TaskStatus.RUNNING ).size()
+
+        def terminated = findTasksByStatus( TaskStatus.TERMINATED )
+        result.successful = terminated.count { TaskEntry it -> it.success }.toInteger()
+        result.failed = terminated.count { TaskEntry it -> it.failed }.toInteger()
 
         return result
+    }
 
 
+    List<TaskEntry> findTasksByStatus( String status ) {
+        if( status?.toLowerCase() in ['s','success'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
+        }
+
+        if ( status?.toLowerCase() in ['e','error','f','failed'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
+        }
+
+        findTasksByStatus(TaskStatus.fromString(status))
     }
 
     List<TaskEntry> findAllTasks() {

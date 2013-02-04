@@ -98,6 +98,14 @@ interface DataStore {
     List<TaskEntry> findTasksByStatus( TaskStatus... status )
 
     /**
+     * Find the jobs in the status by the specified string
+     *
+     * @param status
+     * @return
+     */
+    List<TaskEntry> findTasksByStatus( String status )
+
+    /**
      * The job status statistics i.e. how many jobs for each status
      */
     StatReplyData findTasksStat()

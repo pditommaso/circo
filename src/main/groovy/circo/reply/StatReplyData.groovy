@@ -19,7 +19,6 @@
 
 package circo.reply
 
-import circo.model.TaskStatus
 import circo.util.SerializeId
 /**
  * Model the jobs statistics information i.e. how many jobs are for each {@code TaskStatus}
@@ -27,9 +26,14 @@ import circo.util.SerializeId
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @SerializeId
-class StatReplyData extends HashMap<TaskStatus, Integer> implements Serializable {
+class StatReplyData implements Serializable {
+
+    int pending
+    int running
+    int successful
+    int failed
 
     StatReplyData( ) {
-        super( TaskStatus.values().size() )
+
     }
 }
