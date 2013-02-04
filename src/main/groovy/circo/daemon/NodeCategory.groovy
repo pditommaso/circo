@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,24 +17,32 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
+package circo.daemon
 
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
-import groovy.transform.ToString
-import circo.model.TaskEntry
+import circo.util.CircoHelper
+import org.slf4j.MDC
+
 /**
+ * This class provides some helper methods to configure the logging {@code MDC} context
+ * <p> It is supped to applied to an actor class using using the @Mixin definition
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
-@InheritConstructors
-@ToString(includePackage = false, includeSuper = true)
-class StatReply extends AbstractReply {
 
-    List<TaskEntry> tasks
+class NodeCategory {
 
-    StatReplyData stats
+
+    @Lazy
+    def String mdcActorName = { CircoHelper.removePathPrefix(self?.path()) } ()
+
+    @Lazy
+    def String mdcNodeId = { nodeId?.toString() } ()
+
+
+    def setMDCVariables() {
+        MDC.put('node', mdcNodeId)
+        MDC.put('actor', mdcActorName )
+    }
 
 
 }

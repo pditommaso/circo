@@ -24,9 +24,6 @@ import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskReq
 import test.ActorSpecification
-
-import static test.TestHelper.addr
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -38,7 +35,7 @@ class ScreenRendererTest extends ActorSpecification {
         
         setup:
 
-        def node1 = new NodeData( address: addr('1.1.1.1') )
+        def node1 = new NodeData(id: 11)
         def w1 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w2 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w3 = node1.createWorkerData( new JavaTestKit(system).getRef() )
@@ -47,18 +44,18 @@ class ScreenRendererTest extends ActorSpecification {
         node1.failed = 1
         dataStore.putNodeData(node1)
 
-        def node2 = new NodeData( address: addr('2.2.2.2') )
+        def node2 = new NodeData(id: 22)
         def w5 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node2)
 
-        dataStore.saveJob( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
-        dataStore.saveJob( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
-        dataStore.saveJob( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
 
 
         when:
-        def block = new ScreenRenderer(addr('1.1.1.1'), dataStore)
+        def block = new ScreenRenderer(11, dataStore)
         def result = block.render()
         print result
 
@@ -71,28 +68,28 @@ class ScreenRendererTest extends ActorSpecification {
 
         setup:
 
-        def node1 = new NodeData( address: addr('1.1.1.1') )
+        def node1 = new NodeData(id: 11)
         def w1 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w2 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w3 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w4 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node1)
 
-        def node2 = new NodeData( address: addr('2.2.2.2') )
+        def node2 = new NodeData(id: 22)
         def w5 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node2)
 
-        dataStore.saveJob( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
-        dataStore.saveJob( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
-        dataStore.saveJob( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
 
 
         when:
         // create a render data - and - make a copy of it
-        def block = new ScreenRenderer(addr('1.1.1.1'), dataStore)
-        def copy = new ScreenRenderer(addr('1.1.1.1'), dataStore)
-        def third = new ScreenRenderer(addr('1.1.1.1'), dataStore)
+        def block = new ScreenRenderer(11, dataStore)
+        def copy = new ScreenRenderer(11, dataStore)
+        def third = new ScreenRenderer(11, dataStore)
 
         // change some data in the copy
         copy.cluster.processedJobs = 2
@@ -143,28 +140,28 @@ class ScreenRendererTest extends ActorSpecification {
 
         setup:
 
-        def node1 = new NodeData( address: addr('1.1.1.1') )
+        def node1 = new NodeData( id: 11 )
         def w1 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w2 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w3 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w4 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node1)
 
-        def node2 = new NodeData( address: addr('2.2.2.2') )
+        def node2 = new NodeData( id: 22 )
         def w5 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         dataStore.putNodeData(node2)
 
-        dataStore.saveJob( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
-        dataStore.saveJob( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
-        dataStore.saveJob( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
+        dataStore.saveTask( new TaskEntry(TaskId.of(3), new TaskReq(script: 'do more')) )
 
 
         when:
         // create a render data - and - make a copy of it
-        def block = new ScreenRenderer(addr('1.1.1.1'), dataStore)
-        def copy = new ScreenRenderer(addr('1.1.1.1'), dataStore)
-        def third = new ScreenRenderer(addr('1.1.1.1'), dataStore)
+        def block = new ScreenRenderer(11, dataStore)
+        def copy = new ScreenRenderer(11, dataStore)
+        def third = new ScreenRenderer(11, dataStore)
 
         // change some data in the copy
         copy.cluster.processedJobs = 2

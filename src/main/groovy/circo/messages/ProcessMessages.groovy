@@ -20,23 +20,27 @@
 package circo.messages
 
 import circo.model.TaskEntry
+import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@SerializeId
 @TupleConstructor
 @EqualsAndHashCode
 @ToString(includePackage = false)
 class ProcessStarted implements Serializable {
 
-    final TaskEntry jobEntry
+    final TaskEntry task
 
 }
 
 
+@SerializeId
 @ToString(includePackage = false)
 class ProcessKill implements Serializable {
 
@@ -46,17 +50,25 @@ class ProcessKill implements Serializable {
 }
 
 
+@SerializeId
 @Singleton
 @ToString(includePackage = false)
 class ProcessIsAlive implements Serializable {
 
 }
 
+@SerializeId
 @TupleConstructor
 @EqualsAndHashCode
 @ToString(includePackage = false)
 class ProcessToRun implements Serializable {
 
-    final TaskEntry jobEntry
+    final TaskEntry task
+
+}
+
+@SerializeId
+@ToString(includePackage = false)
+class NodeShutdown implements Serializable {
 
 }

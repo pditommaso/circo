@@ -28,17 +28,19 @@ import circo.client.CmdGet
 import circo.client.CmdNode
 import circo.client.CmdStat
 import circo.client.CmdSub
+import circo.daemon.NodeCategory
 import circo.daemon.NodeMaster
-import circo.model.DataRef
 import circo.data.DataStore
+import circo.messages.PauseWorker
+import circo.messages.ResumeWorker
+import circo.model.DataRef
 import circo.model.NodeData
-import circo.model.WorkerRef
-import circo.messages.*
+import circo.model.TaskContext
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskReq
 import circo.model.TaskStatus
-import circo.model.TaskContext
+import circo.model.WorkerRef
 import circo.reply.NodeReply
 import circo.reply.ResultReply
 import circo.reply.StatReply
@@ -52,6 +54,7 @@ import groovy.util.logging.Slf4j
 
 
 @Slf4j
+@Mixin(NodeCategory)
 class FrontEnd extends UntypedActor {
 
     static final ACTOR_NAME = 'FrontEnd'
@@ -60,13 +63,17 @@ class FrontEnd extends UntypedActor {
 
     def DataStore dataStore
 
+    private int nodeId
+
     def Map<Class<? extends AbstractCommand>, Closure> dispatchTable = new HashMap<>()
 
-    def FrontEnd( DataStore store ) {
+    def FrontEnd( DataStore store, int nodeId = 0 ) {
         this.dataStore = store
+        this.nodeId = nodeId
     }
 
     def void preStart() {
+        setMDCVariables()
         log.debug "++ Starting actor ${getSelf().path()}"
 
         // if not injected by someone else, get a reference to the 'master' actor -- useful for testing
@@ -77,6 +84,7 @@ class FrontEnd extends UntypedActor {
 
 
     def void postStop() {
+        setMDCVariables()
         log.debug "~~ Stopping actor ${getSelf().path()}"
     }
 
@@ -109,6 +117,7 @@ class FrontEnd extends UntypedActor {
 
     @Override
     void onReceive(Object message) {
+        setMDCVariables()
         log.debug "<- ${message}"
 
         if ( !dispatch(message) ){
@@ -128,7 +137,7 @@ class FrontEnd extends UntypedActor {
 
             def reply = new ResultReply(command.ticket)
             try {
-                def entry = dataStore.getJob(TaskId.of(value))
+                def entry = dataStore.getTask(TaskId.of(value))
                 if( entry ) {
                     reply.result = entry.result
                 }
@@ -164,7 +173,7 @@ class FrontEnd extends UntypedActor {
 
             command.jobs.each { String it ->
                 try {
-                    def found = dataStore.findJobsById(it)
+                    def found = dataStore.findTasksById(it)
                     if( found ) {
                         list.addAll( found )
                     }
@@ -184,28 +193,28 @@ class FrontEnd extends UntypedActor {
          * find by status
          */
         else if ( command.status ) {
-            list = dataStore.findJobsByStatus( command.status )
+            list = dataStore.findTasksByStatus( command.status )
         }
 
         /*
          * The list of all the jobs (!)
          */
         else if( command.all ) {
-            list = dataStore.findAll()
+            list = dataStore.findAllTasks()
         }
 
         /*
          * return some stats
          */
         else {
-            result.stats = dataStore.findJobsStats()
+            result.stats = dataStore.findTasksStat()
         }
 
 
         /*
          * reply back to the sender
          */
-        result.jobs = list
+        result.tasks = list
 
         log.debug "-> ${result} TO sender: ${sender}"
         getSender().tell( result, getSelf() )
@@ -252,7 +261,7 @@ class FrontEnd extends UntypedActor {
          */
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
             def result = new SubReply(command.ticket)
-            result.jobIds = listOfJobs .collect { it.id }
+            result.taskIds = listOfJobs .collect { it.id }
             log.debug "Send confirmation to client: $result"
             getSender().tell( result, getSelf() )
         }
@@ -264,7 +273,7 @@ class FrontEnd extends UntypedActor {
          * that some jobs terminate (and the termination notification is sent) before the SubReply
          * is sent to teh client, which will cause a 'dead-lock'
          */
-        listOfJobs.each { dataStore.saveJob(it) }
+        listOfJobs.each { dataStore.saveTask(it) }
 
     }
 
@@ -297,7 +306,7 @@ class FrontEnd extends UntypedActor {
     private TaskEntry createJobEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
 
         // -- create a new ID for this job
-        final id = dataStore.nextJobId()
+        final id = dataStore.nextTaskId()
 
         // create a new request object
         final request = createReq(command)

@@ -18,38 +18,65 @@
  */
 
 package circo.model
-
 import akka.actor.ActorRef
 import akka.actor.Address
+import circo.util.CircoHelper
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
-import circo.util.CircoHelper
-import circo.util.SerializeId
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
 @Slf4j
-@SerializeId
 @EqualsAndHashCode
-@ToString(includes = ['address','queue','workers','status'], includePackage = false)
+@ToString(includes = ['id', 'address','queue','workers','status', 'processed', 'failed'], includePackage = false, includeNames = true)
 class NodeData implements Serializable {
 
+    /**
+     * The unique node id
+     */
+    int id
+
+    /**
+     * Current status of the node
+     */
     NodeStatus status
 
+    /**
+     * The node IP address
+     */
     Address address
 
+    /**
+     * The reference to the master actor for this node
+     */
+    WorkerRef master
+
+    /*
+     * The start timestamp of the node
+     */
     long startTimestamp
 
+    /*
+     * Number of tasks processed
+     */
     long processed
 
+    /*
+     * Number of tasks failed
+     */
     long failed
 
+    /**
+     * Queue of {@code TaskId} waiting to be processed
+     */
     Queue<TaskId> queue = new LinkedList<>()
 
+    /**
+     * The map of available workers
+     */
     Map<WorkerRef, WorkerData> workers = new HashMap<>( Runtime.getRuntime().availableProcessors())
 
     def NodeData () { }
@@ -57,10 +84,14 @@ class NodeData implements Serializable {
     def NodeData( NodeData that ) {
         assert that
 
+        this.id = that.id
         this.address = that.address
         this.startTimestamp = that.startTimestamp
         this.processed = that.processed
         this.failed = that.failed
+
+        // make a copy of the queue
+        this.queue.addAll( that.queue?: [] )
 
         // make a deep copy
         this.workers = new HashMap<>(that.workers?.size())
@@ -68,7 +99,6 @@ class NodeData implements Serializable {
             def copy = WorkerData.copy(data)
             this.workers.put( copy.worker, copy )
         }
-
     }
 
     def void failureInc( WorkerRef ref ) {
@@ -121,27 +151,27 @@ class NodeData implements Serializable {
 
     }
 
-    def boolean assignJobId( ActorRef actor, TaskId jobId ) {
-        this.assignJobId(new WorkerRef(actor), jobId)
+    def boolean assignTaskId( ActorRef actor, TaskId taskId ) {
+        this.assignTaskId(new WorkerRef(actor), taskId)
     }
 
-    def boolean assignJobId( WorkerRef ref, TaskId jobId ) {
+    def boolean assignTaskId( WorkerRef ref, TaskId taskId ) {
         assert ref
-        assert jobId
+        assert taskId
 
         def info = workers.get(ref)
-        if ( !info || info.currentJobId ) {
+        if ( !info || info.currentTaskId ) {
             return false
         }
 
-        info.currentJobId = jobId
+        info.currentTaskId = taskId
         info.processed ++
         this.processed ++
 
         return true
     }
 
-    def TaskId removeJobId( WorkerRef ref ) {
+    def TaskId removeTaskId( WorkerRef ref ) {
         assert ref
 
         def info = workers.get(ref)
@@ -149,9 +179,13 @@ class NodeData implements Serializable {
             return null
         }
 
-        def result = info.currentJobId
-        info.currentJobId = null
+        def result = info.currentTaskId
+        info.currentTaskId = null
         return result
+    }
+
+    def TaskId currentTaskIdFor( WorkerRef ref ) {
+        workers.containsKey(ref) ? workers.get(ref).currentTaskId : null
     }
 
 
@@ -164,15 +198,12 @@ class NodeData implements Serializable {
         workers.values().each{ closure.call(it) }
     }
 
-    def void clearWorkers() {
-        workers.clear()
-    }
-
     def String getStartTimeFmt()  {  CircoHelper.getSmartTimeFormat(startTimestamp) }
 
     def String toFmtString() {
 
         // gen info
+        def id = CircoHelper.fmt(this.id, 3)
         def addr = CircoHelper.fmt(this.address)
         def stat = this.status?.toString()
         def uptime = this.getStartTimeFmt()
@@ -182,16 +213,16 @@ class NodeData implements Serializable {
         def runs = CircoHelper.fmt( numOfBusyWorkers(), 2)
 
         // queue and processed jobs
-        def queue = CircoHelper.fmt( numOfQueuedJobs(), 4)
-        def count = CircoHelper.fmt( numOfProcessedJobs(), 4 )
-        def failed = numOfFailedJobs()
+        def queue = CircoHelper.fmt( numOfQueuedTasks(), 4)
+        def count = CircoHelper.fmt( numOfProcessedTasks(), 4 )
+        def failed = numOfFailedTasks()
 
         def jobs = "${queue} /${count}"
         if( failed ) {
             jobs += ' - ' + CircoHelper.fmt(failed, 2)
         }
 
-        "${addr} ${stat} ${uptime} ${runs} /${procs} $jobs" .toString()
+        "${id} ${addr} ${stat} ${uptime} ${runs} /${procs} $jobs" .toString()
 
     }
 
@@ -200,26 +231,36 @@ class NodeData implements Serializable {
     }
 
     def int numOfBusyWorkers() {
-        workers?.values()?.findAll { WorkerData wrk -> wrk.currentJobId != null } ?.size()
+        busyWorkers()?.size()
     }
 
-    def int numOfAvailWorkers() {
-        workers?.values()?.findAll { WorkerData wrk -> wrk.currentJobId == null } ?.size()
+    def int numOfFreeWorkers() {
+       freeWorkers() ?.size()
     }
 
-    def long numOfProcessedJobs() {
+    def long numOfProcessedTasks() {
         long result = 0
         workers?.values()?.each{ WorkerData wrk -> result += wrk.processed }
         result
     }
 
-    def long numOfFailedJobs() {
+    def long numOfFailedTasks() {
         long result = 0
         workers?.values()?.each{ WorkerData wrk -> result += wrk.failed }
         result
     }
 
-    def numOfQueuedJobs() {
+    def numOfQueuedTasks() {
         queue?.size() ?: 0
     }
+
+
+    def List<WorkerData> busyWorkers() {
+        workers?.values()?.findAll { WorkerData wrk -> wrk.currentTaskId != null }
+    }
+
+    def List<WorkerData> freeWorkers() {
+        workers?.values()?.findAll { WorkerData wrk -> wrk.currentTaskId == null }
+    }
+
 }

@@ -42,6 +42,14 @@ class TestHelper {
         }
     }
 
+    static Address randomAddress() {
+        Random rnd = new Random()
+        List<String> result = []
+        4.times { result << rnd.nextInt(255).toString() }
+
+        return addr( result.join('.') )
+    }
+
     static Address addr( String address = null, int port = 2551 ) {
         address ? new Address('akka','default', address, port ) : new Address('akka','default')
     }

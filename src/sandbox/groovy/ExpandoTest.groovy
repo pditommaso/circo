@@ -19,14 +19,13 @@
 
 
 
-import org.codehaus.groovy.runtime.InvokerHelper
-import spock.lang.Specification
 
+import org.codehaus.groovy.runtime.InvokerHelper
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class ExpandoTest extends Specification {
+class ExpandoTest  {
 
     static class GetterDummy {
 

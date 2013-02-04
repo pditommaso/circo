@@ -1,7 +1,9 @@
+import circo.daemon.NodeCategory
+
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,24 +19,18 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
 
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
-import groovy.transform.ToString
-import circo.model.TaskEntry
-/**
- *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
- */
-@SerializeId
-@InheritConstructors
-@ToString(includePackage = false, includeSuper = true)
-class StatReply extends AbstractReply {
+@Mixin(NodeCategory)
+class SimpleClass {
 
-    List<TaskEntry> tasks
+    int nodeId
 
-    StatReplyData stats
+    def self
+
 
 
 }
+
+
+def simple = new SimpleClass()
+println simple.mdcNodeId

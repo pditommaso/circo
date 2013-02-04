@@ -93,6 +93,10 @@ class WorkerRef implements Serializable {
         return actor.path()
     }
 
+    def name() {
+        return actor.path().name()
+    }
+
     def Address address() {
         AddressFromURIString.parse(path)
     }

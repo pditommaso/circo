@@ -18,6 +18,8 @@
  */
 
 package circo.daemon
+
+import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Address
 import akka.actor.Props
@@ -27,8 +29,9 @@ import circo.Const
 import circo.data.DataStore
 import circo.data.HazelcastDataStore
 import circo.data.LocalDataStore
-import circo.model.WorkerRef
 import circo.frontend.FrontEnd
+import circo.messages.NodeShutdown
+import circo.model.WorkerRef
 import circo.ui.TerminalUI
 import circo.util.CircoHelper
 import circo.util.CmdLine
@@ -37,6 +40,10 @@ import com.beust.jcommander.JCommander
 import com.beust.jcommander.ParameterException
 import com.typesafe.config.ConfigFactory
 import groovy.util.logging.Slf4j
+import org.slf4j.MDC
+import sun.misc.Signal
+import sun.misc.SignalHandler
+
 /**
  *  Launch a cluster node instance
  *
@@ -65,6 +72,9 @@ public class Daemon {
 
     private multiCast = false
 
+    private ActorRef master
+
+    private int nodeId
 
 
     /**
@@ -167,7 +177,30 @@ public class Daemon {
             dataStore = new HazelcastDataStore( ConfigFactory.load(), members, multiCast )
         }
 
+
+        // install the shutdown message handler
+        // installShutdownSignal()
+
     }
+
+
+    /**
+     * Intercept the keyboard CTRL+C key press and send a {@code NodeShutdown} message
+     */
+    private void installShutdownSignal() {
+
+        try {
+            Signal.handle(new Signal("INT"), {
+                log.debug "Sending shutdown message"
+                master.tell(new NodeShutdown(), null)
+
+            } as SignalHandler  )
+        }
+        catch( Exception e ) {
+            log.warn ("Cannot install term signal handler 'INT'", e)
+        }
+    }
+
 
     /*
      * try to join a random node in the cluster
@@ -193,7 +226,6 @@ public class Daemon {
                 sleep(1000)
             }
         }
-
     }
 
 
@@ -203,13 +235,17 @@ public class Daemon {
     def void run () {
         log.debug "++ Entering run method"
 
+        // -- the unique id for this node
+        nodeId = dataStore.nextNodeId()
+        MDC.put('node', nodeId.toString())
+
         // -- create the required actors
         createMasterActor()
         createFrontEnd()
         createProcessors()
 
         if( cmdLine.interactive ) {
-            createTerminalUI()
+            createTerminalUI(nodeId)
         }
 
         log.info "Circo node started [${cluster.selfAddress()}]"
@@ -217,15 +253,19 @@ public class Daemon {
 
 
     protected void createMasterActor() {
-        system.actorOf( new Props({ new NodeMaster(dataStore) } as UntypedActorFactory) , NodeMaster.ACTOR_NAME)
+        final props = new Props({ new NodeMaster(dataStore, nodeId) } as UntypedActorFactory)
+        master = system.actorOf(props, NodeMaster.ACTOR_NAME)
+
     }
 
     protected void createFrontEnd() {
-        system.actorOf( new Props({ new FrontEnd(dataStore) } as UntypedActorFactory), FrontEnd.ACTOR_NAME )
+        def props = new Props({ new FrontEnd(dataStore, nodeId) } as UntypedActorFactory)
+        system.actorOf( props, FrontEnd.ACTOR_NAME )
     }
 
-    protected void createTerminalUI() {
-        system.actorOf( new Props({ new TerminalUI(dataStore)} as UntypedActorFactory), TerminalUI.ACTOR_NAME )
+    protected void createTerminalUI(int nodeId) {
+        def props = new Props({ new TerminalUI(dataStore, nodeId)} as UntypedActorFactory)
+        system.actorOf( props, TerminalUI.ACTOR_NAME )
     }
 
     // -- finally create the workers
@@ -233,7 +273,7 @@ public class Daemon {
 
         def nCores = cmdLine.processors
         nCores.times {
-            def props = new Props({ new TaskProcessor(store: dataStore, slow: cmdLine.slow)} as UntypedActorFactory)
+            def props = new Props({ new TaskProcessor(store: dataStore, nodeId: nodeId, slow: cmdLine.slow)} as UntypedActorFactory)
             system.actorOf( props, "processor$it" )
         }
 
@@ -316,7 +356,6 @@ public class Daemon {
     }
 
     static Daemon start( String[] args ) {
-
 
         // parse the command line
         def cmdLine = parseCmdLine(args)

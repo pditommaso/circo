@@ -18,11 +18,8 @@
  */
 
 package circo.model
-
 import akka.actor.Address
 import akka.actor.RootActorPath
-import circo.model.WorkerRef
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -37,6 +34,12 @@ class WorkerRefMock extends WorkerRef {
 
     def int hashCode() { super.hashCode() }
 
+    /**
+     * Parse a local or remote actor path, e.g. {@code /some/actor}, @{code akka://sys@1.1.1.1/some/actor}
+     *
+     * @return a pair as an array of two items, the first element is an {@code Address} item, and the second
+     * is the relative path string
+     */
     static parse( String path ) {
         def result = []
         def p = path.indexOf('://')

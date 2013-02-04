@@ -19,17 +19,17 @@
 
 
 
-import com.beust.jcommander.JCommander
+
 import circo.client.AppOptions
 import circo.client.CmdNode
 import circo.client.CmdStat
 import circo.client.CmdSub
-import spock.lang.Specification
+import com.beust.jcommander.JCommander
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class JCommanderTest extends Specification {
+class JCommanderTest  {
 
     def testParseCli() {
 

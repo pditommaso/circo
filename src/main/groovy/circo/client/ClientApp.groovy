@@ -64,37 +64,40 @@ class ClientApp {
             // -- handle a generic command response
             if( message instanceof AbstractReply ) {
                 final replyObj = message as AbstractReply
+                final replyClass = message.class
                 final sink = responseSinks[ replyObj.ticket ]
                 if( !sink ) {
                     log.error "Missing response sink for req: ${replyObj.ticket}"
                     return
                 }
 
+                // assign this response to the associated sink obj -- maintains the
+                // relationship between the submitted command and the cluster reply
+                sink.reply = replyObj
+
                 /*
                  * special handling for the ResultReply
                  */
-                if( message.class == SubReply ) {
+                if( replyClass == SubReply ) {
                     def reply = message as SubReply
-                    printJobIds(reply)
+                    printTasksIds(reply)
+
                     // get the command
                     def cmd = sink.command as CmdSub
                     // re-sync the barrier count based the real number of jobs submitted
                     // note: only when the command have to print out the result - or - is sync
                     if ( cmd.printOutput || cmd.syncOutput ) {
-                        sink.delta = reply?.jobIds?.size()
+                        sink.delta = reply?.taskIds?.size()
                     }
 
                     // create the collection to hold all produced context */
-                    sink.gatherResults = new ArrayList( reply.jobIds.size() )
-                    sink.expectedResults = reply.jobIds.size()
+                    sink.gatherResults = new ArrayList( reply.taskIds.size() )
+                    sink.expectedResults = reply.taskIds.size()
                 }
-                else if( message.class == ResultReply ) {
+                else if( replyClass == ResultReply ) {
                     handleResultReply(message as ResultReply, sink)
                 }
 
-                // assign this response to the associated sink obj -- maintains the
-                // relationship between the submitted command and the cluster reply
-                sink.reply = replyObj
                 sink.countDown()
                 log.debug "Counting down, remaining: ${sink.getCount()} "
 
@@ -106,9 +109,10 @@ class ClientApp {
 
         }
 
-        def void printJobIds( SubReply message ) {
-            def count = message.jobIds?.size()
-            def list = message.jobIds *. toFmtString { "'${it}'" }
+        def void printTasksIds( SubReply message ) {
+            def count = message.taskIds?.size()
+            def list = message.taskIds *. toFmtString { "'${it}'" }
+
             if ( count == 0 ) {
                 log.info "Oops. No job submitted"
             }

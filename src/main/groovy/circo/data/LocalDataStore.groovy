@@ -18,18 +18,17 @@
  */
 
 package circo.data
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
 
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.Lock
-import java.util.concurrent.locks.ReentrantLock
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -42,12 +41,18 @@ class LocalDataStore extends AbstractDataStore {
 
     private AtomicLong idGen = new AtomicLong()
 
+    private AtomicInteger nodeIdGen = new AtomicInteger()
+
     def LocalDataStore() {
         jobsMap = new ConcurrentHashMap<>()
         nodeDataMap = new ConcurrentHashMap<>()
     }
 
-    TaskId nextJobId() { new TaskId( idGen.addAndGet(1) ) }
+    def void shutdown() { }
+
+    TaskId nextTaskId() { new TaskId( idGen.addAndGet(1) ) }
+
+    int nextNodeId() { nodeIdGen.addAndGet(1) }
 
     @Override
     protected Lock getLock(key) {
@@ -55,17 +60,17 @@ class LocalDataStore extends AbstractDataStore {
     }
 
 
-    List<TaskEntry> findJobsByStatus( TaskStatus... status ) {
+    List<TaskEntry> findTasksByStatus( TaskStatus... status ) {
         assert status
-        jobsMap.values().findAll { TaskEntry job -> job.status in status  }
+        jobsMap.values().findAll { TaskEntry task -> task.status in status  }
     }
 
-    boolean saveJob( TaskEntry job ) {
-        def isNew = super.saveJob(job)
+    boolean saveTask( TaskEntry task) {
+        def isNew = super.saveTask(task)
 
         if( isNew && jobsListeners )  {
             try {
-                jobsListeners.each{ Closure it -> it.call(job) }
+                jobsListeners.each{ Closure it -> it.call(task) }
             }
             catch( Exception e ) {
                 log.error "Failed invoking Add New TaskEntry listener", e
@@ -76,22 +81,29 @@ class LocalDataStore extends AbstractDataStore {
         return isNew
     }
 
-    List<TaskEntry> findJobsById( final String jobId ) {
-        assert jobId
+    List<TaskEntry> findTasksById( final String taskId) {
+        assert taskId
 
         def value
-        if ( jobId.contains('*') ) {
-            value = jobId.replace('*','.*')
+        if ( taskId.contains('*') ) {
+            value = taskId.replace('*','.*')
         }
         else {
-            value = jobId
+            value = taskId
         }
 
         // remove '0' prefix
         while( value.size()>1 && value.startsWith('0') ) { value = value.substring(1) }
 
-        jobsMap.values().findAll { TaskEntry job -> job.id.toFmtString() ==~ /$value/ }
+        jobsMap.values().findAll { TaskEntry task -> task.id.toFmtString() ==~ /$value/ }
 
+    }
+
+    @Override
+    List<TaskEntry> findAllTasksOwnerBy(Integer nodeId) {
+        assert nodeId
+
+        return jobsMap.values().findAll() { TaskEntry it -> it.ownerId == nodeId }
     }
 
     /**
@@ -101,13 +113,13 @@ class LocalDataStore extends AbstractDataStore {
      * @return
      */
     @Override
-    void addNewJobListener(Closure listener) {
+    void addNewTaskListener(Closure listener) {
         assert listener
         jobsListeners.add(listener)
     }
 
 
-    void removeNewJobListener(Closure listener) {
+    void removeNewTaskListener(Closure listener) {
         assert listener
         jobsListeners.remove(listener)
     }

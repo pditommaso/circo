@@ -1,15 +1,14 @@
+import java.util.concurrent.BlockingQueue
+
+import circo.model.TaskResult
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.IList
-import circo.model.TaskResult
-import spock.lang.Specification
-
-import java.util.concurrent.BlockingQueue
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class HazelcastTest extends Specification {
+class HazelcastTest  {
 
     def cleanup () {
         println "** Cleanup"

@@ -165,7 +165,7 @@ class TaskEntryTest extends Specification {
         job1.isSuccess()
         !job1.isFailed()
         !job1.cancelled
-        !job1.retryIsRequired()
+        !job1.isRetryRequired()
         job1.isDone()
 
         // terminated with error BUT not completed because it can be retried
@@ -173,7 +173,7 @@ class TaskEntryTest extends Specification {
         !job2.isSuccess()
         job2.isFailed()
         !job2.cancelled
-        job2.retryIsRequired()
+        job2.isRetryRequired()
         job2.isDone()
 
         // cancelled, so NOT completed, NOT failed, it can be retried
@@ -181,7 +181,7 @@ class TaskEntryTest extends Specification {
         !job3.isSuccess()
         !job3.isFailed()
         job3.isCancelled()
-        job3.retryIsRequired()
+        job3.isRetryRequired()
         job3.isDone()
 
         // error result - and - max number of attempts met,
@@ -190,7 +190,7 @@ class TaskEntryTest extends Specification {
         !job4.isSuccess()
         job4.isFailed()
         !job4.isCancelled()
-        !job4.retryIsRequired()
+        !job4.isRetryRequired()
         job4.isDone()
 
         // job at last attempt - BUT CANCELLED
@@ -200,7 +200,7 @@ class TaskEntryTest extends Specification {
         !job5.isSuccess()
         !job5.isFailed()
         job5.isCancelled()
-        job5.retryIsRequired()
+        job5.isRetryRequired()
         job5.isDone()
 
         // job with exit code == 0 BUT failure not null
@@ -208,7 +208,7 @@ class TaskEntryTest extends Specification {
         !job6.isSuccess()
         job6.isFailed()
         !job6.isCancelled()
-        job6.retryIsRequired()
+        job6.isRetryRequired()
         job6.isDone()
 
     }

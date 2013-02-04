@@ -19,15 +19,16 @@
 
 package circo.util
 
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
+
+import akka.actor.ActorPath
 import akka.actor.Address
 import akka.actor.Address as AkkaAddress
 import circo.Const
 import circo.client.CustomIntRange
 import circo.client.CustomStringRange
 import groovy.util.logging.Slf4j
-
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
 
 /**
  *
@@ -207,6 +208,18 @@ class CircoHelper {
             "${Const.APP_VER} - Build on ${CircoHelper.fmt(new Date(Const.APP_TIMESTAMP))} - build # ${Const.APP_BUILDNUM}"
         }
 
+    }
+
+    /**
+     * Remove the common prefix '/user/xxx' from an {@code ActorPath}
+     *
+     * @param path The path to be clean
+     * @return The actor path as a string without the /user/ prefix
+     */
+    static String removePathPrefix( ActorPath path ) {
+        def str = path.toString()
+        def p = str.indexOf('user/')
+        return p != -1 ? str.substring(p+5) : str
     }
 
 }

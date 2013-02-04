@@ -61,7 +61,7 @@ class FrontEndTest extends ActorSpecification {
         sub.maxAttempts = 4
 
         def listenerEntry = null
-        dataStore.addNewJobListener { it -> listenerEntry = it }
+        dataStore.addNewTaskListener { it -> listenerEntry = it }
 
 
         when:
@@ -74,12 +74,12 @@ class FrontEndTest extends ActorSpecification {
         // the sender get a 'reply' message
         def result = sender.expectMsgClass(SubReply)
         // the reply contains the ID(s) of the new submitted job(s)
-        def ID = result.jobIds.get(0)
+        def ID = result.taskIds.get(0)
         // the a new job entry has been created
-        def entry = dataStore.getJob( ID )
+        def entry = dataStore.getTask( ID )
 
         then:
-        result.jobIds.size() == 1
+        result.taskIds.size() == 1
         result.ticket == sub.ticket
         result.messages.size() == 0
 
@@ -124,14 +124,14 @@ class FrontEndTest extends ActorSpecification {
 
         // the a new job entry has been created
         def result = sender.expectMsgClass(SubReply)
-        def entry0 = dataStore.getJob( result.jobIds[0] )
-        def entry1 = dataStore.getJob( result.jobIds[1] )
-        def entry2 = dataStore.getJob( result.jobIds[2] )
-        def entry3 = dataStore.getJob( result.jobIds[3] )
+        def entry0 = dataStore.getTask( result.taskIds[0] )
+        def entry1 = dataStore.getTask( result.taskIds[1] )
+        def entry2 = dataStore.getTask( result.taskIds[2] )
+        def entry3 = dataStore.getTask( result.taskIds[3] )
 
         then:
-        result.jobIds.size() == 4
-        result.jobIds[0] == TaskId.of(1)
+        result.taskIds.size() == 4
+        result.taskIds[0] == TaskId.of(1)
         entry0.req.environment['JOB_ID'] == entry0.id.toFmtString()
         entry0.req.context.getData('X') == '1'
         entry0.req.context.getData('Y') == 'alpha'
@@ -156,8 +156,8 @@ class FrontEndTest extends ActorSpecification {
         setup:
         final job1 = new TaskEntry('1','echo 1')
         final job2 = new TaskEntry('2','echo 2')
-        dataStore.saveJob(job1)
-        dataStore.saveJob(job2)
+        dataStore.saveTask(job1)
+        dataStore.saveTask(job2)
 
         def sender = newProbe(system)
         def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
@@ -168,7 +168,7 @@ class FrontEndTest extends ActorSpecification {
         def result = sender.expectMsgClass(StatReply)
 
         then:
-        result.jobs == [ job1, job2 ]
+        result.tasks == [ job1, job2 ]
         result.warn == ["Cannot find any job for id: '3'"]
         result.error.size() == 0
         result.info.size() == 0
@@ -183,10 +183,10 @@ class FrontEndTest extends ActorSpecification {
         final job3 = new TaskEntry(3,'echo 3')
         final job4 = TaskEntry.create('4')  { it.status = TaskStatus.COMPLETE }
 
-        dataStore.saveJob(job1)
-        dataStore.saveJob(job2)
-        dataStore.saveJob(job3)
-        dataStore.saveJob(job4)
+        dataStore.saveTask(job1)
+        dataStore.saveTask(job2)
+        dataStore.saveTask(job3)
+        dataStore.saveTask(job4)
 
         def sender = newProbe(system)
         def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
@@ -198,7 +198,7 @@ class FrontEndTest extends ActorSpecification {
         def result = sender.expectMsgClass(StatReply)
 
         then:
-        result.jobs.sort() == [ job2, job4 ]
+        result.tasks.sort() == [ job2, job4 ]
         result.error.size() == 0
         result.warn.size() == 0
         result.info.size() == 0
@@ -209,8 +209,8 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd node' () {
 
         setup:
-        def node1 =  NodeDataTest.create('1.1.1.1:2551', 'w1,w2')
-        def node2 =  NodeDataTest.create('1.1.2.2:2555', 't0,t1,t2')
+        def node1 =  NodeDataTest.create(11, 'w1,w2')
+        def node2 =  NodeDataTest.create(22, 't0,t1,t2')
 
         dataStore.putNodeData(node1)
         dataStore.putNodeData(node2)

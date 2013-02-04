@@ -18,10 +18,7 @@
  */
 
 package circo.ui
-
 import circo.data.DataStore
-import test.TestHelper
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -29,9 +26,8 @@ import test.TestHelper
 
 class TerminalUIMock extends TerminalUI {
 
-    public TerminalUIMock(DataStore dataStore, String address ) {
-        super(dataStore)
-        selfAddress = TestHelper.addr(address)
+    public TerminalUIMock(DataStore dataStore, int nodeId ) {
+        super(dataStore,nodeId)
     }
 
     @Override

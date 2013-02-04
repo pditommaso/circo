@@ -19,15 +19,13 @@
 
 
 
-import spock.lang.Specification
 
 import java.lang.reflect.Modifier
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class MetaTest extends Specification {
+class MetaTest  {
 
 
     def testMethodMissing () {

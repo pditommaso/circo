@@ -208,11 +208,12 @@ class LoggerHelper {
         root.detachAndStopAllAppenders()
 
 
+        final String sLayout = '%d{HH:mm:ss.SSS} %-5level [%X{node}:%X{actor}] %logger{36} - %msg%n'
         List<Appender> allAppender = []
         if( !cmdLine.interactive ) {
 
             def encoder = new PatternLayoutEncoder()
-            encoder.setPattern('%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n')
+            encoder.setPattern(sLayout)
             encoder.setContext(loggerContext)
             encoder.start()
 
@@ -226,14 +227,14 @@ class LoggerHelper {
 
         // the file appender is always created
         def encoder = new PatternLayoutEncoder()
-        encoder.setPattern('%d{HH:mm:ss.SSS} %-5level %logger{36} - %msg%n')
+        encoder.setPattern('%d{HH:mm:ss.SSS} [%X{node}:%X{actor}] %-5level %logger{36} - %msg%n')
         encoder.setContext(loggerContext)
         encoder.start()
 
         def fileAppender = new RollingFileAppender()
         allAppender << fileAppender
 
-        def fileName = ".${Const.APP_NAME}-daemon-${cmdLine.port}.log"
+        def fileName = ".${Const.APP_NAME}-daemon.log"
         def timeBasedPolicy = new TimeBasedRollingPolicy( )
         timeBasedPolicy.fileNamePattern = "${fileName}.%d{yyyy-MM-dd}"
         timeBasedPolicy.setContext(loggerContext)
@@ -244,6 +245,8 @@ class LoggerHelper {
         fileAppender.rollingPolicy = timeBasedPolicy
         fileAppender.encoder = encoder
         fileAppender.setContext(loggerContext)
+        fileAppender.setAppend(false)
+        fileAppender.setPrudent(true)
         fileAppender.start()
 
         Logger logger = loggerContext.getLogger('ROOT')

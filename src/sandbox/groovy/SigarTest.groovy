@@ -19,15 +19,14 @@
 
 
 
-import org.hyperic.sigar.Sigar
-import spock.lang.Specification
-import test.TestHelper
 
+import org.hyperic.sigar.Sigar
+import test.TestHelper
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class SigarTest extends Specification {
+class SigarTest  {
 
     def "test sigar" () {
         setup:

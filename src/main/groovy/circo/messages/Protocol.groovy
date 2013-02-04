@@ -62,28 +62,28 @@ class WorkerRequestsWork implements Serializable {
 
 }
 
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 @EqualsAndHashCode
 @TupleConstructor
 class WorkIsDone implements Serializable {
 
     final WorkerRef worker
 
-    final TaskId jobId
+    final TaskId taskId
 
 }
 
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 @EqualsAndHashCode
 @TupleConstructor
 class WorkToBeDone implements Serializable {
 
-    final TaskId jobId
+    final TaskId taskId
 
 }
 
 
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 @Singleton
 class WorkIsReady implements  Serializable { }
 
@@ -97,14 +97,14 @@ class WorkComplete implements Serializable {
 
 }
 
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 @TupleConstructor
 @EqualsAndHashCode
 class WorkToSpool implements Serializable {
 
-    final TaskId JobId
+    final TaskId taskId
 
-    static WorkToSpool of( TaskId jobId )  { new WorkToSpool(jobId) }
+    static WorkToSpool of( TaskId taskId )  { new WorkToSpool(taskId) }
 
 }
 
@@ -125,7 +125,7 @@ class WorkerFailure implements Serializable {
 
 }
 
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 @EqualsAndHashCode
 class PauseWorker implements Serializable {
 

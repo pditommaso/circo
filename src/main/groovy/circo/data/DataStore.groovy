@@ -18,13 +18,15 @@
  */
 
 package circo.data
+
 import akka.actor.Address
 import circo.model.NodeData
-import circo.reply.StatReplyData
-import groovy.transform.CompileStatic
+import circo.model.NodeStatus
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
+import circo.reply.StatReplyData
+import groovy.transform.CompileStatic
 
 /**
  * Define the operations provided by the data storage system
@@ -35,48 +37,56 @@ import circo.model.TaskStatus
 interface DataStore {
 
 
-    TaskId nextJobId()
+    TaskId nextTaskId()
 
     /**
      * Save a {@code TaskEntry} in the underlying storage implementation
-     * @param job A {@code TaskEntry} instance
+     * @param task A {@code TaskEntry} instance
      * @return {@code true} if {@code job} was created as a new entry, {@code false} when the entry is updated
      */
-    boolean saveJob( TaskEntry job )
+    boolean saveTask( TaskEntry task )
 
     /**
      * Get a job with the specified ID
      *
-     * @param jobId The ID of the requested {@code TaskEntry}
+     * @param taskId The ID of the requested {@code TaskEntry}
      * @return The {@code TaskEntry} instance associated with specified ID or {@code null} if the job does not exist
      */
-    TaskEntry getJob( TaskId jobId )
+    TaskEntry getTask( TaskId taskId )
 
     /**
      *
-     * @param jobId
+     * @param taskId
      * @return
      */
-    List<TaskEntry> findJobsById( String jobId );
+    List<TaskEntry> findTasksById( String taskId );
 
     /**
      * @return The list of all defined jobs
      */
-    List<TaskEntry> findAll()
+    List<TaskEntry> findAllTasks()
+
+    /**
+     * Find all the tasks currently assigned to a cluster node specified it {@code Address}
+     *
+     * @param address
+     * @return
+     */
+    List<TaskEntry> findAllTasksOwnerBy( Integer nodeId )
 
     /**
      * Add a new listener closure invoke when a new {@code TaskEntry} in added in the storage
      *
      * @param listener
      */
-    void addNewJobListener( Closure listener )
+    void addNewTaskListener( Closure listener )
 
     /**
      * Remove the specified instance from the listeners registered
      *
      * @param listener
      */
-    void removeNewJobListener( Closure listener )
+    void removeNewTaskListener( Closure listener )
 
 
     /**
@@ -85,29 +95,32 @@ interface DataStore {
      * @param status An open array of job status, it CANNOT be empty
      * @return The list of jobs in status specified, or an empty list when no job matches the status specified
      */
-    List<TaskEntry> findJobsByStatus( TaskStatus... status )
+    List<TaskEntry> findTasksByStatus( TaskStatus... status )
 
     /**
      * The job status statistics i.e. how many jobs for each status
      */
-    StatReplyData findJobsStats()
+    StatReplyData findTasksStat()
 
     /**
      * Find the {@code TaskEntry} instance by the specified ID, apply the specified closure and save it
      *
-     * @param jobId
+     * @param taskId
      * @param closure
      * @return {@code true} if saved successfully, @{Code false} otherwise
      */
-    boolean updateJob( TaskId jobId, Closure closure )
+    boolean updateTask( TaskId taskId, Closure closure )
 
     /**
      * @return The count of {@code TaskEntry} stored
      */
-    long countJobs()
+    long countTasks()
 
+    int nextNodeId()
 
-    NodeData getNodeData( Address address )
+    NodeData getNodeData(int nodeId)
+
+    List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status )
 
     NodeData putNodeData( NodeData nodeData )
 
@@ -118,5 +131,7 @@ interface DataStore {
     boolean removeNodeData( NodeData dataToRemove )
 
     List<NodeData> findAllNodesData()
+
+    void shutdown()
 
 }

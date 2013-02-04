@@ -40,7 +40,7 @@ fi
 declare -a args=()
 DEBUG=''
 MAIN_CLASS=${MAIN_CLASS:-$1}
-JVM_ARGS+=" -Djava.awt.headless=true -Dsigar.lib.path=$base_dir/libsigar"
+JVM_ARGS+=" -Djava.net.preferIPv4Stack=true -Djava.awt.headless=true -Dsigar.lib.path=$base_dir/libsigar"
 
 #
 # classpath when the application is compiled with gradle 
