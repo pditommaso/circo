@@ -6,8 +6,8 @@
 		<testFolder url="file://$MODULE_DIR$/src/test/resources"/>
 		<testFolder url="file://$MODULE_DIR$/src/test/java"/>
 		<testFolder url="file://$MODULE_DIR$/src/test/groovy"/>
-		<testFolder url="file://$MODULE_DIR$/src/sandbox/groovy"/>
-		<testFolder url="file://$MODULE_DIR$/src/sandbox/java"/>
+		<testFolder url="file://$MODULE_DIR$/src/zandbox/groovy"/>
+		<testFolder url="file://$MODULE_DIR$/src/zandbox/java"/>
 		<excludeFolder url="file://$MODULE_DIR$/.gradle"/>
 		<excludeFolder url="file://$MODULE_DIR$/build"/>
 	</contentEntry>
