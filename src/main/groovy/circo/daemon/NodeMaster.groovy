@@ -23,6 +23,7 @@ import java.util.concurrent.TimeUnit
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.Cancellable
+import akka.actor.PoisonPill
 import akka.actor.Terminated
 import akka.actor.UntypedActor
 import akka.cluster.Cluster
@@ -74,6 +75,9 @@ class NodeMaster extends UntypedActor  {
     @ToString(includePackage = false)
     static class WorkersNotifier { }
 
+    /**
+     * The unique node identifier
+     */
     final int nodeId
 
     /**
@@ -86,15 +90,20 @@ class NodeMaster extends UntypedActor  {
      */
     protected DataStore store
 
+    /**
+     * The reference to the current cluster
+     */
     Cluster cluster
 
+    /** The address of the current cluster leader node */
     Address leaderAddress
 
+    /** The address of this node */
     Address selfAddress
 
-    Random random = new Random()
+    private Map<Address,ActorRef> allMasters = new HashMap<>()
 
-    Map<Address,ActorRef> allMasters = new HashMap<>()
+    private Random random = new Random()
 
     private boolean shuttingDown
 
@@ -102,7 +111,9 @@ class NodeMaster extends UntypedActor  {
 
     private Map<Class,Closure> clusterDispatcher = new HashMap()
 
-    /** The reference to the notifier scheduler process */
+    /**
+     * The reference to the scheduler which notifier workers that tasks are available
+     */
     private Cancellable notifier
 
     def createDispatchTable() {
@@ -133,7 +144,7 @@ class NodeMaster extends UntypedActor  {
 
 
 
-    /*
+    /**
      * When a new entry is added to the jobs storage map, the listener is invoked which will add
      * the job id to the jobs local queue
      */
@@ -153,7 +164,12 @@ class NodeMaster extends UntypedActor  {
         getSelf().tell(message, getSelf())
     }
 
-
+    /**
+     * Creates this master actor
+     *
+     * @param store The connection to the {@code DataStore}
+     * @param nodeId The unique identifier of this node
+     */
     def NodeMaster( DataStore store, int nodeId = Integer.MAX_VALUE ) {
         assert store
         this.nodeId = nodeId
@@ -161,7 +177,12 @@ class NodeMaster extends UntypedActor  {
         createDispatchTable()
     }
 
-
+    /**
+     * Initialize the Master actor, mainly
+     * <li>create the {@code NodeData} instance holding the data structure for this node
+     * <li>subscribe for cluster members events
+     * <li>schedule a trigger that periodically checks if new pending tasks are available and send them to the worker(s)
+     */
     @Override
     def void preStart() {
         setMDCVariables()
@@ -205,6 +226,11 @@ class NodeMaster extends UntypedActor  {
 
     }
 
+    /**
+     * After the actor stops, does:
+     * <li>store the current {@code NodeData} structure
+     * <li>if a shutdown request has been submitted, close the connection with the current {@code DataStore}
+     */
     @Override
     def void postStop() {
         setMDCVariables()
@@ -214,6 +240,11 @@ class NodeMaster extends UntypedActor  {
 
         // --- remove the event listener
         store.removeNewTaskListener( onNewJobAddedListener )
+
+        if ( shuttingDown ) {
+            log.debug "Shutting down Hazelcast"
+            try { store.shutdown() } catch( Exception e ) { log.warn "Error closing hazelcast", e }
+        }
     }
 
     /**
@@ -240,7 +271,11 @@ class NodeMaster extends UntypedActor  {
 
     }
 
-
+    /**
+     * Main message dispatcher method
+     *
+     * @param message The message received to be managed
+     */
     @Override
     def void onReceive( def message ) {
         setMDCVariables()
@@ -267,7 +302,7 @@ class NodeMaster extends UntypedActor  {
 
     }
 
-    /*
+    /**
      * A worker died. If he was doing anything then we need
      * to give it to someone else so we just add it back to the
      * master and let things progress as usual
@@ -276,7 +311,7 @@ class NodeMaster extends UntypedActor  {
 
         def worker = new WorkerRef(message.actor)
 
-        def taskId =  node.getWorkerData(worker) ?. currentTaskId
+        def taskId =  node.currentTaskIdFor(worker)
         if( taskId ) {
             log.error("Blurgh! ${worker} died while processing: ${taskId}")
             // Send the work that it was doing back to ourselves for processing
@@ -286,9 +321,13 @@ class NodeMaster extends UntypedActor  {
         log.debug "Removing worker: ${worker} from availables workers"
         node.removeWorkerData(worker)
 
+        if ( shuttingDown && node.workers?.size() == 0 ) {
+            killMyself()
+        }
+
     }
 
-    /*
+    /**
      * -- A client has post a new command to be processed
      *    It is appended to the list of jobs
      */
@@ -324,38 +363,38 @@ class NodeMaster extends UntypedActor  {
     }
 
 
-    /*
+    /**
      * Worker is alive. Add him to the list, watch him for
      * death, and let him know if there's work to be done
      */
 
-    def void handleWorkerCreated(WorkerCreated message) {
+    protected void handleWorkerCreated(WorkerCreated message) {
 
         def worker = message.worker
         context.watch(worker.actor)
 
         node.putWorkerData( WorkerData.of(worker) )
 
-//        // trigger a WorkerRequestsWork event to force a job poll
-//        // Note: only for the very first worker in the node
-//        if ( workerCount++ == 0 ) {
-//            self().tell( new WorkerRequestsWork(worker), self() )
-//        }
     }
 
 
 
-    /*
+    /**
      * A worker wants more work.  If we know about him, he's not
      * currently doing anything, and we've got something to do,
      * give it to him.
      */
-    def void handleWorkerRequestWork(WorkerRequestsWork message) {
+    protected void handleWorkerRequestWork(WorkerRequestsWork message) {
 
         final worker = message.worker
 
         if( node.status == NodeStatus.PAUSED ) {
-            log.debug "Node paused -- Worker request for work ignored"
+            log.debug "Node is paused -- ignore request"
+            return
+        }
+
+        if ( shuttingDown ) {
+            log.debug "System is going to shutdown -- ignore the request"
             return
         }
 
@@ -422,22 +461,26 @@ class NodeMaster extends UntypedActor  {
     }
 
 
+    /**
+     * When a task completes, remove the current tasks assignment for it
+     */
     def void handleWorkIsDone(WorkIsDone message) {
 
-        // free the worker
+        // -- free the worker
         if( !node.removeTaskId(message.worker) ) {
             log.error("Blurgh! ${message.worker} said it's done work but we didn't know about him")
         }
 
-        if ( shuttingDown ) {
-            if ( node.numOfBusyWorkers()==0 ) shutdown()
+        // -- when a shutdown is on-going, kill all the worker actors
+        if ( shuttingDown && node.numOfBusyWorkers()==0 ) {
+           killWorkers()
         }
 
     }
 
 
 
-    /*
+    /**
      * A worker send a 'WorkerFailure' message to notify an error condition
      */
     protected void handleWorkerFailure(WorkerFailure message) {
@@ -448,10 +491,9 @@ class NodeMaster extends UntypedActor  {
     }
 
 
-    /*
+    /**
      * pause the node and stop all workers
      */
-
     protected void handlePauseWorker(PauseWorker message) {
 
         log.debug "Pausing node: $selfAddress"
@@ -466,13 +508,21 @@ class NodeMaster extends UntypedActor  {
 
     }
 
+    /**
+     * Resume the node, after it was stopped
+     *
+     * @param message
+     */
     protected void handleResumeWorker(ResumeWorker message) {
         log.debug "Resuming node: $selfAddress"
         node.status = NodeStatus.ALIVE
         notifyWorkers()
     }
 
-
+    /**
+     * Keep track of the current cluster members
+     * @param message
+     */
     protected void handleCurrentClusterState(CurrentClusterState message) {
         // iterate over all members and add the missing ones
         def currentMembers = message.members.collect { Member it -> it.address() }
@@ -490,30 +540,54 @@ class NodeMaster extends UntypedActor  {
         }
     }
 
+    /**
+     * Keep track of the current cluster leader
+     *
+     * @param message
+     */
     protected void handleLeaderChanged(LeaderChanged message) {
         leaderAddress = message.getLeader()
     }
 
+    /**
+     * Add the newly create cluster member to the list of cluster members
+     *
+     * @param message
+     */
     protected void handleMemberCreated(MemberEvent message) {
         addMasterAddress( message.member().address() )
     }
 
+    /**
+     * Delete the removed node from the list of cluster members
+     * @param message
+     */
     protected void handleMemberTerminated(MemberEvent message) {
         removeMasterAddress( message.member().address() )
         manageMemberDowned( message.member().address() )
     }
 
-    protected boolean addMasterAddress( Address address ) {
+    /**
+     * Add the node {@code Address} to the {@code allMasters} map
+     *
+     * @param address
+     * @return
+     */
+    protected void addMasterAddress( Address address ) {
         log.debug "Putting address: ${address} in the members map"
         def actor = getContext().system().actorFor("${address}/user/${NodeMaster.ACTOR_NAME}")
         allMasters.put( address, actor)
-        return true
     }
 
-    protected boolean removeMasterAddress( Address address ) {
+    /**
+     * Remove node {@code Address} from the {@code allMasters} map
+     *
+     * @param address
+     * @return
+     */
+    protected void removeMasterAddress( Address address ) {
         log.debug "Removing address ${address} from members map"
         allMasters.remove(address)
-        return true
     }
 
     /**
@@ -674,30 +748,57 @@ class NodeMaster extends UntypedActor  {
         }
     }
 
-
-    protected void handleShutdown(def message) {
+    /**
+     * Start the shutdown process, when the message {@code NodeShutdown} is sent
+     *
+     * @param message
+     */
+    protected void handleShutdown(NodeShutdown message) {
 
         // set the node in 'PAUSED' status
         node.status = NodeStatus.PAUSED
         this.shuttingDown = true
+        this.notifier?.cancel()
 
-        if ( node.numOfBusyWorkers() == 0 ) {
-            shutdown()
+        if( node.numOfBusyWorkers() > 0 ) {
+            // some tasks are running, kill all of theme
+            // on completion the workers will be killed
+            killTasks()
         }
         else {
-            // -- stop as well all running jobs
-            def kill = new PauseWorker(hard: true) // use hard to kill all on-going tasks
-            node.workers.keySet().each { WorkerRef ref ->  ref.tell(kill) }
+            // no tasks running, so kill all the workers
+            killWorkers()
         }
 
+
     }
 
-    protected void shutdown() {
-        log.info "****** SHUTTING DOWN THE CLUSTER NODE ******"
-        notifier.cancel()
-        try { store.shutdown() } catch( Exception e ) {}
-        context().system().shutdown()
+    /**
+     * Kill all running tasks
+     */
+    private void killTasks() {
+
+        def kill = new PauseWorker(hard: true) // use hard to kill all on-going tasks
+        node.busyWorkers().each { WorkerData it -> it.worker.tell(kill) }
     }
+
+    /**
+     * Kill all worker actors
+     */
+    private void killWorkers() {
+        node.workers.keySet().each { WorkerRef ref -> ref.tell(PoisonPill.instance)  }
+    }
+
+    /**
+     * Shutdown the Akka system
+     */
+    private void killMyself() {
+        log.info "****** finalizing system shutdown ******"
+        context().system().shutdown()
+
+    }
+
+
 
 
 }

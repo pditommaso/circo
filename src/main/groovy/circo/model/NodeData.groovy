@@ -143,7 +143,7 @@ class NodeData implements Serializable {
         assert worker
 
         if ( this.workers.containsKey( worker ) ) {
-            return workers.get(worker)
+            return workers.remove(worker)
         }
         else {
             return null
@@ -262,5 +262,6 @@ class NodeData implements Serializable {
     def List<WorkerData> freeWorkers() {
         workers?.values()?.findAll { WorkerData wrk -> wrk.currentTaskId == null }
     }
+
 
 }

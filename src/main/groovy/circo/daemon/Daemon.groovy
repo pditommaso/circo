@@ -179,7 +179,9 @@ public class Daemon {
 
 
         // install the shutdown message handler
-        // installShutdownSignal()
+        installShutdownSignal()
+
+        system.registerOnTermination({ sleep(500); System.exit(0) } as Runnable)
 
     }
 
@@ -286,14 +288,25 @@ public class Daemon {
         if( stopped ) return
         stopped = true
 
-        if( !system ) return
+        /*
+         * terminate AKKA
+         */
+        if ( system && !system.isTerminated()) {
+            try {
+                system.shutdown()
+            }
+            catch( Throwable e ) {
+                log.warn("Unable to stop Akka System", e)
+            }
+        }
 
-        try {
-            system.shutdown()
+        /*
+         * terminate Hazelcast
+         */
+        if ( dataStore ) {
+            dataStore.shutdown()
         }
-        catch( Throwable e ) {
-            log.warn("Unable to stop Akka System", e)
-        }
+
     }
 
 
