@@ -6,17 +6,19 @@ Elastic cluster engine for the cloud.
 Rationale
 ---------
 
-The legacy grid engines require long and complex system operations to be installed or just to add/remove new nodes to
-grid computing environment. These requirements are considered extraordinary maintenance operations to be managed
+The legacy grid engines require long and complex system operations to be installed or simply to add/remove new nodes to
+the computing environment. These requirements were considered extraordinary maintenance operations to be managed
 by the grid administrator and the IT people.
 
 Moreover this kind of system are based on a master/slave model which is characterized by having many single points of failures,
-and require very high
+and require very high.
 
-Circo is a distributed, decentralized grid engine in which new nodes added to the cluster are automatically and added
-to the cluster without required any system operation or configuration. Likewise nodes that are removed, because they crashed
-or simple since they are decommissioned, are automatically managed and the tasks repartitioned in the remaining nodes in the grid.
+A cloud based system requires a more "fluid" operational environment, in which new resources can be added or removed
+seamlessly and in a timely manner.
 
+Circo is a distributed, decentralized grid engine that is able to manage automatically these kind of operations.
+Moreover it provides an high-level jobs monitoring, error detection and recovery mechanism, which makes it an ideal
+tool for cloud deployed cluster environment.
 
 
 Required dependencies
@@ -35,7 +37,7 @@ http://gradle.org/
 Having Gradle installed on your computer, in order to compile the project type the following command
 in the Circo project home directory on your computer:
 
-  $ gradle compile
+    $ gradle compile
 
 
 Install
@@ -50,7 +52,7 @@ using the `--port` command line option.
 To interact and submit jobs to the cluster use the `circo` command line tool available in bin folder in the project directory,
 and specifying the ip address of one of the node making uo the cluster. For example:
 
-  $ ./bin/circo --host 192.168.0.1
+    $ ./bin/circo --host 192.168.0.1
 
 
 If a daemon is running on the local machine it is not required to specify the cluster node to which connect.
