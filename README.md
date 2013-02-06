@@ -6,15 +6,16 @@ Elastic cluster engine for the cloud.
 Rationale
 ---------
 
-The legacy grid engines require long and complex system operations to be installed or simply to add/remove new nodes to
+Legacy grid engines require long and complex system operations to be installed or simply to add/remove new nodes to
 the computing environment. These requirements were considered extraordinary maintenance operations to be managed
 by the grid administrator and the IT people.
 
-Moreover this kind of system are based on a master/slave model which is characterized by having many single points of failures,
-and require very high.
+Moreover this kind of systems are based on a master/slave model which is characterized by having many single points of
+failures, and requiring a very high-performance network connection to work properly.
 
 A cloud based system requires a more "fluid" operational environment, in which new resources can be added or removed
-seamlessly and in a timely manner.
+seamlessly and in a timely manner. It also should be able to work with low-cost hardware or "utility" computers that,
+by definition, are the building blocks of cloud based system.
 
 Circo is a distributed, decentralized grid engine that is able to manage automatically these kind of operations.
 Moreover it provides an high-level jobs monitoring, error detection and recovery mechanism, which makes it an ideal
