@@ -11,11 +11,11 @@ the computing environment. These requirements were considered extraordinary main
 by the grid administrator and the IT people.
 
 Moreover this kind of systems are based on a master/slave model which is characterized by having many single points of
-failures, and requiring a very high-performance network connection to work properly.
+failure, and requiring a very high performance network connection to work properly.
 
 A cloud based system requires a more "fluid" operational environment, in which new resources can be added or removed
 seamlessly and in a timely manner. It also should be able to work with low-cost hardware or "utility" computers that,
-by definition, are the building blocks of cloud based system.
+by definition, are the building blocks of cloud based systems.
 
 Circo is a distributed, decentralized grid engine that is able to manage automatically these kind of operations.
 Moreover it provides an high-level jobs monitoring, error detection and recovery mechanism, which makes it an ideal
@@ -35,10 +35,15 @@ Circo build process is based on the Gradle build automation system. It can be do
 http://gradle.org/
 
 
-Having Gradle installed on your computer, in order to compile the project type the following command
+Having Gradle installed on your computer, to compile the project type the following command
 in the Circo project home directory on your computer:
 
     $ gradle compile
+
+
+You may use the following command to create the distribution package and install it on a remote node:
+
+    $ gradle dist
 
 
 Install
