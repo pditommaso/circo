@@ -18,34 +18,33 @@
  */
 
 package circo.data
-import akka.actor.Address
-import circo.reply.StatReplyData
-import circo.model.NodeData
-import groovy.transform.CompileStatic
-import groovy.util.logging.Slf4j
-import circo.model.TaskEntry
-import circo.model.TaskId
-import circo.model.TaskStatus
-
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.Lock
+
+import akka.actor.Address
+import circo.model.NodeData
+import circo.model.NodeStatus
+import circo.model.TaskEntry
+import circo.model.TaskId
+import circo.model.TaskStatus
+import circo.reply.StatReplyData
+import groovy.util.logging.Slf4j
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
-@CompileStatic
 abstract class AbstractDataStore implements DataStore {
 
     protected ConcurrentMap<TaskId, TaskEntry> jobsMap
 
-    protected ConcurrentMap<Address, NodeData> nodeDataMap
+    protected ConcurrentMap<Integer, NodeData> nodeDataMap
 
     protected abstract Lock getLock( def key )
 
-    final protected void withLock(TaskId jobId, Closure closure) {
-        def lock = getLock(jobId)
+    final protected void withLock(TaskId taskId, Closure closure) {
+        def lock = getLock(taskId)
         lock.lock()
         try {
             closure.delegate = this
@@ -56,62 +55,102 @@ abstract class AbstractDataStore implements DataStore {
         }
     }
     
-    boolean saveJob( TaskEntry job ) {
-        assert job
+    boolean saveTask( TaskEntry task ) {
+        assert task
+        def old = jobsMap.put( task.id, task )
+        log.trace "## save ${task.dump()} -- was ${old?.dump()}"
 
-        jobsMap.put( job.id, job ) == null
+        return old == null
     }
 
     @Override
-    TaskEntry getJob( TaskId id ) {
-        assert id
-        jobsMap.get(id)
+    TaskEntry getTask( TaskId taskId) {
+        assert taskId
+        jobsMap.get(taskId)
     }
 
-    boolean updateJob( TaskId jobId, Closure closure ) {
-        def entry = getJob(jobId)
+    boolean updateTask( TaskId taskId, Closure closure ) {
+        def entry = getTask(taskId)
         closure.call(entry)
-        saveJob( entry )
+        saveTask( entry )
     }
 
-    long countJobs() { jobsMap.size() }
+    long countTasks() { jobsMap.size() }
 
 
-    StatReplyData findJobsStats() {
+    StatReplyData findTasksStat() {
         def result = new StatReplyData()
 
-        TaskStatus.values().each { TaskStatus status ->
-            int count = findJobsByStatus( status ).size()
-            result.put(status, count)
-        }
+        result.pending = findTasksByStatus( TaskStatus.PENDING ).size()
+        result.running = findTasksByStatus( TaskStatus.RUNNING ).size()
+
+        def terminated = findTasksByStatus( TaskStatus.TERMINATED )
+        result.successful = terminated.count { TaskEntry it -> it.success }.toInteger()
+        result.failed = terminated.count { TaskEntry it -> it.failed }.toInteger()
 
         return result
-
-
     }
 
-    List<TaskEntry> findAll() {
+
+    List<TaskEntry> findTasksByStatusString( String status ) {
+        if( status?.toLowerCase() in ['s','success'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
+        }
+
+        if ( status?.toLowerCase() in ['e','error','f','failed'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
+        }
+
+        findTasksByStatus(TaskStatus.fromString(status))
+    }
+
+    List<TaskEntry> findAllTasks() {
         new LinkedList<>(jobsMap.values())
     }
 
+    NodeData getNodeData( int nodeId ) {
+        nodeDataMap.get(nodeId)
+    }
 
     @Override
-    NodeData getNodeData( Address address ) {
-        nodeDataMap.get(address)
+    List<NodeData> findNodeDataByAddress( Address address ) {
+        assert address
+
+        List<NodeData> result = []
+        nodeDataMap.values().each { NodeData node ->
+            if ( node.address == address ) {
+                result << node
+            }
+        }
+
+        return result
+    }
+
+    @Override
+    List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status ) {
+
+        List<NodeData> result = []
+        nodeDataMap.values().each { NodeData node ->
+            if ( node.address == address && (!status || node.status == status)  ) {
+                result << node
+            }
+        }
+
+        return result
     }
 
     @Override
     NodeData putNodeData( NodeData nodeData) {
         assert nodeData
-        nodeDataMap.put(nodeData.address, nodeData)
+        nodeDataMap.put(nodeData.id, nodeData)
     }
 
     boolean replaceNodeData( NodeData oldValue, NodeData newValue ) {
         assert oldValue
         assert newValue
-        assert oldValue.address == newValue.address
+        assert oldValue.id == newValue.id
 
-        nodeDataMap.replace(oldValue.address, oldValue, newValue)
+        nodeDataMap.replace(oldValue.id, oldValue, newValue)
     }
 
     NodeData updateNodeData( NodeData node, Closure closure ) {
@@ -133,7 +172,7 @@ abstract class AbstractDataStore implements DataStore {
             // -- the update operation failed
             //    try it again reloading the 'NodeInfo' from the storage
             else if( System.currentTimeMillis()-begin < 1000 ) {
-                node = getNodeData(copy.address)
+                node = getNodeData(copy.id)
                 if ( !node ) {
                     throw new IllegalStateException("Cannot update NodeData item because not entry exists for address ${copy.address}")
                 }
@@ -158,6 +197,7 @@ abstract class AbstractDataStore implements DataStore {
     def List<NodeData> findAllNodesData() {
         new ArrayList<NodeData>(nodeDataMap.values())
     }
+
 
 
 }

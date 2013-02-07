@@ -30,8 +30,7 @@ class TaskStatusTest extends Specification {
     def "test equals" () {
         expect:
         TaskStatus.VOID == TaskStatus.VOID
-        TaskStatus.COMPLETE == TaskStatus.COMPLETE
-        TaskStatus.FAILED == TaskStatus.FAILED
+        TaskStatus.TERMINATED == TaskStatus.TERMINATED
         TaskStatus.RUNNING == TaskStatus.RUNNING
         TaskStatus.RUNNING != TaskStatus.PENDING
     }
@@ -46,8 +45,7 @@ class TaskStatusTest extends Specification {
         '-'   | TaskStatus.VOID
         'R'   | TaskStatus.RUNNING
         'A'   | TaskStatus.READY
-        'C'   | TaskStatus.COMPLETE
-        'E'   | TaskStatus.FAILED
+        'T'   | TaskStatus.TERMINATED
         'N'   | TaskStatus.NEW
         'P'   | TaskStatus.PENDING
     }
@@ -64,14 +62,14 @@ class TaskStatusTest extends Specification {
         'RUNNING' | TaskStatus.RUNNING
         'A'       | TaskStatus.READY
         'READY'   | TaskStatus.READY
-        'C'       | TaskStatus.COMPLETE
-        'COMPLETE' | TaskStatus.COMPLETE
-        'E'       | TaskStatus.FAILED
-        'FAILED'  | TaskStatus.FAILED
+        'T'       | TaskStatus.TERMINATED
+        'TERMINATED' | TaskStatus.TERMINATED
         'N'       | TaskStatus.NEW
         'NEW'     | TaskStatus.NEW
         'P'       | TaskStatus.PENDING
         'PENDING'  | TaskStatus.PENDING
+        'p'       | TaskStatus.PENDING
+        'Pending'  | TaskStatus.PENDING
     }
 
 
@@ -87,7 +85,7 @@ class TaskStatusTest extends Specification {
     def "test valueOf"  (){
 
         expect:
-        Enum.valueOf(TaskStatus,'COMPLETE') == TaskStatus.COMPLETE
+        Enum.valueOf(TaskStatus,'TERMINATED') == TaskStatus.TERMINATED
 
     }
 }

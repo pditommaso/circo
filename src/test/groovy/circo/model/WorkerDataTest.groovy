@@ -20,10 +20,7 @@
 package circo.model
 import akka.actor.ActorSystem
 import akka.testkit.JavaTestKit
-import circo.model.WorkerData
-import circo.model.WorkerRef
 import com.typesafe.config.ConfigFactory
-import circo.model.TaskId
 import spock.lang.Specification
 /**
  *
@@ -45,9 +42,9 @@ class WorkerDataTest extends Specification  {
 
         when:
         def ref = new WorkerRef(new JavaTestKit(system).getRef())
-        def worker1 = WorkerData.of(ref) { it.currentJobId=TaskId.of(74893) }
-        def worker2 = WorkerData.of(ref) { it.currentJobId=TaskId.of(74893) }
-        def worker3 = WorkerData.of(ref) { it.currentJobId=TaskId.of(12345) }
+        def worker1 = WorkerData.of(ref) { it.currentTaskId=TaskId.of(74893) }
+        def worker2 = WorkerData.of(ref) { it.currentTaskId=TaskId.of(74893) }
+        def worker3 = WorkerData.of(ref) { it.currentTaskId=TaskId.of(12345) }
 
         then:
         worker1 == worker2
@@ -64,8 +61,8 @@ class WorkerDataTest extends Specification  {
         def ref1 = new WorkerRef(new JavaTestKit(system).getRef())
         def ref2 = new WorkerRef(new JavaTestKit(system).getRef())
 
-        def data1 = WorkerData.of(ref1) { it.currentJobId=TaskId.of(74893) }
-        def data2 = WorkerData.of(ref2) { it.currentJobId=TaskId.of(12345) }
+        def data1 = WorkerData.of(ref1) { it.currentTaskId=TaskId.of(74893) }
+        def data2 = WorkerData.of(ref2) { it.currentTaskId=TaskId.of(12345) }
 
         then:
         WorkerData.copy(data1) == data1

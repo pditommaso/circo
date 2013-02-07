@@ -17,24 +17,36 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
 
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
-import groovy.transform.ToString
-import circo.model.TaskEntry
+
+
+import org.hyperic.sigar.Sigar
+import test.TestHelper
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
-@InheritConstructors
-@ToString(includePackage = false, includeSuper = true)
-class StatReply extends AbstractReply {
+class SigarTest  {
 
-    List<TaskEntry> tasks
+    def "test sigar" () {
+        setup:
+        TestHelper.updateJavaLibPath()
 
-    StatReplyData stats
+        when:
+        def sigar = new Sigar()
+        println "Mem actual free: " +  sigar.getMem()
+        println "CPU: " + sigar.getCpuPerc()
+        println "Uptime: " + sigar.getUptime()
+        println "Net stat: " + sigar.getNetStat()
+        println "Net info: " + sigar.getNetInfo()
+        println "FS List" + sigar.getFileSystemList()
+        sigar.getFileSystemList().each {
+            println "Usage stat for $it: " + sigar.getFileSystemUsage( it.toString() )
+        }
 
 
+        then:
+        mem.getTotal() > 0
+
+    }
 }

@@ -25,9 +25,6 @@ import akka.testkit.TestActorRef
 import circo.model.NodeData
 import circo.model.TaskId
 import test.ActorSpecification
-
-import static test.TestHelper.addr
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -38,10 +35,10 @@ class TerminalUITest extends ActorSpecification {
     def "test renderScreen"   () {
 
         setup:
-        final Props props = new Props( { new TerminalUIMock(dataStore, '1.1.1.1') } as UntypedActorFactory );
+        final Props props = new Props( { new TerminalUIMock(dataStore, 11) } as UntypedActorFactory );
         final TestActorRef<TerminalUIMock> master = TestActorRef.create(system, props, "Terminal")
 
-        def nodeData = new NodeData( address: addr('1.1.1.1') )
+        def nodeData = new NodeData( id: 11 )
         def w1 = nodeData.createWorkerData( new JavaTestKit(system).getRef() )
         def w2 = nodeData.createWorkerData( new JavaTestKit(system).getRef() )
         def w3 = nodeData.createWorkerData( new JavaTestKit(system).getRef() )
@@ -51,19 +48,19 @@ class TerminalUITest extends ActorSpecification {
         nodeData.failed = 6
 
         w1.with {
-            currentJobId = TaskId.of('123')
+            currentTaskId = TaskId.of('123')
             processed = 123
             failed = 3
         }
 
         w2.with {
-            currentJobId = TaskId.of('555')
+            currentTaskId = TaskId.of('555')
             processed = 943
             failed = 76
         }
 
         w3.with {
-            currentJobId = TaskId.of('6577')
+            currentTaskId = TaskId.of('6577')
             processed = 7843
             failed = 111
         }

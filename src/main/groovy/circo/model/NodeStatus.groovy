@@ -28,6 +28,6 @@ import circo.util.SerializeId
 @SerializeId
 enum NodeStatus {
 
-    AVAIL, PAUSED
+    ALIVE, PAUSED, DEAD
 
 }

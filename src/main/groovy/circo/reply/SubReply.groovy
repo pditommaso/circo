@@ -33,10 +33,10 @@ class SubReply extends AbstractReply {
     /**
      * The list of identifiers of the job created fulfilling the submitted request
      */
-    List<TaskId> jobIds
+    List<TaskId> taskIds
 
     String toString() {
-        "${SubReply.class.simpleName}(ticket:$ticket, jobIds:$jobIds)"
+        "${SubReply.class.simpleName}(ticket:$ticket, taskIds:$taskIds)"
     }
 
 

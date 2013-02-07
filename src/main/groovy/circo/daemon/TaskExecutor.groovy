@@ -18,6 +18,7 @@
  */
 
 package circo.daemon
+import java.util.concurrent.Callable
 
 import akka.actor.ActorRef
 import akka.actor.Address
@@ -26,10 +27,14 @@ import akka.dispatch.Futures
 import akka.pattern.Patterns
 import circo.Const
 import circo.data.DataStore
-import circo.model.FileRef
 import circo.exception.MissingInputFileException
 import circo.exception.MissingOutputFileException
-import circo.messages.*
+import circo.messages.ProcessIsAlive
+import circo.messages.ProcessKill
+import circo.messages.ProcessStarted
+import circo.messages.ProcessToRun
+import circo.messages.WorkComplete
+import circo.model.FileRef
 import circo.model.TaskContext
 import circo.model.TaskEntry
 import circo.model.TaskReq
@@ -39,14 +44,12 @@ import circo.util.ProcessHelper
 import com.google.common.io.Files
 import groovy.io.FileType
 import groovy.util.logging.Slf4j
-
-import java.util.concurrent.Callable
-
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
+@Mixin(NodeCategory)
 class TaskExecutor extends UntypedActor {
 
     /** The reference to the actor monitor the job execution */
@@ -56,8 +59,11 @@ class TaskExecutor extends UntypedActor {
 
     protected int slow = 0
 
+    protected int nodeId
 
     def void preStart() {
+        setMDCVariables()
+
         log.debug "++ Starting actor ${getSelf().path()}"
         if( slow ) {
             log.warn "Running in slow mode -- adding ${slow} secs to job execution"
@@ -65,6 +71,7 @@ class TaskExecutor extends UntypedActor {
     }
 
     def void postStop() {
+        setMDCVariables()
         log.debug "~~ Stopping actor ${getSelf().path()}"
     }
 
@@ -82,24 +89,25 @@ class TaskExecutor extends UntypedActor {
 
     @Override
     def void onReceive(def message) {
+        setMDCVariables()
         log.debug "<- $message"
 
         /*
          * Received a message to execute a new job
          */
         if( message instanceof ProcessToRun ) {
-            final job = message.jobEntry
+            final task = message.task
 
             // check if there's another job running
             if( process ) {
-                throw new IllegalStateException("A process is still running: ${process} -- cannot launch job: ${job}")
+                throw new IllegalStateException("A process is still running: ${process} -- cannot launch job: ${task}")
             }
 
             // eventually reset the 'cancelRequest' flag
             cancelRequest = false
 
             // launch the process
-            processJobAndNotifyResult(job)
+            processJobAndNotifyResult(task)
 
         }
 
@@ -125,8 +133,8 @@ class TaskExecutor extends UntypedActor {
     }
 
 
-    def void processJobAndNotifyResult( TaskEntry job ) {
-        assert job
+    def void processJobAndNotifyResult( TaskEntry task ) {
+        assert task
 
         def callable = new Callable<Object>() {
 
@@ -136,12 +144,12 @@ class TaskExecutor extends UntypedActor {
                 exitCode = Integer.MAX_VALUE
                 output = new StringBuilder()
                 try {
-                    new WorkComplete(process(job))
+                    new WorkComplete(process(task))
                 }
                 catch( Throwable err ) {
-                    log.error("Unable to process: ${job} -- marked as failed", err)
+                    log.error("Unable to process: ${task} -- marked as failed", err)
 
-                    def result = new TaskResult(jobId: job?.id, output: output?.toString(), failure: err)
+                    def result = new TaskResult(taskId: task?.id, output: output?.toString(), failure: err)
                     new WorkComplete(result)
                 }
 
@@ -156,14 +164,14 @@ class TaskExecutor extends UntypedActor {
 
     /**
      * Create a local private directory inside the job context execution directory
-     * @param job
+     * @param task
      * @return
      */
-    static File createPrivateDir( TaskEntry job ) {
+    static File createPrivateDir( TaskEntry task ) {
 
-        File result = new File(job.workDir, '.circo')
+        File result = new File(task.workDir, '.circo')
         if( !result.exists() && !result.mkdir() ) {
-            throw new RuntimeException("Unable to create working directory ${result} -- job ${job} cannot be launched ")
+            throw new RuntimeException("Unable to create working directory ${result} -- job ${task} cannot be launched ")
         }
 
         return result
@@ -201,70 +209,69 @@ class TaskExecutor extends UntypedActor {
     /**
      * The main job execution method
      *
-     * @param job The job to be executed
+     * @param task The job to be executed
      * @return The result of the execution
      */
-    TaskResult process( final TaskEntry job ) {
-        log.debug "Cmd launching: ${job} "
+    TaskResult process( final TaskEntry task ) {
+        log.debug "Cmd launching: ${task} "
 
         def dumper = null
         def result = null
         def scriptFile = null
         def privateDir = null
 
-        def scriptToExecute = stage(job.req)
+        def scriptToExecute = stage(task.req)
 
         /*
          * create the private scratch directory to run the task
          */
         try {
-            job.launchTime = System.currentTimeMillis()
-            job.workDir = createScratchDir( job.id.hashCode() )
+            task.launchTime = System.currentTimeMillis()
+            task.workDir = createScratchDir( task.id.hashCode() )
 
             // create the local private dir
-            privateDir = createPrivateDir(job)
+            privateDir = createPrivateDir(task)
             // save the script to a file
             scriptFile = new File(privateDir,'script')
             Files.write( scriptToExecute.getBytes(), scriptFile )
         }
         finally {
-            store.saveJob(job)
+            store.saveTask(task)
         }
-
 
 
         try {
 
             ProcessBuilder builder = new ProcessBuilder()
-                    .directory( job.workDir )
-                    .command( job.req.shell, scriptFile.toString() )
+                    .directory( task.workDir )
+                    .command( task.req.shell, scriptFile.toString() )
                     .redirectErrorStream(true)
 
             // -- configure the job environment
-            if( job.req.environment ) {
-                builder.environment().putAll(job.req.environment)
+            if( task.req.environment ) {
+                builder.environment().putAll(task.req.environment)
             }
-            builder.environment().put('TMPDIR', job.workDir?.absolutePath )
+            builder.environment().put('TMPDIR', task.workDir?.absolutePath )
 
             // -- start the execution and notify the event to the monitor
             process = builder.start()
-            job.pid = ProcessHelper.getPid(process)
-            job.status = TaskStatus.RUNNING
-            store.saveJob(job)
+            task.pid = ProcessHelper.getPid(process)
+            task.status = TaskStatus.RUNNING
+            store.saveTask(task)
 
-            def message = new ProcessStarted(job)
+            def message = new ProcessStarted(task)
             log.debug "-> ${message}"
-            monitor.tell( message )
+            monitor.tell( message, self() )
 
             // -- consume the produced output
-            dumper = new ByteDumper(process.getInputStream(), output, job.req.maxInactive>0 )
-            dumper.setName( "dumper-${job}" )
+            dumper = new ByteDumper(process.getInputStream(), output, task.req.maxInactive>0 )
+            dumper.setName( "dumper-${task}" )
             dumper.start()
 
 
             // -- for for the job termination
-            if( job.req.maxDuration ) {
-                process.waitForOrKill(job.req.maxDuration)
+            if( task.req.maxDuration ) {
+                process.waitForOrKill(task.req.maxDuration)
                 exitCode = process.exitValue()
             }
             else {
@@ -279,15 +286,15 @@ class TaskExecutor extends UntypedActor {
                 Thread.sleep(slow * 1000)
             }
 
-            result = new TaskResult( jobId: job.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest)
+            result = new TaskResult( taskId: task.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest)
 
             // collect the files produced by this job
-            gather(job.req, result, job.workDir, monitor.path().address())
+            gather(task.req, result, task.workDir, monitor.path().address())
         }
         finally {
             // -- save the completion time
-            def delta =  System.currentTimeMillis() - job.launchTime
-            log.debug "Cmd done: ${job} ==> exit: ${exitCode}; delta: ${delta} ms "
+            def delta =  System.currentTimeMillis() - task.launchTime
+            log.debug "Cmd done: ${task} ==> exit: ${exitCode}; delta: ${delta} ms "
 
             // -- terminate in any case the byte dumper
             if ( dumper ) {
@@ -298,7 +305,7 @@ class TaskExecutor extends UntypedActor {
             process = null
 
             if( !result ) {
-                result = new TaskResult( jobId: job.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest  )
+                result = new TaskResult( taskId: task.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest  )
             }
 
             return result

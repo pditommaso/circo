@@ -19,12 +19,11 @@
 
 package circo.ui
 
-import akka.actor.Address
 import akka.actor.UntypedActor
 import akka.cluster.Cluster
+import circo.data.DataStore
 import groovy.util.logging.Slf4j
 import jline.console.ConsoleReader
-import circo.data.DataStore
 import org.fusesource.jansi.Ansi
 import org.fusesource.jansi.AnsiConsole
 import scala.concurrent.duration.FiniteDuration
@@ -39,11 +38,11 @@ class TerminalUI extends UntypedActor {
 
     protected final TICK = 'TICK'
 
+    protected final int nodeId
+
     protected Cluster cluster
 
     protected DataStore dataStore
-
-    protected Address selfAddress
 
     protected ScreenRenderer previous
 
@@ -56,8 +55,9 @@ class TerminalUI extends UntypedActor {
     protected Closure highlighter
 
 
-    def TerminalUI( DataStore dataStore ) {
+    def TerminalUI( DataStore dataStore, int nodeId ) {
         this.dataStore = dataStore
+        this.nodeId = nodeId
     }
 
 
@@ -68,7 +68,6 @@ class TerminalUI extends UntypedActor {
         if ( getContext().system().isTerminated() ) { return }
 
         cluster = Cluster.get(getContext().system())
-        selfAddress = cluster.selfAddress()
 
         console = new ConsoleReader()
         AnsiConsole.systemInstall()
@@ -107,7 +106,7 @@ class TerminalUI extends UntypedActor {
 
     StringBuilder renderScreen(Closure highlight = null) {
 
-        def block = new ScreenRenderer(selfAddress, dataStore)
+        def block = new ScreenRenderer(nodeId, dataStore)
 
         try {
            if( previous ) {

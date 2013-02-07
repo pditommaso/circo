@@ -1,24 +1,24 @@
 
+
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorSystem
 import akka.actor.Props
 import akka.actor.UntypedActorFactory
 import akka.transactor.UntypedTransactor
+import circo.util.AkkaHelper
 import com.google.common.base.Optional
 import com.typesafe.config.ConfigFactory
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
-import circo.util.AkkaHelper
 import org.apache.commons.lang.StringUtils
 import scala.concurrent.stm.Ref.View as RefView
 import scala.concurrent.stm.japi.STM
-import spock.lang.Specification
-
-import java.util.concurrent.TimeUnit
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class Sandbox extends Specification {
+class Sandbox  {
 
     def testLocalHost() {
 

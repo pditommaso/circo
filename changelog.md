@@ -1,5 +1,11 @@
 CIRCO change-log
 ================
+0.2.3 - Thu, 7 Feb 2013
+- Big packages and naming refactoring (JobXxx -> TaskXxx)
+- Improved tasks recovering on node crash
+- Intercepting CTRL+C to graceful shutdown the cluster node
+- Improved logging
+
 0.2.1 - Tue, 29 Jan 2013
 - Re-enabled cluster auto-join properties, since it is required to dispatch cluster event
 - Handling CurrentClusterState to keep track up nodes that made-up the cluster

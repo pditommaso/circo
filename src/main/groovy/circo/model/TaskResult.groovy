@@ -26,11 +26,11 @@ import groovy.transform.ToString
  */
 
 @EqualsAndHashCode
-@ToString(includes=['jobId','exitCode'], includePackage = false, includeNames = true)
+@ToString(includes=['taskId','exitCode'], includePackage = false, includeNames = true)
 class TaskResult implements Serializable {
 
     /** The Job of this job */
-    TaskId jobId
+    TaskId taskId
 
     /** The exit-code as returned by the system */
     int exitCode = Integer.MIN_VALUE

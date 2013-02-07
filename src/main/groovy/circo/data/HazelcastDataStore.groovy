@@ -18,20 +18,28 @@
  */
 
 package circo.data
+import java.util.concurrent.locks.Lock
 
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
-import com.hazelcast.config.*
-import com.hazelcast.core.*
+import com.hazelcast.config.ClasspathXmlConfig
+import com.hazelcast.config.Config
+import com.hazelcast.config.Join
+import com.hazelcast.config.MapConfig
+import com.hazelcast.config.MapIndexConfig
+import com.hazelcast.config.MapStoreConfig
+import com.hazelcast.core.AtomicNumber
+import com.hazelcast.core.EntryEvent
+import com.hazelcast.core.EntryListener
+import com.hazelcast.core.Hazelcast
+import com.hazelcast.core.HazelcastInstance
+import com.hazelcast.core.IMap
 import com.hazelcast.query.SqlPredicate
 import com.typesafe.config.Config as TypesafeConfig
 import com.typesafe.config.ConfigException
 import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
-
-import java.util.concurrent.locks.Lock
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -47,6 +55,8 @@ class HazelcastDataStore extends AbstractDataStore {
 
     private AtomicNumber idGen
 
+    private AtomicNumber nodeIdGen
+
     /**
      * Create an {@code com.hazelcast.core.HazelcastInstance} with configuration
      * properties provided by the 'application.conf' settings
@@ -56,6 +66,12 @@ class HazelcastDataStore extends AbstractDataStore {
 
         init(createInstance(appConfig, clusterMembers, multiCast))
 
+    }
+
+
+    @Override
+    void shutdown() {
+        hazelcast.lifecycleService.shutdown()
     }
 
     /*
@@ -116,10 +132,10 @@ class HazelcastDataStore extends AbstractDataStore {
          * JOBS map configuration
          */
 
-
         def jobsConfig = new MapConfig('jobs')
                 .addMapIndexConfig( new MapIndexConfig('id',false) )
                 .addMapIndexConfig( new MapIndexConfig('status',false) )
+                .addMapIndexConfig( new MapIndexConfig('ownerId', false) )
 
         if ( mapStoreConfig ) {
             jobsConfig.setMapStoreConfig(mapStoreConfig)
@@ -155,9 +171,12 @@ class HazelcastDataStore extends AbstractDataStore {
         this.jobsMap = hazelcast.getMap('jobs')
         this.nodeDataMap = hazelcast.getMap('nodeInfo')
         this.idGen = hazelcast.getAtomicNumber('idGenerator')
+        this.nodeIdGen = hazelcast.getAtomicNumber('nodeIdGen')
     }
 
-    TaskId nextJobId() { new TaskId( idGen.addAndGet(1) ) }
+    TaskId nextTaskId() { new TaskId( idGen.addAndGet(1) ) }
+
+    int nextNodeId() { nodeIdGen.addAndGet(1) }
 
 
     @Override
@@ -165,18 +184,18 @@ class HazelcastDataStore extends AbstractDataStore {
         hazelcast.getLock(key)
     }
 
-    List<TaskEntry> findJobsById( final String jobId ) {
-        assert jobId
+    List<TaskEntry> findTasksById( final String taskId) {
+        assert taskId
 
         boolean likeOp = false
         def value
 
-        if ( jobId.contains('*') ) {
-            value = jobId.replace('*','%')
+        if ( taskId.contains('*') ) {
+            value = taskId.replace('*','%')
             likeOp = true
         }
         else {
-            value = jobId
+            value = taskId
         }
 
         // remove '0' prefix
@@ -189,8 +208,17 @@ class HazelcastDataStore extends AbstractDataStore {
         new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
     }
 
+    @Override
+    List<TaskEntry> findAllTasksOwnerBy(Integer nodeId) {
+        assert nodeId
 
-    List<TaskEntry> findJobsByStatus( TaskStatus[] status ) {
+        def criteria = "ownerId = $nodeId"
+        def result = (jobsMap as IMap) .values(new SqlPredicate(criteria))
+        new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
+
+    }
+
+    List<TaskEntry> findTasksByStatus( TaskStatus[] status ) {
         assert status
 
         def criteria = new SqlPredicate("status IN (${status.join(',')})  ")
@@ -199,7 +227,8 @@ class HazelcastDataStore extends AbstractDataStore {
 
     }
 
-    void addNewJobListener(Closure callback) {
+
+    void addNewTaskListener(Closure callback) {
         assert callback
 
         def entry = new EntryListener() {
@@ -216,18 +245,17 @@ class HazelcastDataStore extends AbstractDataStore {
             void entryEvicted(EntryEvent event) { }
         }
 
+        listenersMap.put(callback, entry)
         (jobsMap as IMap) .addLocalEntryListener(entry)
 
-        listenersMap.put(callback, entry)
     }
 
 
-    void removeNewJobListener( Closure listener ) {
+    void removeNewTaskListener( Closure listener ) {
         def entry = listenersMap.get(listener)
         if ( !entry ) { log.warn "No listener registered for: $listener"; return }
         (jobsMap as IMap).removeEntryListener(entry)
     }
-
 
 
 }

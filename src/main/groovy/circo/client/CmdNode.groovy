@@ -44,6 +44,10 @@ class CmdNode extends AbstractCommand {
     @Parameter(names='--resume', description="Resume the computation in the listed nodes, use 'ALL' to resume all cluster nodes")
     List<String> resume
 
+    @Parameter(names='--dump', description="Dump the current nodes status", hidden = true)
+    boolean dumpFlag
+
+
     @Override
     void execute(ClientApp client) {
 
@@ -71,17 +75,26 @@ class CmdNode extends AbstractCommand {
     }
 
 
-    static void printNodes( List<NodeData> nodes ) {
+    void printNodes( List<NodeData> nodes ) {
         assert nodes != null
 
+        if( dumpFlag ) {
+            nodes?.eachWithIndex { it, index ->
+                println it.dump()
+            }
+            println ''
+            return
+        }
+
+
         println """\
-        address     status  up time  procs  jobs
+        id   address     status  up time  procs  jobs
         -----------------------------------------"""
         .stripIndent()
 
         if ( !nodes ) { println "--"; return }
 
-        nodes.each { NodeData node ->
+        nodes.sort { NodeData it -> it.id } .each { NodeData node ->
 
             println node.toFmtString()
 

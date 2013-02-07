@@ -36,7 +36,7 @@ class WorkerData implements Serializable {
 
     final WorkerRef worker
 
-    def TaskId currentJobId
+    def TaskId currentTaskId
 
     def long processed
 
@@ -45,7 +45,7 @@ class WorkerData implements Serializable {
     def static WorkerData copy( WorkerData that ) {
         assert that
         def result = new WorkerData(that.worker)
-        result.currentJobId = that.currentJobId ? TaskId.copy(that.currentJobId) : null
+        result.currentTaskId = that.currentTaskId ? TaskId.copy(that.currentTaskId) : null
         result.processed = that.processed
         result.failed = that.failed
         result

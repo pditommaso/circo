@@ -18,30 +18,50 @@
  */
 
 package circo.daemon
+import static akka.actor.SupervisorStrategy.restart
+import static akka.actor.SupervisorStrategy.resume
+import static akka.actor.SupervisorStrategy.stop
 
-import akka.actor.*
+import akka.actor.ActorRef
+import akka.actor.AllForOneStrategy
+import akka.actor.Props
+import akka.actor.SupervisorStrategy
 import akka.actor.SupervisorStrategy.Directive
+import akka.actor.UntypedActor
+import akka.actor.UntypedActorFactory
 import akka.japi.Function
-import akka.japi.Procedure
 import circo.data.DataStore
-import circo.model.WorkerRef
-import circo.messages.*
+import circo.messages.PauseWorker
+import circo.messages.ProcessKill
+import circo.messages.ProcessToRun
+import circo.messages.WorkComplete
+import circo.messages.WorkIsDone
+import circo.messages.WorkIsReady
+import circo.messages.WorkToBeDone
+import circo.messages.WorkToSpool
+import circo.messages.WorkerCreated
+import circo.messages.WorkerFailure
+import circo.messages.WorkerRequestsWork
 import circo.model.TaskId
 import circo.model.TaskResult
 import circo.model.TaskStatus
+import circo.model.WorkerRef
 import circo.reply.ResultReply
 import groovy.util.logging.Slf4j
 import scala.concurrent.duration.Duration
-
-import static akka.actor.SupervisorStrategy.restart
-import static akka.actor.SupervisorStrategy.resume
-
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
+@Mixin(NodeCategory)
 class TaskProcessor extends UntypedActor {
+
+    enum State { IDLE, RUNNING }
+
+    private State state = State.IDLE
+
+    private int nodeId
 
     private ActorRef master
 
@@ -51,10 +71,25 @@ class TaskProcessor extends UntypedActor {
 
     private DataStore store
 
-    private TaskId currentJobId
+    private TaskId currentTaskId
 
     // Only for testing -- add an extra overhead in the job execution to simulation slow machine
     private int slow
+
+    private Map<Class, Closure> idleDispatcher = new HashMap<>()
+
+    private Map<Class,Closure> runningDispatcher = new HashMap<>()
+
+
+    def TaskProcessor() {
+
+        idleDispatcher[WorkIsReady] = this.&handleWorkIsReady
+        idleDispatcher[WorkToBeDone] = this.&handleWorkToBeDone
+
+        runningDispatcher[WorkComplete] = this.&handleWorkComplete
+        runningDispatcher[PauseWorker] = this.&handlePauseWorker
+
+    }
 
     def errorHandler = { Throwable failure ->
 
@@ -62,17 +97,17 @@ class TaskProcessor extends UntypedActor {
         // when the failures exceed a defined threshold the node is stopped
         // when the failures exceed on all nodes the computation the cluster computation is paused
 
-        log.error( "Unknown failure", failure )
+        log.error( "TaskProcessor Supervisor got an exception", failure )
 
-        if ( currentJobId ) {
-            def result = new TaskResult( jobId: currentJobId, failure: failure )
-            getSelf().tell new WorkComplete(result)
+        if ( currentTaskId ) {
+            def result = new TaskResult( taskId: currentTaskId, failure: failure )
+            self().tell( new WorkComplete(result), self() )
             return resume()
         }
         else {
             // notify the master of the failure
             log.debug "-> WorkerFailure to $master"
-            master.tell( new WorkerFailure(getSelf()) )
+            master.tell( new WorkerFailure(self()), self() )
 
             return restart();
         }
@@ -82,19 +117,21 @@ class TaskProcessor extends UntypedActor {
 
     @Override
     def void preStart() {
+        setMDCVariables()
         log.debug "++ Starting actor ${getSelf().path()}"
 
         // -- create or get refs to required actors
         master = getContext().system().actorFor("/user/${NodeMaster.ACTOR_NAME}")
-        executor = getContext().actorOf(new Props({new TaskExecutor(store: store, slow: slow)} as UntypedActorFactory), 'exe')
-        monitor = getContext().actorOf(new Props(TaskMonitor), 'mon')
+        executor = getContext().actorOf(new Props({new TaskExecutor(store: store, nodeId: nodeId, slow: slow)} as UntypedActorFactory), 'exe')
+        monitor = getContext().actorOf(new Props({new TaskMonitor(nodeId: nodeId)} as UntypedActorFactory), 'mon')
 
         // notify this actor creation
-        master.tell( new WorkerCreated(getSelf()) )
+        master.tell( new WorkerCreated(self()), self() )
     }
 
     @Override
     def void postStop() {
+        setMDCVariables()
         log.debug "~~ Stopping actor ${getSelf().path()}"
     }
 
@@ -103,128 +140,127 @@ class TaskProcessor extends UntypedActor {
         new AllForOneStrategy(1, Duration.create("1 seconds"), errorHandler )
     }
 
-    def idle = new Procedure<Object>() {
 
-        @Override
-        def void apply(def message ) {
-
-            // Master says there's work to be done, let's ask for it
-            if( message instanceof WorkIsReady  ) {
-                log.debug("[idle] <- WorkIsReady()")
-
-                message = new WorkerRequestsWork(getSelf())
-                log.debug("[idle] -> ${message}")
-                master.tell message
-            }
-
-            // Send the work off to the implementation
-            else if( message instanceof WorkToBeDone ) {
-                log.debug("[idle] <- ${message}")
-
-                final entry = store.getJob( message.jobId )
-                if( !entry ) {
-                    log.error "Oops! Unknown job-id: ${message.jobId}"
-                    return
-                }
-
-                // -- set the currentJobId
-                currentJobId = entry.id
-
-                // -- increment the 'attempts' counter and save it
-                entry.attempts ++
-                entry.status = TaskStatus.READY
-                entry.worker = new WorkerRef(getSelf())
-                store.saveJob(entry)
-
-                // -- Switching to 'working' mode
-                log.debug "[idle] => [working]"
-                getContext().become(working)
-
-                // -- notify the runner to launch the job
-                final processToRun = new ProcessToRun(entry)
-                log.debug "-> $message to executor"
-                executor.tell(processToRun)
-
-            }
-
-
-        }
-    }
-
-
-    def Procedure<Object> working = new Procedure<Object>() {
-
-        @Override
-        void apply(def message) {
-
-            // Pass... we're already working
-            if( message instanceof WorkIsReady ) {
-                log.debug("[working] <- ${message} -- ignore")
-            }
-
-            // Pass... we shouldn't even get it
-            else if( message instanceof WorkToBeDone ) {
-                log.error("[working] <- ${message} -- Master told me to do work, while I'm working.")
-            }
-
-            else if( message instanceof WorkComplete ) {
-                log.debug("[working] <- ${message} -- Work is complete")
-
-                final result = message.result as TaskResult
-
-                // -- update the state of the TaskEntry
-                final jobId = result.jobId
-                final worker = new WorkerRef(getSelf())
-                final job = store.getJob(jobId)
-                job.worker = worker
-                // -- setting the job result update the job flags as well
-                job.result = result
-                store.saveJob(job)
-
-                // -- notify the master of the failure
-                if( job.failed ) {
-                    log.debug "-> WorkerFailure to $master"
-                    master.tell( new WorkerFailure(getSelf()), self() )
-                }
-
-                // -- clear the current jobId
-                currentJobId = null
-
-                // -- notify the work is done
-                log.debug "-> WorkIsDone($worker) to $master"
-                master.tell( new WorkIsDone(worker, jobId), self() )
-
-                // -- still some work pending, re-schedule to the master
-                if( job.retryIsRequired() ) {
-                    log.debug "Job ${job.id} failed -- retry submitting to ${master}"
-                    master.tell( WorkToSpool.of(job.id), self() )
-                }
-                // -- notify the sender the result
-                else if( job.sender ) {
-                    log.debug "Reply job result to sender -- ${job.id}"
-                    final reply = new ResultReply( job.req.ticket, job.result )
-                    job.sender.tell ( reply, worker )
-                }
-
-                // We're idle now
-                log.debug("[working] => [idle]")
-                getContext().become(idle)
-            }
-
-            /*
-             * kill to current job
-             */
-            else if( message instanceof PauseWorker ) {
-                monitor.tell( new ProcessKill(cancel: true), getSelf() )
-            }
-
-        }
-    }
-
-
+    /**
+     *  The main message dispatched method
+     */
     @Override
     def void onReceive(def message) {
-        idle.apply(message)
+        setMDCVariables()
+        log.debug "<- $message - [state: $state]"
+
+        def table = (state == State.IDLE) ? idleDispatcher : runningDispatcher
+        def clazz = message.class
+        def handler = table[clazz]
+        if ( !handler ) {
+            log.warn "Nothing to do for message type: '$clazz.simpleName' in [state: $state]"
+            unhandled(message)
+            return
+        }
+
+        try {
+            handler.call(message)
+        }
+        catch( Throwable e ) {
+            log.error("Failure handling message: $message", e)
+            stop()
+        }
+
+    }
+
+
+    /**
+     * when the master notify that some work is available, the processor
+     * reply asking for some work
+     */
+    protected void handleWorkIsReady(WorkIsReady message) {
+        master.tell( new WorkerRequestsWork(self()), self() )
+    }
+
+    /**
+     * Handle the message {@code WorkToBeDone} send by the master
+     * launching the process to be executed through the executor actor
+     *
+     */
+    protected void handleWorkToBeDone( WorkToBeDone message ) {
+
+        final entry = store.getTask( message.taskId )
+        if( !entry ) {
+            log.error "Oops! Unknown task with id: ${message.taskId}"
+            return
+        }
+
+        // -- set the currentJobId
+        currentTaskId = entry.id
+
+        // -- increment the 'attempts' counter and save it
+        entry.attempts ++
+        entry.status = TaskStatus.READY
+        entry.worker = new WorkerRef(getSelf())
+        store.saveTask(entry)
+
+        // -- Switching to 'running' mode
+        this.state = State.RUNNING
+
+        // -- notify the runner to launch the job
+        final processToRun = new ProcessToRun(entry)
+        log.debug "-> $processToRun to executor"
+        executor.tell(processToRun, self())
+
+    }
+
+    /**
+     * When the {@code TaskExecutor} actor complete its work, it sends the message {@code WorkComplete}
+     *
+     * @param message
+     */
+    protected void handleWorkComplete( WorkComplete message ) {
+        final result = message.result as TaskResult
+
+        // -- update the state of the TaskEntry
+        final taskId = result.taskId
+        final task = store.getTask(taskId)
+
+        // -- setting the job result update the job flags as well
+        task.result = result
+        store.saveTask(task)
+
+        // -- notify the master of the failure
+        if( task.failed ) {
+            log.debug "-> WorkerFailure to $master"
+            master.tell( new WorkerFailure(getSelf()), self() )
+        }
+
+        // -- clear the current jobId
+        currentTaskId = null
+
+        // -- notify the work is done
+        final worker = new WorkerRef(getSelf())
+        log.debug "-> WorkIsDone($worker) to $master"
+        master.tell( new WorkIsDone(worker, taskId), self() )
+
+        // -- request more work
+        log.debug "-> WorkerRequestsWork(${worker}) to master"
+        master.tell( new WorkerRequestsWork(worker), self() )
+
+        // -- still some work pending, re-schedule to the master
+        if( task.isRetryRequired() ) {
+            log.debug "Job ${task.id} failed -- retry submitting to ${master}"
+            master.tell( WorkToSpool.of(task.id), self() )
+        }
+        // -- notify the sender the result
+        else if( task.sender ) {
+            log.debug "Reply job result to sender -- ${task.id}"
+            final reply = new ResultReply( task.req.ticket, task.result )
+            task.sender.tell ( reply, worker )
+        }
+
+        // We're idle now
+        this.state = State.IDLE
+    }
+
+    protected void handlePauseWorker(PauseWorker message) {
+        monitor.tell( new ProcessKill(cancel: true), self() )
     }
 
 

@@ -18,17 +18,14 @@
  */
 
 package circo.ui
-
-import akka.actor.Address
-import groovy.transform.EqualsAndHashCode
-import circo.data.DataStore
-import circo.model.NodeData
-import circo.model.WorkerData
-import circo.model.TaskEntry
-import org.fusesource.jansi.Ansi
-
 import static org.fusesource.jansi.Ansi.ansi
 
+import circo.data.DataStore
+import circo.model.NodeData
+import circo.model.TaskEntry
+import circo.model.WorkerData
+import groovy.transform.EqualsAndHashCode
+import org.fusesource.jansi.Ansi
 /**
  * Holds the cluster data
  */
@@ -113,7 +110,7 @@ class WorkerRenderer extends DataHolder {
         assert data
 
         this.worker = TextLabel.of(data.worker.path().name()).pad(15)
-        this.jobId = TextLabel.of(data.currentJobId?.toFmtString()).pad(5).right()
+        this.jobId = TextLabel.of(data.currentTaskId?.toFmtString()).pad(5).right()
         this.processed = TextLabel.of(data.processed).number().pad(5)
         this.failed = TextLabel.of(data.failed).pad(3).number()
         this.jobAttempts = TextLabel.of(jobEntry?.attempts).number().pad(5) << AnsiStyle.error()
@@ -138,16 +135,16 @@ class ScreenRenderer extends DataHolder {
     def NodeRender node
     def List<WorkerRenderer> workers
 
-    def ScreenRenderer( Address thisAddress, DataStore store ) {
+    def ScreenRenderer( int nodeId, DataStore store ) {
 
         def allNodes = store.findAllNodesData()
-        def thisNode = allNodes.find { NodeData it -> it.address == thisAddress }
+        def thisNode = allNodes.find { NodeData node -> node.id == nodeId }
         this.cluster = new ClusterRenderer(allNodes)
-        this.cluster.allJobs = TextLabel.of(store.countJobs()).number()
+        this.cluster.allJobs = TextLabel.of(store.countTasks()).number()
         this.node = new NodeRender( thisNode )
 
         this.workers = thisNode.workers.values().collect { WorkerData item ->
-            def job = item.currentJobId ? store.getJob(item.currentJobId) : null
+            def job = item.currentTaskId ? store.getTask(item.currentTaskId) : null
             new WorkerRenderer(item,job)
 
         }

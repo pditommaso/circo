@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,24 +17,38 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
+package functional
 
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
-import groovy.transform.ToString
-import circo.model.TaskEntry
 /**
  *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
-@InheritConstructors
-@ToString(includePackage = false, includeSuper = true)
-class StatReply extends AbstractReply {
 
-    List<TaskEntry> tasks
 
-    StatReplyData stats
+def fib = null
+fib = { p ->
 
+  if ( p<2 ) BigInteger.ONE
+  else fib(p-1) + fib(p-2)
 
 }
+
+
+def mfib = null
+mfib = { p ->
+
+    if ( p<2 ) BigInteger.ONE
+    else mfib(p-1) + mfib(p-2)
+
+}.memoize()
+
+def time = { closure ->
+    def start = System.currentTimeMillis()
+    closure.call()
+    def delta = System.currentTimeMillis() - start
+    println "elapsed time: $delta "
+
+}
+
+time { println fib(30) }
+time { println mfib(30) }

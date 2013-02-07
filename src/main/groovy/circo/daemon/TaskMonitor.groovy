@@ -18,25 +18,25 @@
  */
 
 package circo.daemon
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorRef
 import akka.actor.Cancellable
 import akka.actor.Terminated
 import akka.actor.UntypedActor
-import groovy.util.logging.Slf4j
 import circo.messages.ProcessIsAlive
 import circo.messages.ProcessKill
 import circo.messages.ProcessStarted
 import circo.messages.WorkComplete
+import groovy.util.logging.Slf4j
 import scala.concurrent.duration.FiniteDuration
-
-import java.util.concurrent.TimeUnit
-
 /**
  *  Monitors the process execution
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
+@Mixin(NodeCategory)
 class TaskMonitor extends UntypedActor {
 
     /**
@@ -48,28 +48,33 @@ class TaskMonitor extends UntypedActor {
 
     private long inactiveTimeout
 
+    private int nodeId
+
     def void preStart() {
+        setMDCVariables()
         log.debug "++ Starting actor ${getSelf().path()}"
         getContext().watch(executor)
     }
 
     def void postStop() {
+        setMDCVariables()
         log.debug "~~ Stopping actor ${getSelf().path()}"
         clearWatchDog()
     }
 
     @Override
     def void onReceive(def message) {
+        setMDCVariables()
         log.debug "<- ${message}"
 
         /*
          * Process execution has started, so begin to monitor the job
          */
         if( message instanceof ProcessStarted ) {
-            final job = message.jobEntry
+            final task = message.task
 
-            if( job.req.maxInactive ) {
-                inactiveTimeout = job.req.maxInactive
+            if( task.req.maxInactive ) {
+                inactiveTimeout = task.req.maxInactive
                 startWatchDog(inactiveTimeout)
             }
             else {

@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,37 +17,32 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+package circo.daemon
 
-
-import org.hyperic.sigar.Sigar
-import spock.lang.Specification
-import test.TestHelper
+import circo.util.CircoHelper
+import org.slf4j.MDC
 
 /**
+ * This class provides some helper methods to configure the logging {@code MDC} context
+ * <p> It is supped to applied to an actor class using using the @Mixin definition
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class SigarTest extends Specification {
 
-    def "test sigar" () {
-        setup:
-        TestHelper.updateJavaLibPath()
-
-        when:
-        def sigar = new Sigar()
-        println "Mem actual free: " +  sigar.getMem()
-        println "CPU: " + sigar.getCpuPerc()
-        println "Uptime: " + sigar.getUptime()
-        println "Net stat: " + sigar.getNetStat()
-        println "Net info: " + sigar.getNetInfo()
-        println "FS List" + sigar.getFileSystemList()
-        sigar.getFileSystemList().each {
-            println "Usage stat for $it: " + sigar.getFileSystemUsage( it.toString() )
-        }
+class NodeCategory {
 
 
-        then:
-        mem.getTotal() > 0
+    @Lazy
+    def String mdcActorName = { CircoHelper.removePathPrefix(self?.path()) } ()
 
+    @Lazy
+    def String mdcNodeId = { nodeId?.toString() } ()
+
+
+    def setMDCVariables() {
+        MDC.put('node', mdcNodeId)
+        MDC.put('actor', mdcActorName )
     }
+
+
 }

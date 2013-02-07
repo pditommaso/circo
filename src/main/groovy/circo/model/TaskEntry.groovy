@@ -19,7 +19,6 @@
 
 package circo.model
 import akka.actor.ActorRef
-import akka.actor.Address
 import circo.exception.MissingInputFileException
 import circo.util.CircoHelper
 import circo.util.SerializeId
@@ -104,8 +103,8 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
 
     def String getCompletionTimeFmt() { completionTime ? CircoHelper.getSmartTimeFormat(completionTime) : '-' }
 
-    /** The node to which the job is currently assigned */
-    def Address assigned
+    /** The node to which this task belongs */
+    def Integer ownerId
 
 
     def TaskEntry( TaskId id, TaskReq req ) {
@@ -117,8 +116,8 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
     }
 
     def static TaskEntry create( def id, Closure closure = null ) {
-        def jobId = id instanceof TaskId ? id : new TaskId(String.valueOf(id))
-        def result = new TaskEntry( jobId, new TaskReq())
+        def taskId = id instanceof TaskId ? id : new TaskId(String.valueOf(id))
+        def result = new TaskEntry( taskId, new TaskReq())
         if ( closure ) closure.call(result);
         return result
     }
@@ -179,12 +178,19 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         result != null && result.cancelled
     }
 
-    def boolean isDone() {
-       status == TaskStatus.COMPLETE || status == TaskStatus.FAILED || isCancelled()
+    def boolean isTerminated() {
+       status == TaskStatus.TERMINATED
+    }
+
+    def String getTerminatedReason() {
+        if( !terminated ) return null
+        if( success ) return 'success'
+        if( failed ) return 'fail'
+        if ( cancelled ) return cancelled
     }
 
 
-    def boolean retryIsRequired() {
+    def boolean isRetryRequired() {
         // -- when terminated successfully no retry by definition
         if ( isSuccess() ) {
             return false
@@ -195,7 +201,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
             return false
         }
 
-        attempts-cancelled < req.maxAttempts || req.maxAttempts <= 0
+        attempts - cancelled < req.maxAttempts || req.maxAttempts <= 0
     }
 
     @Override
@@ -211,7 +217,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         if( !launchTime && status == TaskStatus.RUNNING  ) {
             launchTime = System.currentTimeMillis()
         }
-        else if ( !completionTime && status in [ TaskStatus.COMPLETE, TaskStatus.FAILED ]) {
+        else if ( !completionTime && status == TaskStatus.TERMINATED ) {
             completionTime = System.currentTimeMillis()
         }
 
@@ -225,7 +231,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
      */
     def String getStatusTimeFmt() {
 
-        if( status in [ TaskStatus.COMPLETE, TaskStatus.FAILED ] ) {
+        if( status == TaskStatus.TERMINATED ) {
             getCompletionTimeFmt()
         }
         else if( status == TaskStatus.RUNNING ) {
@@ -249,13 +255,9 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
             // increment the number of times this job has been cancelled
             if ( result.cancelled ) this.cancelled++
 
-            if( isSuccess() ) {
-                setStatus(TaskStatus.COMPLETE)
-                assigned = null
-            }
-            else if ( !retryIsRequired() || failed ) {
-                setStatus(TaskStatus.FAILED)
-                assigned = null
+            if( isSuccess() || !isRetryRequired() ) {
+                setStatus(TaskStatus.TERMINATED)
+                ownerId = null
             }
 
         }

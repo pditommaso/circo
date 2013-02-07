@@ -18,17 +18,14 @@
  */
 
 package circo.client
-
+import circo.model.TaskEntry
+import circo.reply.StatReply
+import circo.reply.StatReplyData
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 import org.apache.commons.lang.exception.ExceptionUtils
-import circo.reply.StatReplyData
-import circo.reply.StatReply
-import circo.model.TaskEntry
-import circo.model.TaskStatus
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -41,11 +38,11 @@ class CmdStat extends AbstractCommand {
     @Parameter(names=['-j','--job'], description = 'Show detailed information about the specified job-id(s)')
     List<String> jobs
 
-    @Parameter(names=['-s','--status'], description = 'Comma separated list of job status (Pending|Running|Complete)', converter = JobStatusArrayConverter)
-    TaskStatus[] status
+    @Parameter(names=['-s','--status'], description = 'Comma separated list of job status (Pending|Running|Terminated|Success|Failed)' )
+    String status
 
     /** returns all jobs */
-    @Parameter(names='--all', hidden = true)
+    @Parameter(names=['-a','--all'], hidden = true)
     boolean all
 
     /**
@@ -71,10 +68,10 @@ class CmdStat extends AbstractCommand {
             printStats(result.stats)
         }
         else if( this.jobs ) {
-            printJobsDetails( result.jobs )
+            printJobsDetails( result.tasks )
         }
         else {
-            printJobsTable( result.jobs )
+            printJobsTable( result.tasks )
         }
 
 
@@ -85,10 +82,10 @@ class CmdStat extends AbstractCommand {
         println """
         cluster status
         --------------
-        pending : ${ stats[ TaskStatus.PENDING ].toString().padLeft(4) }
-        running : ${ stats[ TaskStatus.RUNNING].toString().padLeft(4)  }
-        complete: ${ stats[ TaskStatus.COMPLETE].toString().padLeft(4)  }
-        failed  : ${ stats[ TaskStatus.FAILED].toString().padLeft(4)  }
+        pending: ${ stats.pending.toString().padLeft(4) }
+        running: ${ stats.running.toString().padLeft(4)  }
+        success: ${ stats.successful.toString().padLeft(4)  }
+        failed : ${ stats.failed.toString().padLeft(4) }
         """
         .stripIndent()
     }
@@ -97,32 +94,33 @@ class CmdStat extends AbstractCommand {
 
         log.debug "Print details for jobs: ${jobs}"
 
-        jobs .eachWithIndex {  TaskEntry job, index ->
+        jobs .eachWithIndex {  TaskEntry entry, index ->
 
             if ( index>0 ) {
                 println "------------"
             }
 
-            def entry = """
-            id        : ${job.id.toFmtString()}
-            command   : ${job.req?.script?:'-'}
-            produce   : ${job.req?.produce?:'-'}
-            status    : ${job.status}
-            sender    : ${job.sender?.toFmtString()}
-            worker    : ${job.worker?.toFmtString()}
-            tmpdir    : ${job.workDir}
-            linux pid : ${job.pid}
-            attempts  : ${job.attempts}
-            user      : ${job?.req?.user}
-            created   : ${job.getCreationTimeFmt()}
-            launched  : ${job.getLaunchTimeFmt()}
-            completed : ${job.getCompletionTimeFmt()}
-            exit code : ${job.result?.exitCode?.toString() ?: '-'}
-            failure   : ${job.result?.failure ? '\n'+ExceptionUtils.getStackTrace(job.result?.failure) : '-' }
+            def result = """
+            id       : ${entry.id.toFmtString()}
+            command  : ${entry.req?.script?:'-'}
+            produce  : ${entry.req?.produce?:'-'}
+            status   : ${entry.status} ${entry.terminated ? "- " + entry.terminatedReason : ''}
+            sender   : ${entry.sender?.toFmtString()}
+            worker   : ${entry.worker?.toFmtString()}
+            owner    : ${entry.ownerId}
+            tmpdir   : ${entry.workDir}
+            linux pid: ${entry.pid}
+            attempts : ${entry.attempts}
+            user     : ${entry?.req?.user}
+            created  : ${entry.getCreationTimeFmt()}
+            launched : ${entry.getLaunchTimeFmt()}
+            completed: ${entry.getCompletionTimeFmt()}
+            exit code: ${entry.result?.exitCode?.toString() ?: '-'}
+            failure  : ${entry.result?.failure ? '\n'+ExceptionUtils.getStackTrace(entry.result?.failure) : '-' }
             """
             .stripIndent()
 
-            println entry
+            println result
 
         }
 
@@ -145,20 +143,20 @@ class CmdStat extends AbstractCommand {
      * Print out the list of retrieved jobs in the text formatted table
      *
      */
-    static void printJobsTable( List<TaskEntry> jobs ) {
+    static void printJobsTable( List<TaskEntry> tasks ) {
 
         printHead()
 
-        if( !jobs ) {
+        if( !tasks ) {
             println "   -           -      -               -"
         }
 
-        jobs?.sort { it.creationTime } ?.each { TaskEntry job ->
+        tasks?.sort { it.creationTime } ?.each { TaskEntry it ->
 
-            final String id = job.id.toFmtString()
-            final state = job.status.toFmtString()
-            final String timestamp = job.getStatusTimeFmt()
-            final String worker = (!job.done && job.worker) ? job.worker.toFmtString() : '-'
+            final String id = it.id.toFmtString()
+            final state = it.status.toFmtString() + ( it.terminatedReason?.substring(0,1) ?: '' )
+            final String timestamp = it.getStatusTimeFmt()
+            final String worker = (!it.terminated && it.worker) ? it.worker.toFmtString() : '-'
 
             println "${id.padRight(12)}   ${state.padRight(4)}  ${timestamp.padRight(10)}  ${worker}"
 

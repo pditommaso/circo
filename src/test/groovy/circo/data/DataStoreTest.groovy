@@ -28,14 +28,14 @@ class DataStoreTest extends Specification {
         when:
         def id = TaskId.of(1)
         def entry = new TaskEntry( id, new TaskReq(script: 'Hola') )
-        def result = store.saveJob(entry)
+        def result = store.saveTask(entry)
 
 
         then:
         result == true
-        entry == store.getJob(id)
-        entry == store.getJob(TaskId.of(1))
-        null == store.getJob( TaskId.of(321) )
+        entry == store.getTask(id)
+        entry == store.getTask(TaskId.of(1))
+        null == store.getTask( TaskId.of(321) )
 
         cleanup:
         shutdown(store)
@@ -51,13 +51,13 @@ class DataStoreTest extends Specification {
         def id1 = TaskId.of('abc')
         def id2 = TaskId.of(222)
 
-        store.saveJob( TaskEntry.create(id1) { it.req.script = 'script1' } )
-        store.saveJob( TaskEntry.create(id2) { it.req.script = 'script2' } )
+        store.saveTask( TaskEntry.create(id1) { it.req.script = 'script1' } )
+        store.saveTask( TaskEntry.create(id2) { it.req.script = 'script2' } )
 
         expect:
-        store.getJob(id0) == null
-        store.getJob(TaskId.of('abc')).req.script == 'script1'
-        store.getJob(TaskId.of(222)).req.script == 'script2'
+        store.getTask(id0) == null
+        store.getTask(TaskId.of('abc')).req.script == 'script1'
+        store.getTask(TaskId.of(222)).req.script == 'script2'
 
         cleanup:
         shutdown(store)
@@ -72,16 +72,16 @@ class DataStoreTest extends Specification {
         when:
         def id = TaskId.of(1)
         def entry = new TaskEntry( id, new TaskReq(script: 'Hola') )
-        def resultNew = store.saveJob(entry)
+        def resultNew = store.saveTask(entry)
 
-        def resultUpdate = store.updateJob( id ) { TaskEntry it ->
+        def resultUpdate = store.updateTask( id ) { TaskEntry it ->
             it.attempts = 2
         }
 
         then:
         resultNew == true
         resultUpdate == false
-        store.getJob(id) .attempts == 2
+        store.getTask(id) .attempts == 2
 
         cleanup:
         shutdown(store)
@@ -92,21 +92,19 @@ class DataStoreTest extends Specification {
     }
 
     def 'test add listener' () {
+
         when:
         TaskEntry invoked = null
-        def times = []
         def entry = TaskEntry.create( 1243 )
-        store.addNewJobListener { it ->
+        store.addNewTaskListener { it ->
             invoked = it
-            times << 1
         }
-        def r1 = store.saveJob(entry)
-        def r2 = store.saveJob(entry)
+        def firstIsNew = store.saveTask(entry)
+        def secondIsNew = store.saveTask(entry)
 
         then:
-        r1 == true
-        r2 == false
-        times == [1]
+        firstIsNew
+        !secondIsNew
         invoked == entry
 
         where:
@@ -120,10 +118,10 @@ class DataStoreTest extends Specification {
         def entry = TaskEntry.create( 1243 )
         def count=0
         def callback = { count++ }
-        store.addNewJobListener( callback )
-        store.removeNewJobListener( callback )
-        store.saveJob(entry)
-        store.saveJob(entry)
+        store.addNewTaskListener( callback )
+        store.removeNewTaskListener( callback )
+        store.saveTask(entry)
+        store.saveTask(entry)
 
 
         then:
@@ -141,23 +139,23 @@ class DataStoreTest extends Specification {
         def job1 = TaskEntry.create('1') { it.status = TaskStatus.NEW }
         def job2 = TaskEntry.create('2') { it.status = TaskStatus.PENDING }
         def job3 = TaskEntry.create('3') { it.status = TaskStatus.PENDING }
-        def job4 = TaskEntry.create('4') { it.status = TaskStatus.COMPLETE }
-        def job5 = TaskEntry.create('5') { it.status = TaskStatus.COMPLETE }
-        def job6 = TaskEntry.create('6') { it.status = TaskStatus.COMPLETE }
+        def job4 = TaskEntry.create('4') { it.status = TaskStatus.TERMINATED }
+        def job5 = TaskEntry.create('5') { it.status = TaskStatus.TERMINATED }
+        def job6 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
 
-        store.saveJob(job1)
-        store.saveJob(job2)
-        store.saveJob(job3)
-        store.saveJob(job4)
-        store.saveJob(job5)
-        store.saveJob(job6)
+        store.saveTask(job1)
+        store.saveTask(job2)
+        store.saveTask(job3)
+        store.saveTask(job4)
+        store.saveTask(job5)
+        store.saveTask(job6)
 
         expect:
-        store.findJobsByStatus(TaskStatus.NEW).toSet() == [job1] as Set
-        store.findJobsByStatus(TaskStatus.PENDING).toSet() == [job2,job3] as Set
-        store.findJobsByStatus(TaskStatus.COMPLETE).toSet() == [job4,job5,job6] as Set
-        store.findJobsByStatus(TaskStatus.READY) == []
-        store.findJobsByStatus(TaskStatus.NEW, TaskStatus.PENDING).toSet() == [job1,job2,job3] as Set
+        store.findTasksByStatus(TaskStatus.NEW).toSet() == [job1] as Set
+        store.findTasksByStatus(TaskStatus.PENDING).toSet() == [job2,job3] as Set
+        store.findTasksByStatus(TaskStatus.TERMINATED).toSet() == [job4,job5,job6] as Set
+        store.findTasksByStatus(TaskStatus.READY) == []
+        store.findTasksByStatus(TaskStatus.NEW, TaskStatus.PENDING).toSet() == [job1,job2,job3] as Set
 
         cleanup:
         shutdown(store)
@@ -178,26 +176,55 @@ class DataStoreTest extends Specification {
         def job5 = TaskEntry.create( '35' )
         def job6 = TaskEntry.create( '36' )
 
-        store.saveJob(job1)
-        store.saveJob(job2)
-        store.saveJob(job3)
-        store.saveJob(job4)
-        store.saveJob(job5)
-        store.saveJob(job6)
+        store.saveTask(job1)
+        store.saveTask(job2)
+        store.saveTask(job3)
+        store.saveTask(job4)
+        store.saveTask(job5)
+        store.saveTask(job6)
 
         expect:
-        store.findJobsById( '11' ) == [job1]
-        store.findJobsById( '1*' ) == [job1]
-        store.findJobsById( '12' ) == []
+        store.findTasksById( '11' ) == [job1]
+        store.findTasksById( '1*' ) == [job1]
+        store.findTasksById( '12' ) == []
 
-        store.findJobsById( '33' ) == [job3]
-        store.findJobsById( '34' ) == [job4]
-        store.findJobsById( '3*' ).toSet() == [job3,job4,job5,job6].toSet()
+        store.findTasksById( '33' ) == [job3]
+        store.findTasksById( '34' ) == [job4]
+        store.findTasksById( '3*' ).toSet() == [job3,job4,job5,job6].toSet()
 
-        store.findJobsById( '*3' ).toSet() == [job2,job3].toSet()
+        store.findTasksById( '*3' ).toSet() == [job2,job3].toSet()
 
         // preceding '0' are removed
-        store.findJobsById( '011' ) == [job1]
+        store.findTasksById( '011' ) == [job1]
+
+        cleanup:
+        shutdown(store)
+
+        where:
+        store << [ new LocalDataStore(), new HazelcastDataStore() ]
+
+    }
+
+
+    def 'test findAllTaskAssignedTo' () {
+
+        setup:
+
+        def task1 = TaskEntry.create(1) { TaskEntry it -> it.ownerId = 1 }
+        def task2 = TaskEntry.create(2) { TaskEntry it -> it.ownerId = 2 }
+        def task3 = TaskEntry.create(3) { TaskEntry it -> it.ownerId = 2 }
+        def task4 = TaskEntry.create(4) { TaskEntry it -> it.ownerId = 2 }
+        def task5 = TaskEntry.create(5)
+        store.saveTask(task1)
+        store.saveTask(task2)
+        store.saveTask(task3)
+        store.saveTask(task4)
+        store.saveTask(task5)
+
+        expect:
+        store.findAllTasksOwnerBy(1).toSet() == [task1] as Set
+        store.findAllTasksOwnerBy(2).toSet() == [task2, task3, task4] as Set
+        store.findAllTasksOwnerBy(99) == []
 
         cleanup:
         shutdown(store)
@@ -211,7 +238,7 @@ class DataStoreTest extends Specification {
 
     def "test getAndPutNodeInfo" () {
         setup:
-        def nodeInfo = new NodeData( address: addr('1.2.2.2'), processed: 7843 )
+        def nodeInfo = new NodeData( id: 99, processed: 7843 )
         nodeInfo.createWorkerData( new WorkerRefMock('worker1') )
         nodeInfo.createWorkerData( new WorkerRefMock('worker2') )
 
@@ -220,8 +247,8 @@ class DataStoreTest extends Specification {
 
 
         then:
-        store.getNodeData(addr('1.2.2.2')) == nodeInfo
-        store.getNodeData(addr('4.6.6.6')) == null
+        store.getNodeData(99) == nodeInfo
+        store.getNodeData(77) == null
 
         cleanup:
         shutdown(store)
@@ -234,11 +261,11 @@ class DataStoreTest extends Specification {
     def "test replaceNodeInfo" () {
 
         setup:
-        def node1 = new NodeData( address: addr('1.1.1.1'), processed: 7843 )
+        def node1 = new NodeData( id: 1, processed: 7843 )
         node1.createWorkerData( new WorkerRefMock('worker1') )
         node1.createWorkerData( new WorkerRefMock('worker2') )
 
-        def node2 = new NodeData( address: addr('2.2.2.2'), processed: 343 )
+        def node2 = new NodeData( id: 2, processed: 343 )
 
         store.putNodeData(node1)
         store.putNodeData(node2)
@@ -247,18 +274,18 @@ class DataStoreTest extends Specification {
         def copy1 = new NodeData(node1)
         def copy2 = new NodeData(node2)
 
-        def newNode1 = new NodeData( address: addr('1.1.1.1'), processed: 8888 )
-        def newNode2 = new NodeData( address: addr('2.2.2.2'), processed: 4444 )
+        def newNode1 = new NodeData( id: 1, processed: 8888 )
+        def newNode2 = new NodeData( id: 2, processed: 4444 )
 
         newNode1.processed++
         copy2.processed++
 
         then:
         // copy1 is a clone of node1 -- it does not change so, it can be replaced with a new value
-        store.replaceNodeData(copy1, newNode1) == true
+        store.replaceNodeData(copy1, newNode1)
 
         // node2 is changed after it was copied -- the replace will fail
-        store.replaceNodeData(copy2, newNode2) == false
+        !store.replaceNodeData(copy2, newNode2)
 
 
         cleanup:
@@ -271,11 +298,11 @@ class DataStoreTest extends Specification {
     def "test updateNodeInfo" () {
 
         setup:
-        def node1 = new NodeData( address: addr('1.1.1.1'), processed: 100, failed: 10 )
+        def node1 = new NodeData( id: 11, processed: 100, failed: 10 )
         node1.createWorkerData( new WorkerRefMock('worker1') )
         node1.createWorkerData( new WorkerRefMock('worker2') )
 
-        def node2 = new NodeData( address: addr('2.2.2.2'), processed: 200, failed:  20 )
+        def node2 = new NodeData( id:  22, processed: 200, failed:  20 )
 
         store.putNodeData(node1)
         store.putNodeData(node2)
@@ -286,6 +313,7 @@ class DataStoreTest extends Specification {
         def copy2 = new NodeData(node2)
         node2.processed++
         node2.failed++
+        store.putNodeData(node2)
 
         when:
         def result1 = store.updateNodeData( copy1 ) { NodeData node ->
@@ -337,7 +365,7 @@ class DataStoreTest extends Specification {
     def "test updateNodeInfo for workers" () {
 
         setup:
-        def node1 = new NodeData( address: addr('1.1.1.1'), processed: 100, failed: 10 )
+        def node1 = new NodeData( id: 1, processed: 100, failed: 10 )
         node1.createWorkerData( new WorkerRefMock('/a') )
         node1.createWorkerData( new WorkerRefMock('/b') )
         node1.createWorkerData( new WorkerRefMock('/c') )
@@ -353,7 +381,7 @@ class DataStoreTest extends Specification {
 
         then:
         node1.workers.size() == 0
-        store.getNodeData(addr('1.1.1.1')).workers.size() == 0
+        store.getNodeData(1).workers.size() == 0
 
         cleanup:
         shutdown(store)

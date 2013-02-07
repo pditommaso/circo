@@ -155,8 +155,8 @@ class JdbcJobsMapStore implements MapStore<TaskId,TaskEntry> {
         sql.eachRow(statement, values) { row ->
 
             final id = TaskId.of( row[0] )
-            final job = row[1] ? SerializationUtils.deserialize(row[1] as byte[]) : null
-            result.put( id, job as TaskEntry)
+            final task = row[1] ? SerializationUtils.deserialize(row[1] as byte[]) : null
+            result.put( id, task as TaskEntry)
         }
 
         return result
