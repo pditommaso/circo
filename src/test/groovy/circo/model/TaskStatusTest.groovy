@@ -68,6 +68,8 @@ class TaskStatusTest extends Specification {
         'NEW'     | TaskStatus.NEW
         'P'       | TaskStatus.PENDING
         'PENDING'  | TaskStatus.PENDING
+        'p'       | TaskStatus.PENDING
+        'Pending'  | TaskStatus.PENDING
     }
 
 

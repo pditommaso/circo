@@ -18,7 +18,6 @@
  */
 
 package circo.daemon
-
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Address
@@ -43,7 +42,6 @@ import groovy.util.logging.Slf4j
 import org.slf4j.MDC
 import sun.misc.Signal
 import sun.misc.SignalHandler
-
 /**
  *  Launch a cluster node instance
  *
@@ -177,10 +175,6 @@ public class Daemon {
             dataStore = new HazelcastDataStore( ConfigFactory.load(), members, multiCast )
         }
 
-
-        // install the shutdown message handler
-        installShutdownSignal()
-
         system.registerOnTermination({ sleep(500); System.exit(0) } as Runnable)
 
     }
@@ -241,6 +235,13 @@ public class Daemon {
         nodeId = dataStore.nextNodeId()
         MDC.put('node', nodeId.toString())
 
+
+        // -- make sure does not exist another node with the same address (but a different 'nodeId')
+        def otherNode = dataStore.findNodeDataByAddress(selfAddress).find()
+        if ( otherNode ) {
+            throw new IllegalStateException("A cluster node with address: $selfAddress is already running -- ${otherNode.dump()}")
+        }
+
         // -- create the required actors
         createMasterActor()
         createFrontEnd()
@@ -250,7 +251,11 @@ public class Daemon {
             createTerminalUI(nodeId)
         }
 
-        log.info "Circo node started [${cluster.selfAddress()}]"
+
+        // install the shutdown message handler
+        installShutdownSignal()
+
+        log.info "CIRCO NODE STARTED [${cluster.selfAddress()}]"
     }
 
 
@@ -361,8 +366,8 @@ public class Daemon {
             node.run()
         }
         catch( Throwable e ) {
+            log.error("UNABLE TO START CIRCO", e )
             node.stop()
-            log.error("Unable to start Circo", e )
             System.exit(1)
         }
 

@@ -44,12 +44,12 @@ enum TaskStatus {
     static def TaskStatus fromString(String value) {
         assert value
 
-        def result = TaskStatus.values().find { it.toString() == value }
+        def result = TaskStatus.values().find { value.equalsIgnoreCase(it.toString()) }
         if ( result ) {
             return result
         }
 
-        switch(value) {
+        switch(value.toUpperCase()) {
             case '-': return VOID
             case 'N': return NEW
             case 'P': return PENDING

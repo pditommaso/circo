@@ -194,7 +194,7 @@ class FrontEnd extends UntypedActor {
          */
         else if ( command.status ) {
             try {
-                list = dataStore.findTasksByStatus( command.status )
+                list = dataStore.findTasksByStatusString( command.status )
             }
             catch( Exception e ) {
                 log.error "Unable to retrieve tasks for status: '${command.status}'", e

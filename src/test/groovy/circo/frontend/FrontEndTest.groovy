@@ -191,7 +191,7 @@ class FrontEndTest extends ActorSpecification {
         def sender = newProbe(system)
         def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
         def cmd = new CmdStat()
-        cmd.status = [ TaskStatus.TERMINATED ]
+        cmd.status = TaskStatus.TERMINATED.toString()
 
         when:
         frontend.tell( cmd, sender.getRef() )

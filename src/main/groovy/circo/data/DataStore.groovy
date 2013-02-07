@@ -103,7 +103,7 @@ interface DataStore {
      * @param status
      * @return
      */
-    List<TaskEntry> findTasksByStatus( String status )
+    List<TaskEntry> findTasksByStatusString( String status )
 
     /**
      * The job status statistics i.e. how many jobs for each status
@@ -127,6 +127,8 @@ interface DataStore {
     int nextNodeId()
 
     NodeData getNodeData(int nodeId)
+
+    List<NodeData> findNodeDataByAddress( Address address )
 
     List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status )
 

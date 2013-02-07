@@ -142,6 +142,7 @@ class NodeMaster extends UntypedActor  {
         tasksDispatcher[NodeShutdown] = this.&handleShutdown
     }
 
+    protected Map getAllMasters() { allMasters }
 
 
     /**
@@ -650,7 +651,7 @@ class NodeMaster extends UntypedActor  {
     protected void manageMemberDowned( Address nodeAddress ) {
         assert nodeAddress
 
-        List<NodeData> nodes = store.findNodeDataByAddressAndStatus( nodeAddress, NodeStatus.ALIVE )
+        List<NodeData> nodes = store.findNodeDataByAddress(nodeAddress)
         if( nodes == null ) {
             log.debug "No NodeData for address: ${nodeAddress} -- ignore it"
             return
@@ -671,7 +672,8 @@ class NodeMaster extends UntypedActor  {
         }
 
         def updatedNode = new NodeData(nodeFound)
-        updatedNode.status = NodeStatus.DEAD
+        updatedNode.status = NodeStatus.DEAD    // set the node to dead
+        updatedNode.address = null              // <-- clear the address to avoid node addresses overlapping
 
         int count = 0
         // try to update using concurrent replace

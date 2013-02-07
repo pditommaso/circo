@@ -92,7 +92,7 @@ abstract class AbstractDataStore implements DataStore {
     }
 
 
-    List<TaskEntry> findTasksByStatus( String status ) {
+    List<TaskEntry> findTasksByStatusString( String status ) {
         if( status?.toLowerCase() in ['s','success'] ) {
             return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
         }
@@ -110,6 +110,20 @@ abstract class AbstractDataStore implements DataStore {
 
     NodeData getNodeData( int nodeId ) {
         nodeDataMap.get(nodeId)
+    }
+
+    @Override
+    List<NodeData> findNodeDataByAddress( Address address ) {
+        assert address
+
+        List<NodeData> result = []
+        nodeDataMap.values().each { NodeData node ->
+            if ( node.address == address ) {
+                result << node
+            }
+        }
+
+        return result
     }
 
     @Override
@@ -135,7 +149,6 @@ abstract class AbstractDataStore implements DataStore {
         assert oldValue
         assert newValue
         assert oldValue.id == newValue.id
-        assert oldValue.address == newValue.address
 
         nodeDataMap.replace(oldValue.id, oldValue, newValue)
     }
