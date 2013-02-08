@@ -129,10 +129,10 @@ class HazelcastDataStore extends AbstractDataStore {
         }
 
         /*
-         * JOBS map configuration
+         * TASKS map configuration
          */
 
-        def jobsConfig = new MapConfig('jobs')
+        def jobsConfig = new MapConfig('tasks')
                 .addMapIndexConfig( new MapIndexConfig('id',false) )
                 .addMapIndexConfig( new MapIndexConfig('status',false) )
                 .addMapIndexConfig( new MapIndexConfig('ownerId', false) )
@@ -168,7 +168,7 @@ class HazelcastDataStore extends AbstractDataStore {
     protected void init( HazelcastInstance instance ) {
 
         this.hazelcast = instance
-        this.jobsMap = hazelcast.getMap('jobs')
+        this.jobsMap = hazelcast.getMap('tasks')
         this.nodeDataMap = hazelcast.getMap('nodeInfo')
         this.idGen = hazelcast.getAtomicNumber('idGenerator')
         this.nodeIdGen = hazelcast.getAtomicNumber('nodeIdGen')
