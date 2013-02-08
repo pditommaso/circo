@@ -61,10 +61,10 @@ and specifying the ip address of one of the node making up the cluster. For exam
     $ ./bin/circo --host 192.168.0.1
 
 
-If a daemon is running on the local machine it is not required to specify the node IP address to which connect.
+When a daemon is running on the local machine it is not required to specify the node IP address to which connect.
 
-For development purpose the `circo` tool can be executed with an embedded server. It can be used to develop and run locally
-your scripts without having to connect to a remote cluster.
+For development purpose `circo` tool can be launched with an embedded server instance.
+It can be used to develop and run locally your scripts without having to connect to a remote cluster.
 
 
 
