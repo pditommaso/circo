@@ -1,6 +1,6 @@
 CIRCO change-log
 ================
-0.2.3 - Thu, 7 Feb 2013
+0.3.0 - Thu, 8 Feb 2013
 - Big packages and naming refactoring (JobXxx -> TaskXxx)
 - Improved tasks recovering on node crash
 - Intercepting CTRL+C to graceful shutdown the cluster node
