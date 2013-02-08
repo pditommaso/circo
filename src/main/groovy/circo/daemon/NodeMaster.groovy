@@ -344,7 +344,9 @@ class NodeMaster extends UntypedActor  {
             return
         }
 
-        // -- forward to somebody else
+        // --
+        // when the task has already been executed by this node
+        // try to forward it to another node
         if( entry.worker && node.hasWorkerData(entry.worker) && allMasters.size()>1 ) {
             def target = someoneElse()
             log.debug "=> fwd: ${message} TO someoneElse: ${someoneElse()}"

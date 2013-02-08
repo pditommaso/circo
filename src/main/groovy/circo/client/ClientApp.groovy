@@ -84,7 +84,7 @@ class ClientApp {
 
                     // get the command
                     def cmd = sink.command as CmdSub
-                    // re-sync the barrier count based the real number of jobs submitted
+                    // re-sync the barrier count based the real number of tasks submitted
                     // note: only when the command have to print out the result - or - is sync
                     if ( cmd.printOutput || cmd.syncOutput ) {
                         sink.delta = reply?.taskIds?.size()
