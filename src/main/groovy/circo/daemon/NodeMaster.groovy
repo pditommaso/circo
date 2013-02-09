@@ -408,6 +408,12 @@ class NodeMaster extends UntypedActor  {
          * the Task have to be moved into that node queue
          */
         if( !isLocalWorker ) {
+            // avoid that nodes keep continuing stealing tasks each others !!
+            if( node.queue.size() < node.numOfFreeWorkers()  ) {
+                log.debug "Free workers are available -- ignore request for work from remote node"
+                return
+            }
+
             def list =  store.findNodeDataByAddressAndStatus( worker.address(), NodeStatus.ALIVE )
             def otherMaster = list?.size()==1 ? list.get(0).master: null
 
