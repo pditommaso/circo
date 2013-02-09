@@ -18,8 +18,6 @@
  */
 
 package circo.daemon
-import java.util.concurrent.Callable
-
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.UntypedActor
@@ -44,6 +42,10 @@ import circo.util.ProcessHelper
 import com.google.common.io.Files
 import groovy.io.FileType
 import groovy.util.logging.Slf4j
+
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -286,6 +288,13 @@ class TaskExecutor extends UntypedActor {
                 Thread.sleep(slow * 1000)
             }
 
+            // --
+            // await the dumper thread terminates to copy the stdout stream
+            // this is necessary when the executed process is very fast, and terminate before the
+            // dumper thread  is able to copy all the produced output
+            dumper.await(1000)
+            dumper = null
+
             result = new TaskResult( taskId: task.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest)
 
             // collect the files produced by this job
@@ -424,22 +433,57 @@ class TaskExecutor extends UntypedActor {
 
         boolean fTerminated
 
+        CountDownLatch barrier = new CountDownLatch(1)
+
         public ByteDumper(InputStream input, Appendable output, boolean sendAliveMessage ) {
             this.fInput = new BufferedInputStream(input);
             this.fOutput = output;
             this.sendAliveMessage = sendAliveMessage
         }
 
-        def void terminate() {  fTerminated = true }
+        /**
+         *  Interrupt the dumper thread
+         */
+        def void terminate() { fTerminated = true }
+
+        /**
+         * Await that the thread finished to read the process stdout
+         *
+         * @param millis Maximum time (in millis) to await
+         */
+        def void await(long millis=0) {
+            if( millis ) {
+                barrier.await(millis, TimeUnit.MILLISECONDS)
+            }
+            else {
+                barrier.await()
+
+            }
+        }
 
 
         @Override
         public void run() {
+
+            try {
+                consume()
+            }
+            finally{
+                barrier.countDown()
+            }
+
+        }
+
+        /**
+         * Consume the process stdout
+         */
+        protected void consume( ) {
             byte[] buf = new byte[8192];
             int next;
 
             long t1 = System.currentTimeMillis()
             long t2
+
             while ((next = fInput.read(buf)) != -1 && !fTerminated ) {
                 if (fOutput != null) {
 
