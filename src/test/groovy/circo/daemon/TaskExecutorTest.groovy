@@ -22,7 +22,7 @@ import akka.actor.AddressFromURIString
 import circo.model.FileRef
 import circo.model.TaskEntry
 import circo.model.TaskId
-import circo.model.TaskContext
+import circo.model.Context
 import circo.model.TaskReq
 import circo.model.TaskResult
 import spock.lang.Specification
@@ -76,7 +76,7 @@ class TaskExecutorTest extends Specification {
         '''
         .stripIndent().trim()
         req.produce = ['file2']
-        req.context = new TaskContext().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
 
         when:
         def script = TaskExecutor.stage(req)
@@ -102,7 +102,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new TaskContext().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
         def filesToProduce = ['file2.txt','file3.txt']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -145,7 +145,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new TaskContext().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
         def filesToProduce = ['file1.txt', 'file2.txt','file3.txt', 'fasta.fa']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -191,7 +191,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new TaskContext().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
         def filesToProduce = ['file1.txt', 'file2.txt','file3.txt', 'aln.fa']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile

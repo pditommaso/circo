@@ -35,13 +35,12 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
     /**
      * The unique ID for this job
      */
-
     def final TaskId id
+
     /**
      * The job status
      */
     def TaskStatus status = TaskStatus.VOID
-
 
     /**
      * The request that originated this job entry

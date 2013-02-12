@@ -20,7 +20,7 @@
 package circo.client
 
 import circo.model.FileRef
-import circo.model.TaskContext
+import circo.model.Context
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
@@ -94,12 +94,12 @@ class CmdSub extends AbstractCommand  {
     def String getUser() { user }
 
     /** A copy of the current context to be used for the job submission */
-    private TaskContext context
+    private Context context
 
-    def TaskContext getContext() { context }
+    def Context getContext() { context }
 
 
-    private init(TaskContext clientContext) {
+    private init(Context clientContext) {
 
         // -- the user who is submitting the request
         this.user = System.properties['user.name']
@@ -114,7 +114,7 @@ class CmdSub extends AbstractCommand  {
         }
 
         // -- the current execution context as defined in the client
-        this.context = TaskContext.copy(clientContext)
+        this.context = Context.copy(clientContext)
 
         def items = []
         this.eachItems?.each { String it ->
@@ -198,6 +198,16 @@ class CmdSub extends AbstractCommand  {
         def result = client.send(this)
         result?.printMessages()
 
+    }
+
+    /**
+     * @return When the sub is executed is sync mode or printing the stdout this command stop to wait for two reply:
+     *      {@code SubReply} and {@code JobReply}, otherwise it will wait only for the {@code SubReply} confirmation
+     *
+     */
+    @Override
+    def int expectedReplies() {
+        return ( syncOutput || printOutput ) ? 2 : 1
     }
 
 }

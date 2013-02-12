@@ -48,13 +48,16 @@ import circo.messages.WorkToSpool
 import circo.messages.WorkerCreated
 import circo.messages.WorkerFailure
 import circo.messages.WorkerRequestsWork
+import circo.model.Job
+import circo.model.JobStatus
 import circo.model.NodeData
 import circo.model.NodeStatus
+import circo.model.Context
 import circo.model.TaskEntry
-import circo.model.TaskId
 import circo.model.TaskStatus
 import circo.model.WorkerData
 import circo.model.WorkerRef
+import circo.reply.JobReply
 import circo.reply.ResultReply
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
@@ -149,7 +152,7 @@ class NodeMaster extends UntypedActor  {
      * When a new entry is added to the jobs storage map, the listener is invoked which will add
      * the job id to the jobs local queue
      */
-    private onNewJobAddedListener = { TaskEntry task ->
+    private onNewTaskAddedListener = { TaskEntry task ->
         log.debug "Add new task event received for: $task"
         if( task.status != TaskStatus.NEW ) {
             log.debug "Skipping add for job: '${task}' since it is not NEW"
@@ -220,7 +223,7 @@ class NodeMaster extends UntypedActor  {
         allMasters.put(selfAddress, getSelf())
 
         // --- add the event listener
-        store.addNewTaskListener( onNewJobAddedListener )
+        store.addNewTaskListener( onNewTaskAddedListener )
 
         FiniteDuration duration = new FiniteDuration( 1, TimeUnit.SECONDS )
         getContext().system().scheduler().schedule(duration, duration, getSelf(), WorkersNotifier.instance, getContext().dispatcher())
@@ -240,7 +243,7 @@ class NodeMaster extends UntypedActor  {
         store.putNodeData(node)
 
         // --- remove the event listener
-        store.removeNewTaskListener( onNewJobAddedListener )
+        store.removeNewTaskListener( onNewTaskAddedListener )
 
         if ( shuttingDown ) {
             log.debug "Shutting down Hazelcast"
@@ -480,6 +483,14 @@ class NodeMaster extends UntypedActor  {
             log.error("Blurgh! ${message.worker} said it's done work but we didn't know about him")
         }
 
+        def task = store.getTask( message.taskId )
+        if ( task ) {
+            manageWorkDone( task )
+        }
+        else {
+            log.error("Blurgh! ${message.worker} said it's done work but cannot find task with id: ${message.taskId}")
+        }
+
         // -- when a shutdown is on-going, kill all the worker actors
         if ( shuttingDown && node.numOfBusyWorkers()==0 ) {
            killWorkers()
@@ -487,6 +498,98 @@ class NodeMaster extends UntypedActor  {
 
     }
 
+    protected void manageWorkDone( TaskEntry task ) {
+        assert task
+
+        // -- still some work pending, re-schedule to the master
+        if( task.isRetryRequired() ) {
+            log.debug "Job ${task.id} failed -- retry submitting"
+            self().tell( WorkToSpool.of(task.id), null )
+            return
+        }
+
+
+        // -- notify the client for the available result
+        if( task.sender && task.req.notifyResult ) {
+            log.debug "Reply job result to sender -- ${task.id}"
+            final reply = new ResultReply( task.req.ticket, task.result )
+            task.sender.tell ( reply, self() )
+        }
+
+        /*
+         * update job action
+         */
+        def updateJobAction = { Job job ->
+
+            // -- check if this job is terminated
+            if( !job.missingTasks.remove(task.id) ) {
+                log.warn "Missing task id: ${task.id} in the list of tasks for job: ${job.dump()}"
+                return
+            }
+
+            // -- the status can be changed only from:
+            // 'submitted' -> 'success'
+            // 'submitted' -> 'failed'
+
+            if( !job.submitted ) {
+                return
+            }
+
+            // -- if the task is failed, mark the job as failed
+            if( !task.isSuccess()  ) {
+                job.status = JobStatus.FAILED
+                // TODO stop all pending tasks execution ?
+            }
+            // -- try to finalize
+            else if( job.missingTasks.isEmpty() ) {
+                /*
+                 * Collect of result context for each tasks
+                 */
+                def allTasks = store.findTasksByRequestId( job.requestId )
+                def allResultContext = allTasks.collect { TaskEntry it -> it.result?.context }
+
+                def newContext = job.input ? Context.copy(job.input) : new Context()
+                allResultContext.each { Context delta ->
+                    newContext += delta
+                }
+
+                /*
+                 * - create the new job output context
+                 * - set to success
+                 */
+                job.output = newContext
+                job.status = JobStatus.SUCCESS
+            }
+        }
+
+
+        try {
+            def result = store.updateJob( task.req.ticket, updateJobAction )
+            if ( !result.sender ) { return }
+
+            if ( result.success ) {
+                // -- notify success
+                def reply = new JobReply( result.requestId )
+                reply.success = true
+                reply.context = result.output
+                result.sender.tell( reply )
+            }
+            else if ( result.failed ) {
+                // notify failure
+                result.sender.tell( new JobReply( result.requestId ) )
+                // TODO send task error message to the client ?
+            }
+
+
+        }
+        catch( Exception e ) {
+            log.error "Cannot update job request: ${task.req.ticket} while processing task id: ${task.id}", e
+            // TODO Notify error
+            // TODO stop current execution ?
+        }
+
+
+    }
 
 
     /**
@@ -714,48 +817,12 @@ class NodeMaster extends UntypedActor  {
     protected void recoverDeadTasks(Integer nodeId) {
         assert nodeId
 
-        List<TaskEntry> jobsToRecover = store.findAllTasksOwnerBy(nodeId)
-        log.debug "Tasks to recover: ${jobsToRecover.size() ?: 'none'}"
+        List<TaskEntry> tasksToRecover = store.findAllTasksOwnerBy(nodeId)
+        log.debug "Tasks to recover: ${tasksToRecover.size() ?: 'none'}"
 
-        def List<TaskId> toBeRescheduled = []
-        def List<TaskEntry> toBeNotified = []
-        def List<TaskId> toBeIgnored = []
-
-        jobsToRecover.each { TaskEntry entry ->
-
-            boolean retry = entry.isRetryRequired()
-            // -- resubmit this job
-            if( retry ) {
-                toBeRescheduled << entry.id
-            }
-
-            // -- notify the sender the result
-            else if( entry.sender ) {
-                toBeNotified << entry
-            }
-            else {
-                toBeIgnored << entry.id
-            }
-        }
+        tasksToRecover.each { TaskEntry entry -> manageWorkDone( entry ) }
 
 
-        if( toBeRescheduled ) {
-            log.debug "The following tasks id are going to be re-queued: ${toBeRescheduled}"
-            toBeRescheduled.each { TaskId taskId ->
-                self().tell( new WorkToSpool(taskId), null)
-            }
-        }
-
-        if ( toBeNotified ) {
-            log.debug "=> Notify sender for result the following tasks: ${toBeNotified.collect { TaskEntry entry -> entry.id}}"
-            toBeNotified.each { TaskEntry entry ->
-                entry.sender.tell ( new ResultReply( entry.req.ticket, entry.result ) )
-            }
-        }
-
-        if ( toBeIgnored ) {
-            log.debug "Following tasks entries don't need to be managed: ${toBeIgnored}"
-        }
     }
 
     /**

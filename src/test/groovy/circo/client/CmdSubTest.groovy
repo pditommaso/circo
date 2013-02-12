@@ -19,9 +19,7 @@
 
 package circo.client
 
-import circo.client.CmdSub
-import circo.client.CommandParser
-import circo.model.TaskContext
+import circo.model.Context
 import scala.concurrent.duration.Duration
 import spock.lang.Specification
 /**
@@ -81,7 +79,7 @@ class CmdSubTest extends Specification {
     def 'test parse cmd sub each with assignment' () {
 
         setup:
-        def ctx = new TaskContext().put('Z','999')
+        def ctx = new Context().put('Z','999')
 
         when:
         def times
@@ -105,7 +103,7 @@ class CmdSubTest extends Specification {
     def 'test parse cmd sub each with assignment (2)' () {
 
         setup:
-        def ctx = new TaskContext().put('Z','999')
+        def ctx = new Context().put('Z','999')
 
         when:
         def times

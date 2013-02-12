@@ -44,8 +44,9 @@ class LocalDataStore extends AbstractDataStore {
     private AtomicInteger nodeIdGen = new AtomicInteger()
 
     def LocalDataStore() {
-        jobsMap = new ConcurrentHashMap<>()
-        nodeDataMap = new ConcurrentHashMap<>()
+        jobs = new ConcurrentHashMap<>()
+        tasks = new ConcurrentHashMap<>()
+        nodeData = new ConcurrentHashMap<>()
     }
 
     def void shutdown() { }
@@ -62,7 +63,7 @@ class LocalDataStore extends AbstractDataStore {
 
     List<TaskEntry> findTasksByStatus( TaskStatus... status ) {
         assert status
-        jobsMap.values().findAll { TaskEntry task -> task.status in status  }
+        tasks.values().findAll { TaskEntry task -> task.status in status  }
     }
 
     boolean saveTask( TaskEntry task) {
@@ -95,7 +96,7 @@ class LocalDataStore extends AbstractDataStore {
         // remove '0' prefix
         while( value.size()>1 && value.startsWith('0') ) { value = value.substring(1) }
 
-        jobsMap.values().findAll { TaskEntry task -> task.id.toFmtString() ==~ /$value/ }
+        tasks.values().findAll { TaskEntry task -> task.id.toFmtString() ==~ /$value/ }
 
     }
 
@@ -103,7 +104,7 @@ class LocalDataStore extends AbstractDataStore {
     List<TaskEntry> findAllTasksOwnerBy(Integer nodeId) {
         assert nodeId
 
-        return jobsMap.values().findAll() { TaskEntry it -> it.ownerId == nodeId }
+        return tasks.values().findAll() { TaskEntry it -> it.ownerId == nodeId }
     }
 
     /**

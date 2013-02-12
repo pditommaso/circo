@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,35 +17,23 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.model
-import groovy.transform.EqualsAndHashCode
-import groovy.transform.ToString
+package circo.reply
+
+import circo.model.Context
+import groovy.transform.InheritConstructors
+
 /**
+ * Notify the final result of a job execution
  *
- *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@InheritConstructors
+class JobReply extends AbstractReply {
 
-@EqualsAndHashCode
-@ToString(includes=['taskId','exitCode'], includePackage = false, includeNames = true)
-class TaskResult implements Serializable {
+    /** Whenever the job completed successfully or with error */
+    boolean success
 
-    /** The Job of this job */
-    TaskId taskId
-
-    /** The exit-code as returned by the system */
-    int exitCode = Integer.MIN_VALUE
-
-    /** The program output */
-    String output
-
-    /** The exception raised, in any */
-    Throwable failure
-
-    /** Whenever the job terminated by a user 'cancel' request */
-    boolean cancelled
-
-    /** The resulting context */
+    /** The final context produced by the job execution */
     Context context
-
 
 }

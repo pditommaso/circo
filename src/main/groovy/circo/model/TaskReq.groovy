@@ -69,13 +69,16 @@ class TaskReq implements Serializable {
     /**
      * The context holding the state of the job execution
      */
-    def TaskContext context
+    def Context context
 
-    def List<String> get
+    /**
+     * The client wants to be notified for the result
+     */
+    boolean notifyResult
 
+    /**
+     * The expected files to be produced
+     */
     def List<String> produce
-
-
-
 
 }

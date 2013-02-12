@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -18,34 +18,15 @@
  */
 
 package circo.model
-import groovy.transform.EqualsAndHashCode
-import groovy.transform.ToString
+
 /**
  *
- *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+enum JobStatus {
 
-@EqualsAndHashCode
-@ToString(includes=['taskId','exitCode'], includePackage = false, includeNames = true)
-class TaskResult implements Serializable {
-
-    /** The Job of this job */
-    TaskId taskId
-
-    /** The exit-code as returned by the system */
-    int exitCode = Integer.MIN_VALUE
-
-    /** The program output */
-    String output
-
-    /** The exception raised, in any */
-    Throwable failure
-
-    /** Whenever the job terminated by a user 'cancel' request */
-    boolean cancelled
-
-    /** The resulting context */
-    Context context
-
+    SUBMITTED,
+    SUCCESS,
+    FAILED
 
 }

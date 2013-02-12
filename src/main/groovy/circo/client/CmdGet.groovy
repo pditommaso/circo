@@ -8,6 +8,7 @@ import com.beust.jcommander.Parameters
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Deprecated
 @Parameters(commandNames='get', commandDescription = 'Retrieve the result to computed jobs')
 class CmdGet extends AbstractCommand {
 

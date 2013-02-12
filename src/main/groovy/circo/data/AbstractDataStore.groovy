@@ -23,6 +23,7 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.locks.Lock
 
 import akka.actor.Address
+import circo.model.Job
 import circo.model.NodeData
 import circo.model.NodeStatus
 import circo.model.TaskEntry
@@ -30,6 +31,8 @@ import circo.model.TaskId
 import circo.model.TaskStatus
 import circo.reply.StatReplyData
 import groovy.util.logging.Slf4j
+import org.apache.commons.lang.SerializationUtils
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -37,9 +40,12 @@ import groovy.util.logging.Slf4j
 @Slf4j
 abstract class AbstractDataStore implements DataStore {
 
-    protected ConcurrentMap<TaskId, TaskEntry> jobsMap
 
-    protected ConcurrentMap<Integer, NodeData> nodeDataMap
+    protected ConcurrentMap<UUID,Job> jobs
+
+    protected ConcurrentMap<TaskId, TaskEntry> tasks
+
+    protected ConcurrentMap<Integer, NodeData> nodeData
 
     protected abstract Lock getLock( def key )
 
@@ -54,10 +60,27 @@ abstract class AbstractDataStore implements DataStore {
             lock.unlock()
         }
     }
-    
+
+    Job getJob( UUID id ) {
+        jobs.get(id)
+    }
+
+    boolean putJob( Job job ) {
+        assert job
+        assert job.requestId
+
+        jobs.put(job.requestId, job) != null
+    }
+
+    Job updateJob( UUID requestId, Closure updateMethod ) {
+        assert requestId
+        update(requestId, jobs, updateMethod)
+    }
+
+
     boolean saveTask( TaskEntry task ) {
         assert task
-        def old = jobsMap.put( task.id, task )
+        def old = tasks.put( task.id, task )
         log.trace "## save ${task.dump()} -- was ${old?.dump()}"
 
         return old == null
@@ -66,7 +89,7 @@ abstract class AbstractDataStore implements DataStore {
     @Override
     TaskEntry getTask( TaskId taskId) {
         assert taskId
-        jobsMap.get(taskId)
+        tasks.get(taskId)
     }
 
     boolean updateTask( TaskId taskId, Closure closure ) {
@@ -75,7 +98,7 @@ abstract class AbstractDataStore implements DataStore {
         saveTask( entry )
     }
 
-    long countTasks() { jobsMap.size() }
+    long countTasks() { tasks.size() }
 
 
     StatReplyData findTasksStat() {
@@ -104,12 +127,28 @@ abstract class AbstractDataStore implements DataStore {
         findTasksByStatus(TaskStatus.fromString(status))
     }
 
+    /**
+     * TODO +++ refactor using query api
+     *
+     * @param requestId
+     * @return
+     */
+    List<TaskEntry> findTasksByRequestId( UUID requestId ) {
+
+        def result = tasks.values().findAll { TaskEntry task ->
+            task?.req?.ticket == requestId
+        }
+
+        return new ArrayList<>(result)
+    }
+
+
     List<TaskEntry> findAllTasks() {
-        new LinkedList<>(jobsMap.values())
+        new ArrayList<>(tasks.values())
     }
 
     NodeData getNodeData( int nodeId ) {
-        nodeDataMap.get(nodeId)
+        nodeData.get(nodeId)
     }
 
     @Override
@@ -117,7 +156,7 @@ abstract class AbstractDataStore implements DataStore {
         assert address
 
         List<NodeData> result = []
-        nodeDataMap.values().each { NodeData node ->
+        nodeData.values().each { NodeData node ->
             if ( node.address == address ) {
                 result << node
             }
@@ -130,7 +169,7 @@ abstract class AbstractDataStore implements DataStore {
     List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status ) {
 
         List<NodeData> result = []
-        nodeDataMap.values().each { NodeData node ->
+        nodeData.values().each { NodeData node ->
             if ( node.address == address && (!status || node.status == status)  ) {
                 result << node
             }
@@ -142,7 +181,7 @@ abstract class AbstractDataStore implements DataStore {
     @Override
     NodeData putNodeData( NodeData nodeData) {
         assert nodeData
-        nodeDataMap.put(nodeData.id, nodeData)
+        this.nodeData.put(nodeData.id, nodeData)
     }
 
     boolean replaceNodeData( NodeData oldValue, NodeData newValue ) {
@@ -150,7 +189,7 @@ abstract class AbstractDataStore implements DataStore {
         assert newValue
         assert oldValue.id == newValue.id
 
-        nodeDataMap.replace(oldValue.id, oldValue, newValue)
+        nodeData.replace(oldValue.id, oldValue, newValue)
     }
 
     NodeData updateNodeData( NodeData node, Closure closure ) {
@@ -190,14 +229,61 @@ abstract class AbstractDataStore implements DataStore {
 
     def boolean removeNodeData( NodeData dataToRemove ) {
         assert dataToRemove
-        nodeDataMap.remove(dataToRemove.address, dataToRemove)
+        nodeData.remove(dataToRemove.address, dataToRemove)
     }
 
 
     def List<NodeData> findAllNodesData() {
-        new ArrayList<NodeData>(nodeDataMap.values())
+        new ArrayList<NodeData>(nodeData.values())
     }
 
+    /**
+     * Implements a generic 'optmistic' concurrent update for the object with the ID specified
+     * <p>
+     *     Given the object ID, this method load the associated object in the map specified, after this
+     *     the closure is invoked passing the loaded object as parameter.
+     *     <p>
+     *     The closure may update the object fields and when if exit, the method replace the old
+     *     object with the new one using the {@code ConcurrentMap#replace(K,V,V)} method
+     *     <p>
+     *     The replace is retried until it is able to be fulfilled
+     *
+     * @param id The object ID in the map
+     * @param map The map container
+     * @param closure The update action
+     * @return The updated object stored in the map
+     */
+    protected <T extends Serializable> T update( def id, ConcurrentMap<?,T> map, Closure<T> closure ) {
 
+        int count=0
+        def begin = System.currentTimeMillis()
+        def done = false
+        T newValue
+        while( !done ) {
+            // make a copy of the data structure and invoke the closure in it
+            T value = map.get(id)
+            newValue = SerializationUtils.clone(value) as T
+            closure.call(newValue)
+
+            // try to replace it in the map
+            if( value == newValue ) {
+                return value
+            }
+
+            done = map.replace(id, value, newValue)
+            if( !done ) {
+                if ( System.currentTimeMillis()-begin > 10_000 ) {
+                    throw new TimeoutException("** Update failed (${++count}), unable to replace: ${value.dump()} -- with: ${newValue.dump()} ")
+                }
+                else {
+                    log.debug "Update failed (${++count}), can't replace: ${value} -- with: ${newValue}"
+                    sleep 50
+                }
+            }
+
+        }
+
+        return newValue
+    }
 
 }

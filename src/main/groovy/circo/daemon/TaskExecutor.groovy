@@ -33,7 +33,7 @@ import circo.messages.ProcessStarted
 import circo.messages.ProcessToRun
 import circo.messages.WorkComplete
 import circo.model.FileRef
-import circo.model.TaskContext
+import circo.model.Context
 import circo.model.TaskEntry
 import circo.model.TaskReq
 import circo.model.TaskResult
@@ -380,7 +380,7 @@ class TaskExecutor extends UntypedActor {
         /*
          * create the result context object
          */
-        TaskContext deltaContext = new TaskContext()
+        Context deltaContext = new Context()
 
         /*
          * scan for the produced files

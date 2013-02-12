@@ -18,13 +18,21 @@
  */
 
 package circo.client
-import akka.actor.*
-import circo.daemon.Daemon
+import java.util.concurrent.CountDownLatch
+
+import akka.actor.ActorRef
+import akka.actor.ActorSystem
+import akka.actor.Address
+import akka.actor.Props
+import akka.actor.UntypedActor
+import akka.actor.UntypedActorFactory
 import circo.Const
+import circo.daemon.Daemon
+import circo.daemon.FrontEnd
+import circo.model.Context
 import circo.model.WorkerRef
-import circo.frontend.FrontEnd
-import circo.model.TaskContext
 import circo.reply.AbstractReply
+import circo.reply.JobReply
 import circo.reply.ResultReply
 import circo.reply.SubReply
 import circo.util.CircoHelper
@@ -36,9 +44,6 @@ import jline.console.ConsoleReader
 import jline.console.history.FileHistory
 import sun.misc.Signal
 import sun.misc.SignalHandler
-
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicInteger
 /**
  *  Client application to interact with the cluster
  *
@@ -80,22 +85,15 @@ class ClientApp {
                  */
                 if( replyClass == SubReply ) {
                     def reply = message as SubReply
-                    printTasksIds(reply)
+                    log.info "Your job ${reply.ticket} has been submitted"
 
-                    // get the command
-                    def cmd = sink.command as CmdSub
-                    // re-sync the barrier count based the real number of tasks submitted
-                    // note: only when the command have to print out the result - or - is sync
-                    if ( cmd.printOutput || cmd.syncOutput ) {
-                        sink.delta = reply?.taskIds?.size()
-                    }
-
-                    // create the collection to hold all produced context */
-                    sink.gatherResults = new ArrayList( reply.taskIds.size() )
-                    sink.expectedResults = reply.taskIds.size()
+                }
+                else if ( replyClass == JobReply ) {
+                    handleJobReply( message as JobReply, sink )
                 }
                 else if( replyClass == ResultReply ) {
-                    handleResultReply(message as ResultReply, sink)
+                    handleResultReply( message as ResultReply, sink )
+                    return // <-- note: we need to return here, since it mustn't count down the barrier
                 }
 
                 sink.countDown()
@@ -109,51 +107,25 @@ class ClientApp {
 
         }
 
-        def void printTasksIds( SubReply message ) {
-            def count = message.taskIds?.size()
-            def list = message.taskIds *. toFmtString { "'${it}'" }
-
-            if ( count == 0 ) {
-                log.info "Oops. No job submitted"
-            }
-            else if ( count == 1 ) {
-                log.info "Your job ${list[0]} has been submitted"
-            }
-            else if ( count <= 10 ) {
-                log.info "Your jobs ${list.join(',')} have been submitted"
-            }
-            else {
-                log.info "Your jobs ${list[0..9].join(',')}.. and ${count-10} more have been submitted"
-            }
-        }
-
         def void handleResultReply( ResultReply reply, ReplySink sink ) {
             def clazz = sink.command?.class
 
-            // -- print out the job result as requested by the user on the cmdline
-            if( clazz == CmdSub ) {
-                def cmd = sink.command as CmdSub
-                if ( cmd.printOutput && reply.result?.output && ReplySink.currentSink) {
-                    print reply.result.output
-                }
-
-                // re-sync context
-                sink.expectedResults -= 1
-                sink.gatherResults << reply.result.context
-
-                if ( sink.expectedResults == 0  ) {
-                    def newContext = TaskContext.copy(cmd.context)
-                    sink.gatherResults.each { TaskContext delta ->
-                        newContext += delta
-                    }
-                    // apply the new context
-                    app.context = newContext
-                }
-
+            def cmd = sink.command as CmdSub
+            if ( cmd.printOutput && reply.result?.output && ReplySink.currentSink ) {
+                print reply.result.output
             }
-            else if( clazz == CmdGet && reply.result?.output && ReplySink.currentSink) {
-                print reply.result?.output
+        }
+
+        def void handleJobReply( JobReply reply, ReplySink sink ) {
+
+            if( reply.success ) {
+                app.context = reply.context
             }
+
+            if( sink.command instanceof CmdSub && (sink.command as CmdSub).syncOutput ) {
+                log.info "Job ${reply.ticket} terminated " + ( reply.success ? 'successfully' : 'with error(s)' )
+            }
+
         }
 
     }
@@ -169,32 +141,12 @@ class ClientApp {
 
         AbstractReply reply
 
-        /* gather all the context produced by the job execution */
-        List gatherResults
-
-        int expectedResults
-
-        AtomicInteger delta = new AtomicInteger(0)
-
-        def void setDelta( int value ) {
-            if ( value < 0 ) {
-                Math.abs(value).times { barrier.countDown() }
-            }
-            else {
-                delta.set(value)
-            }
-        }
 
         @Delegate
         CountDownLatch barrier
 
         def void countDown() {
-            if ( delta.get()>0 ) {
-                delta.decrementAndGet()
-            }
-            else {
-                barrier.countDown()
-            }
+            barrier.countDown()
         }
 
         def void await() {
@@ -233,7 +185,7 @@ class ClientApp {
 
     ConsoleReader getConsole() { console }
 
-    TaskContext context
+    Context context
 
     Map<String,String> aliases
 
@@ -245,7 +197,7 @@ class ClientApp {
         console.history = new FileHistory(historyFile)
         console.historyEnabled = true
 
-        context = new TaskContext()
+        context = new Context()
         aliases = new LinkedHashMap<String, String>()
     }
 

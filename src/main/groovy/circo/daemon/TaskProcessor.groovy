@@ -243,17 +243,6 @@ class TaskProcessor extends UntypedActor {
         log.debug "-> WorkerRequestsWork(${worker}) to master"
         master.tell( new WorkerRequestsWork(worker), self() )
 
-        // -- still some work pending, re-schedule to the master
-        if( task.isRetryRequired() ) {
-            log.debug "Job ${task.id} failed -- retry submitting to ${master}"
-            master.tell( WorkToSpool.of(task.id), self() )
-        }
-        // -- notify the sender the result
-        else if( task.sender ) {
-            log.debug "Reply job result to sender -- ${task.id}"
-            final reply = new ResultReply( task.req.ticket, task.result )
-            task.sender.tell ( reply, worker )
-        }
 
         // We're idle now
         this.state = State.IDLE

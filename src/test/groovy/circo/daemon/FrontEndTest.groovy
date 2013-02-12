@@ -17,12 +17,15 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.frontend
+package circo.daemon
+import static test.TestHelper.newProbe
+import static test.TestHelper.newTestActor
+
 import circo.client.CmdNode
 import circo.client.CmdStat
 import circo.client.CmdSub
 import circo.model.NodeDataTest
-import circo.model.TaskContext
+import circo.model.Context
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
@@ -31,9 +34,6 @@ import circo.reply.StatReply
 import circo.reply.SubReply
 import scala.concurrent.duration.Duration
 import test.ActorSpecification
-
-import static test.TestHelper.newProbe
-import static test.TestHelper.newTestActor
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -43,10 +43,10 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd sub' () {
 
         setup:
-        def sender = newProbe(system)
-        def master = newProbe(system)
-        def frontend = newTestActor(system,FrontEnd) {
-            def FE = new FrontEnd(dataStore)
+        def sender = newProbe(test.ActorSpecification.system)
+        def master = newProbe(test.ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) {
+            def FE = new FrontEnd(test.ActorSpecification.dataStore)
             FE.master = master.getRef()
             return FE
         }
@@ -61,7 +61,7 @@ class FrontEndTest extends ActorSpecification {
         sub.maxAttempts = 4
 
         def listenerEntry = null
-        dataStore.addNewTaskListener { it -> listenerEntry = it }
+        test.ActorSpecification.dataStore.addNewTaskListener { it -> listenerEntry = it }
 
 
         when:
@@ -76,7 +76,7 @@ class FrontEndTest extends ActorSpecification {
         // the reply contains the ID(s) of the new submitted job(s)
         def ID = result.taskIds.get(0)
         // the a new job entry has been created
-        def entry = dataStore.getTask( ID )
+        def entry = test.ActorSpecification.dataStore.getTask( ID )
 
         then:
         result.taskIds.size() == 1
@@ -87,7 +87,8 @@ class FrontEndTest extends ActorSpecification {
         entry.req.maxAttempts == sub.maxAttempts
         entry.req.maxDuration == sub.maxDuration.toMillis()
         entry.req.environment.each{ k, v -> sub.env.get(k) == v }
-        entry.req.environment['JOB_ID'] == ID.toFmtString()
+        entry.req.environment['JOB_ID'] == ticket.toString()
+        entry.req.environment['TASK_ID'] == ID.toFmtString()
         //entry.req.environment == sub.env
         entry.req.script == sub.command.join(' ')
 
@@ -99,10 +100,10 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd sub --each' () {
 
         setup:
-        def sender = newProbe(system)
-        def master = newProbe(system)
-        def frontend = newTestActor(system,FrontEnd) {
-            def FE = new FrontEnd(dataStore)
+        def sender = newProbe(test.ActorSpecification.system)
+        def master = newProbe(test.ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) {
+            def FE = new FrontEnd(test.ActorSpecification.dataStore)
             FE.master = master.getRef()
             return FE
         }
@@ -114,7 +115,7 @@ class FrontEndTest extends ActorSpecification {
         // the context contains two variables
         // - X == 1..2
         // - Y == [ alpha, beta ]
-        sub.context = new TaskContext().put('X','1..2').put('Y','[alpha,beta]')
+        sub.context = new Context().put('X','1..2').put('Y','[alpha,beta]')
 
         // submit for each values in the (X,Y) pair, so there ae 4 combinations
         sub.eachItems = ['X','Y']
@@ -124,27 +125,27 @@ class FrontEndTest extends ActorSpecification {
 
         // the a new job entry has been created
         def result = sender.expectMsgClass(SubReply)
-        def entry0 = dataStore.getTask( result.taskIds[0] )
-        def entry1 = dataStore.getTask( result.taskIds[1] )
-        def entry2 = dataStore.getTask( result.taskIds[2] )
-        def entry3 = dataStore.getTask( result.taskIds[3] )
+        def entry0 = test.ActorSpecification.dataStore.getTask( result.taskIds[0] )
+        def entry1 = test.ActorSpecification.dataStore.getTask( result.taskIds[1] )
+        def entry2 = test.ActorSpecification.dataStore.getTask( result.taskIds[2] )
+        def entry3 = test.ActorSpecification.dataStore.getTask( result.taskIds[3] )
 
         then:
         result.taskIds.size() == 4
         result.taskIds[0] == TaskId.of(1)
-        entry0.req.environment['JOB_ID'] == entry0.id.toFmtString()
+        entry0.req.environment['TASK_ID'] == entry0.id.toFmtString()
         entry0.req.context.getData('X') == '1'
         entry0.req.context.getData('Y') == 'alpha'
 
-        entry1.req.environment['JOB_ID'] == entry1.id.toFmtString()
+        entry1.req.environment['TASK_ID'] == entry1.id.toFmtString()
         entry1.req.context.getData('X') == '2'
         entry1.req.context.getData('Y') == 'alpha'
 
-        entry2.req.environment['JOB_ID'] == entry2.id.toFmtString()
+        entry2.req.environment['TASK_ID'] == entry2.id.toFmtString()
         entry2.req.context.getData('X') == '1'
         entry2.req.context.getData('Y') == 'beta'
 
-        entry3.req.environment['JOB_ID'] == entry3.id.toFmtString()
+        entry3.req.environment['TASK_ID'] == entry3.id.toFmtString()
         entry3.req.context.getData('X') == '2'
         entry3.req.context.getData('Y') == 'beta'
 
@@ -156,11 +157,11 @@ class FrontEndTest extends ActorSpecification {
         setup:
         final job1 = new TaskEntry('1','echo 1')
         final job2 = new TaskEntry('2','echo 2')
-        dataStore.saveTask(job1)
-        dataStore.saveTask(job2)
+        test.ActorSpecification.dataStore.saveTask(job1)
+        test.ActorSpecification.dataStore.saveTask(job2)
 
-        def sender = newProbe(system)
-        def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
+        def sender = newProbe(test.ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
         def cmd = new CmdStat(jobs: ['1','2', '3'])
 
         when:
@@ -183,13 +184,13 @@ class FrontEndTest extends ActorSpecification {
         final job3 = new TaskEntry(3,'echo 3')
         final job4 = TaskEntry.create('4')  { it.status = TaskStatus.TERMINATED }
 
-        dataStore.saveTask(job1)
-        dataStore.saveTask(job2)
-        dataStore.saveTask(job3)
-        dataStore.saveTask(job4)
+        test.ActorSpecification.dataStore.saveTask(job1)
+        test.ActorSpecification.dataStore.saveTask(job2)
+        test.ActorSpecification.dataStore.saveTask(job3)
+        test.ActorSpecification.dataStore.saveTask(job4)
 
-        def sender = newProbe(system)
-        def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
+        def sender = newProbe(test.ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
         def cmd = new CmdStat()
         cmd.status = TaskStatus.TERMINATED.toString()
 
@@ -212,11 +213,11 @@ class FrontEndTest extends ActorSpecification {
         def node1 =  NodeDataTest.create(11, 'w1,w2')
         def node2 =  NodeDataTest.create(22, 't0,t1,t2')
 
-        dataStore.putNodeData(node1)
-        dataStore.putNodeData(node2)
+        test.ActorSpecification.dataStore.putNodeData(node1)
+        test.ActorSpecification.dataStore.putNodeData(node2)
 
-        def sender = newProbe(system)
-        def frontend = newTestActor(system,FrontEnd) { new FrontEnd(dataStore) }
+        def sender = newProbe(test.ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
         def cmd = new CmdNode(ticket: UUID.randomUUID())
 
         when:

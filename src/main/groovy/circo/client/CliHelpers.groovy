@@ -168,7 +168,7 @@ class AppCommandsFactory {
         cmdParser.addCommand( new CmdNode() )
         cmdParser.addCommand( new CmdStat() )
         cmdParser.addCommand( new CmdClear() )
-        cmdParser.addCommand( new CmdGet() )
+        //cmdParser.addCommand( new CmdGet() )
         cmdParser.addCommand( new CmdContext() )
         cmdParser.addCommand( new CmdHistory() )
 

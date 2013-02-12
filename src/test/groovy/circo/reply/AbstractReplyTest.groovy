@@ -17,16 +17,14 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.frontend
+package circo.reply
 
-import circo.reply.AbstractReply
 import spock.lang.Specification
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class AbstractCmdResultTest extends Specification {
+class AbstractReplyTest extends Specification {
 
     def testMessages() {
 

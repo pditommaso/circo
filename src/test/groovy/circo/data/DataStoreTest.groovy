@@ -1,15 +1,16 @@
 package circo.data
+import static test.TestHelper.addr
 
+import circo.model.Job
+import circo.model.JobStatus
 import circo.model.NodeData
-import circo.model.WorkerRefMock
-import com.hazelcast.core.Hazelcast
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskReq
 import circo.model.TaskStatus
+import circo.model.WorkerRefMock
+import com.hazelcast.core.Hazelcast
 import spock.lang.Specification
-
-import static test.TestHelper.addr
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -22,8 +23,63 @@ class DataStoreTest extends Specification {
             Hazelcast.shutdownAll()
         }
     }
-    
-    def testSaveAndGet( ) {
+
+    def 'test getJob and putJob' () {
+
+        setup:
+        final id = UUID.randomUUID()
+        def job = new Job(id)
+        job.status = JobStatus.SUBMITTED
+        job.missingTasks << TaskId.of(1) << TaskId.of(33)
+
+        when:
+        store.putJob(job)
+
+        then:
+        store.getJob(id) == job
+        store.getJob(UUID.randomUUID()) == null
+
+
+        cleanup:
+        shutdown(store)
+
+        where:
+        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
+
+    }
+
+    def 'test updateJob' () {
+
+        setup:
+        final id = UUID.randomUUID()
+        def job = new Job(id)
+        job.status = JobStatus.SUBMITTED
+        job.missingTasks << TaskId.of(1) << TaskId.of(33)
+        store.putJob(job)
+
+        when:
+        def result = store.updateJob( id ) { Job it ->
+            it.status = JobStatus.SUBMITTED
+        }
+
+        then:
+        store.getJob(id).submitted
+        store.getJob(id) == result
+
+
+        cleanup:
+        shutdown(store)
+
+        where:
+        store << [  new LocalDataStore() ]
+
+
+    }
+
+
+
+
+    def 'test task get and set '( ) {
 
         when:
         def id = TaskId.of(1)
@@ -44,7 +100,7 @@ class DataStoreTest extends Specification {
         store << [  new LocalDataStore(), new HazelcastDataStore()  ]
     }
 
-    def 'test get' () {
+    def 'test getTask' () {
 
         setup:
         def id0 = TaskId.of('123')
@@ -164,6 +220,40 @@ class DataStoreTest extends Specification {
         store << [ new LocalDataStore(), new HazelcastDataStore() ]
 
     }
+
+    def 'test findByRequestId' () {
+        setup:
+        def req1 = UUID.randomUUID()
+        def req2 = UUID.randomUUID()
+
+        def job1 = TaskEntry.create('1') { TaskEntry it -> it.status = TaskStatus.NEW; it.req.ticket = req1 }
+        def job2 = TaskEntry.create('2') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req1  }
+        def job3 = TaskEntry.create('3') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req2  }
+        def job4 = TaskEntry.create('4') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
+        def job5 = TaskEntry.create('5') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
+        def job6 = TaskEntry.create('6') { TaskEntry it -> it.status = TaskStatus.TERMINATED  }
+
+        store.saveTask(job1)
+        store.saveTask(job2)
+        store.saveTask(job3)
+        store.saveTask(job4)
+        store.saveTask(job5)
+        store.saveTask(job6)
+
+        expect:
+        store.findTasksByRequestId( req1 ).toSet() == [job1,job2] as Set
+        store.findTasksByRequestId( req2 ).toSet() == [job3,job4,job5] as Set
+
+        cleanup:
+        shutdown(store)
+
+        where:
+        store << [ new LocalDataStore(), new HazelcastDataStore() ]
+
+    }
+
+
+
 
     def 'test findJobsByID' () {
 

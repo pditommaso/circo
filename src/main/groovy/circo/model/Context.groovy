@@ -29,13 +29,14 @@ import groovy.transform.ToString
 import static circo.Const.LIST_CLOSE_BRACKET
 import static circo.Const.LIST_OPEN_BRACKET
 /**
+ * The job execution context
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @SerializeId
 @EqualsAndHashCode(includes = 'holder')
 @ToString(includes = 'names', includePackage = false)
-class TaskContext implements Serializable {
+class Context implements Serializable {
 
     /**
      * Read more about multimap
@@ -46,7 +47,7 @@ class TaskContext implements Serializable {
     /** Names in list need to be cleared before a put operation is applied */
     final List<String> overridableVariables
 
-    TaskContext() {
+    Context() {
         holder = ArrayListMultimap.create()
     }
 
@@ -56,7 +57,7 @@ class TaskContext implements Serializable {
      *
      * @param origin The context to be copied
      */
-    private TaskContext( TaskContext origin )  {
+    private Context( Context origin )  {
         assert origin
         holder = ArrayListMultimap.create( origin.holder )
         overridableVariables = new ArrayList<>(origin.holder.keySet())
@@ -68,8 +69,8 @@ class TaskContext implements Serializable {
      * @param origin The context to be copied
      * @return A new copy of the specified context
      */
-    def static TaskContext copy( TaskContext origin ) {
-        new TaskContext(origin)
+    def static Context copy( Context origin ) {
+        new Context(origin)
     }
 
     def List<String> getNames() {
@@ -122,13 +123,13 @@ class TaskContext implements Serializable {
         return holder.keySet().size()
     }
 
-    def TaskContext plus( TaskContext that  ) {
+    def Context plus( Context that  ) {
 
         that?.allRefs()?.each { DataRef it -> this.add(it)  }
         return this
     }
 
-    def TaskContext add( DataRef ref ) {
+    def Context add( DataRef ref ) {
         if ( overridableVariables && overridableVariables.contains(ref.name)) {
             overridableVariables.remove(ref.name)
             holder.removeAll(ref.name)
@@ -139,7 +140,7 @@ class TaskContext implements Serializable {
     }
 
 
-    def TaskContext add( String name, String value) {
+    def Context add( String name, String value) {
         assert name
         assert value
 
@@ -156,7 +157,7 @@ class TaskContext implements Serializable {
         this
     }
 
-    def TaskContext put( DataRef ref ) {
+    def Context put( DataRef ref ) {
         assert ref
 
         holder.removeAll(ref.name)
@@ -165,7 +166,7 @@ class TaskContext implements Serializable {
         return this
     }
 
-    def TaskContext put( String name, String value )  {
+    def Context put( String name, String value )  {
         assert name
         assert value
 
@@ -183,12 +184,12 @@ class TaskContext implements Serializable {
         return this
     }
 
-    def TaskContext removeAll( String name ) {
+    def Context removeAll( String name ) {
         holder.removeAll(name)
         this
     }
 
-    def TaskContext clear() {
+    def Context clear() {
         holder.clear()
     }
 

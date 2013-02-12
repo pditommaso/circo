@@ -33,6 +33,8 @@ import circo.messages.WorkToSpool
 import circo.messages.WorkerCreated
 import circo.messages.WorkerFailure
 import circo.messages.WorkerRequestsWork
+import circo.model.Job
+import circo.model.JobStatus
 import circo.model.NodeData
 import circo.model.NodeStatus
 import circo.model.TaskEntry
@@ -403,51 +405,53 @@ class NodeMasterTest extends ActorSpecification {
         final master1 = newTestActor(system, NodeMasterMock)
         final master2 = newTestActor(system, NodeMasterMock)
         final senderProbe = new JavaTestKit(system)
+        def requestId = UUID.randomUUID()
 
         /*
          * the following tasks are assigned to 'master1'
          */
 
         // this is SUCCESS, it must be notified to the sender
-        def ticket1 = UUID.randomUUID()
-        def job1 = new TaskEntry( TaskId.of('1'), new TaskReq(ticket: ticket1, script: '1') )
-        job1.setSender(senderProbe.getRef())
-        job1.result =  new TaskResult(taskId:job1.id, exitCode: 0)
-        job1.ownerId = master1.actor.nodeId
-        def result1 = new ResultReply(ticket1, job1.result)
+        def task1 = new TaskEntry( TaskId.of('1'), new TaskReq(ticket: requestId, script: '1') )
+        task1.setSender(senderProbe.getRef())
+        task1.result =  new TaskResult(taskId: task1.id, exitCode: 0)
+        task1.ownerId = master1.actor.nodeId
+        task1.req.notifyResult = true
+        def result1 = new ResultReply(requestId, task1.result)
 
         // this is FAILED, it must be rescheduled
-        def ticket2 = UUID.randomUUID()
-        def job2 = new TaskEntry( TaskId.of('2'), new TaskReq(script: '2') )
-        job2.setSender(senderProbe.getRef())
-        job2.ownerId = master1.actor.nodeId
-        job2.result == new TaskResult(taskId:job2.id, exitCode: 127) // <-- the error condition
-        def result2 = new ResultReply(ticket2, job2.result)
+        def task2 = new TaskEntry( TaskId.of('2'), new TaskReq(script: '2') )
+        task2.setSender(senderProbe.getRef())
+        task2.ownerId = master1.actor.nodeId
+        task2.result == new TaskResult(taskId: task2.id, exitCode: 127) // <-- the error condition
 
         // this is FAILED, BUT the number of attempts exceeded the maxAttempts,
         // so it must be notified to the sender
-        def ticket3 = UUID.randomUUID()
-        def job3 = new TaskEntry( TaskId.of('3'), new TaskReq(script: '3', maxAttempts: 2) )
-        job3.status = TaskStatus.NEW
-        job3.setSender(senderProbe.getRef())
-        job3.ownerId = master1.actor.nodeId
+        def task3 = new TaskEntry( TaskId.of('3'), new TaskReq(script: '3', maxAttempts: 2) )
+        task3.status = TaskStatus.NEW
+        task3.setSender(senderProbe.getRef())
+        task3.ownerId = master1.actor.nodeId
 
 
         /*
          * this task belongs to 'master2'
          */
-        def ticket4 = UUID.randomUUID()
-        def job4 = new TaskEntry( TaskId.of('4'), new TaskReq(script: '4') )
-        job4.status = TaskStatus.NEW
-        job4.setSender(senderProbe.getRef())
-        job4.ownerId = master2.actor.nodeId
+        def task4 = new TaskEntry( TaskId.of('4'), new TaskReq(script: '4') )
+        task4.status = TaskStatus.NEW
+        task4.setSender(senderProbe.getRef())
+        task4.ownerId = master2.actor.nodeId
 
-        dataStore.saveTask(job1)
-        dataStore.saveTask(job2)
-        dataStore.saveTask(job3)
-        dataStore.saveTask(job4)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
+        dataStore.saveTask(task4)
 
-        master2.actor.node.queue << job4.id
+        def job = new Job( requestId )
+        job.missingTasks << task1.id << task2.id << task3.id << task4.id
+        job.status = JobStatus.SUBMITTED
+        dataStore.putJob( job )
+
+        master2.actor.node.queue << task4.id
 
         when:
         /*
@@ -465,12 +469,12 @@ class NodeMasterTest extends ActorSpecification {
         senderProbe.expectMsgAllOf(result1)
 
         // the recovered tasks now belongs to 'master2'
-        job2.ownerId == master2.actor.nodeId
-        job3.ownerId == master2.actor.nodeId
-        job4.ownerId == master2.actor.nodeId
+        task2.ownerId == master2.actor.nodeId
+        task3.ownerId == master2.actor.nodeId
+        task4.ownerId == master2.actor.nodeId
 
         // they are queued into 'master2' queue
-        master2.actor.node.queue.toSet() == [job2.id, job3.id, job4.id] as Set
+        master2.actor.node.queue.toSet() == [task2.id, task3.id, task4.id] as Set
 
     }
 

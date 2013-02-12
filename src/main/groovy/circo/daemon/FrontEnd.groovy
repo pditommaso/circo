@@ -19,7 +19,7 @@
 
 
 
-package circo.frontend
+package circo.daemon
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.UntypedActor
@@ -28,14 +28,14 @@ import circo.client.CmdGet
 import circo.client.CmdNode
 import circo.client.CmdStat
 import circo.client.CmdSub
-import circo.daemon.NodeCategory
-import circo.daemon.NodeMaster
 import circo.data.DataStore
 import circo.messages.PauseWorker
 import circo.messages.ResumeWorker
 import circo.model.DataRef
+import circo.model.Job
+import circo.model.JobStatus
 import circo.model.NodeData
-import circo.model.TaskContext
+import circo.model.Context
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskReq
@@ -93,7 +93,7 @@ class FrontEnd extends UntypedActor {
         dispatchTable[ CmdSub ] = this.&handleCmdSub
         dispatchTable[ CmdStat ] = this.&handleCmdStat
         dispatchTable[ CmdNode ] = this.&handleCmdNode
-        dispatchTable[ CmdGet ] = this.&handleCmdGet
+        //dispatchTable[ CmdGet ] = this.&handleCmdGet
     }
 
 
@@ -130,6 +130,7 @@ class FrontEnd extends UntypedActor {
      *
      * @param command The {@code CmdGet} instance
      */
+    @Deprecated
     void handleCmdGet( CmdGet command ) {
         assert command
 
@@ -234,13 +235,18 @@ class FrontEnd extends UntypedActor {
         assert command
 
         /*
-         * create a new job request for each times required
+         * The main Job item
          */
-        List<TaskEntry> listOfJobs = []
+        final job = new Job(command.ticket)
+
+        /*
+         * create a new task request for each times required
+         */
+        List<TaskEntry> listOfTasks = []
         if( command.times ) {
             log.debug "sub times: ${command.times}"
             command.times.withStep().each  { index ->
-                listOfJobs << createJobEntry( command, index )
+                listOfTasks << createTaskEntry( command, index )
             }
         }
 
@@ -252,13 +258,13 @@ class FrontEnd extends UntypedActor {
             def index=0
             command.context.combinations( command.eachItems ) { List<DataRef> variables ->
                 log.debug "Variables combination: ${variables}"
-                def entry = createJobEntry(command, index++, variables)
-                listOfJobs << entry
+                def entry = createTaskEntry(command, index++, variables)
+                listOfTasks << entry
             }
         }
 
         else {
-            listOfJobs << createJobEntry( command )
+            listOfTasks << createTaskEntry( command )
         }
 
 
@@ -267,7 +273,7 @@ class FrontEnd extends UntypedActor {
          */
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
             def result = new SubReply(command.ticket)
-            result.taskIds = listOfJobs .collect { it.id }
+            result.taskIds = listOfTasks .collect { it.id }
             log.debug "Send confirmation to client: $result"
             getSender().tell( result, getSelf() )
         }
@@ -279,7 +285,13 @@ class FrontEnd extends UntypedActor {
          * that some jobs terminate (and the termination notification is sent) before the SubReply
          * is sent to teh client, which will cause a 'dead-lock'
          */
-        listOfJobs.each { dataStore.saveTask(it) }
+        job.status = JobStatus.SUBMITTED
+        job.missingTasks.addAll( listOfTasks *. getId() )
+        job.input = command.context ? Context.copy(command.context) : new Context()
+        job.sender = new WorkerRef(getSender())
+        dataStore.putJob(job)
+
+        listOfTasks.each { dataStore.saveTask(it) }
 
     }
 
@@ -305,41 +317,37 @@ class FrontEnd extends UntypedActor {
         request.user = sub.user
         request.context = sub.context
         request.produce = sub.produce
+        request.notifyResult = sub.printOutput
 
         return request
     }
 
-    private TaskEntry createJobEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
+    private TaskEntry createTaskEntry( CmdSub command, def index = null, List<DataRef> variables =null ) {
 
-        // -- create a new ID for this job
+        // -- create a new ID for this task
         final id = dataStore.nextTaskId()
 
         // create a new request object
         final request = createReq(command)
 
         // -- define some context environment variables
-        request.environment['JOB_ID'] = id.toFmtString()
+        request.environment['JOB_ID'] = command.ticket.toString()
+        request.environment['TASK_ID'] = id.toFmtString()
 
         // -- update the context
         if ( variables ) {
             // create a copy of context obj
-            request.context = TaskContext.copy(command.context)
+            request.context = Context.copy(command.context)
 
             // add the variable to the context
             variables.each { request.context.put(it) }
         }
 
-        // add the job index
+        // add the task index
         if ( index ) {
-            request.environment['JOB_INDEX'] = index.toString()
+            request.environment['TASK_INDEX'] = index.toString()
         }
 
-//        if( index != null && range != null ) {
-//            // for backward compatibility with SGE use the same variable name for job arrays
-//            request.environment['SGE_TASK_ID'] = index.toString()
-//            request.environment['SGE_TASK_FIRST'] = range.from.toString()
-//            request.environment['SGE_TASK_LAST'] = range.to.toString()
-//        }
 
         final entry = new TaskEntry(id, request )
         entry.sender = new WorkerRef(getSender())

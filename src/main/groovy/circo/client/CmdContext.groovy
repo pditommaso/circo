@@ -20,7 +20,7 @@
 package circo.client
 
 import circo.model.StringRef
-import circo.model.TaskContext
+import circo.model.Context
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
@@ -78,7 +78,7 @@ class CmdContext extends AbstractCommand {
 
     }
 
-    def apply(TaskContext ctx, Map<String,String> environment = System.getenv()) {
+    def apply(Context ctx, Map<String,String> environment = System.getenv()) {
         /*
          * The 'get' a value from the context and print it out to the console
          */
@@ -163,7 +163,7 @@ class CmdContext extends AbstractCommand {
     /*
      * print out the current context to the console screen
      */
-    def String getContextString(TaskContext context) {
+    def String getContextString(Context context) {
 
         def result = new StringBuilder()
         def names = context.getNames().sort()

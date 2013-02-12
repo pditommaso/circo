@@ -28,7 +28,6 @@ import circo.Const
 import circo.data.DataStore
 import circo.data.HazelcastDataStore
 import circo.data.LocalDataStore
-import circo.frontend.FrontEnd
 import circo.messages.NodeShutdown
 import circo.model.WorkerRef
 import circo.ui.TerminalUI

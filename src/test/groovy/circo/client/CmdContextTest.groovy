@@ -19,10 +19,8 @@
 
 package circo.client
 
-import circo.client.CmdContext
-import circo.client.CustomIntRange
 import circo.model.EmptyRef
-import circo.model.TaskContext
+import circo.model.Context
 import com.beust.jcommander.JCommander
 import spock.lang.Shared
 import spock.lang.Specification
@@ -33,14 +31,14 @@ import spock.lang.Specification
  */
 class CmdContextTest extends Specification {
 
-    @Shared def TaskContext ctx
+    @Shared def Context ctx
 
     @Shared def CmdContext cmd
 
     @Shared def JCommander parser
 
     def setup() {
-        ctx = new TaskContext().add('X','1').add('X','2')
+        ctx = new Context().add('X','1').add('X','2')
         cmd = new CmdContext()
         parser = new JCommander(cmd)
     }

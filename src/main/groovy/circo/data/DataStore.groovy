@@ -18,8 +18,8 @@
  */
 
 package circo.data
-
 import akka.actor.Address
+import circo.model.Job
 import circo.model.NodeData
 import circo.model.NodeStatus
 import circo.model.TaskEntry
@@ -27,7 +27,6 @@ import circo.model.TaskId
 import circo.model.TaskStatus
 import circo.reply.StatReplyData
 import groovy.transform.CompileStatic
-
 /**
  * Define the operations provided by the data storage system
  *
@@ -37,6 +36,25 @@ import groovy.transform.CompileStatic
 interface DataStore {
 
 
+    /**
+     * Find a {@code Job} instance by its unique request id
+     */
+    Job getJob( UUID id )
+
+    /**
+     * Save a {@code Job} instance
+     *
+     * @param job
+     * @return
+     */
+    boolean putJob( Job job )
+
+    Job updateJob( UUID requestId, Closure updateAction )
+
+
+    /**
+     * @return Generate a unique identifier to be used a {@code TaskEntry} key
+     */
     TaskId nextTaskId()
 
     /**
@@ -104,6 +122,8 @@ interface DataStore {
      * @return
      */
     List<TaskEntry> findTasksByStatusString( String status )
+
+    List<TaskEntry> findTasksByRequestId( UUID requestId )
 
     /**
      * The job status statistics i.e. how many jobs for each status

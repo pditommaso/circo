@@ -24,12 +24,12 @@ import spock.lang.Specification
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class TaskContextTest extends Specification {
+class ContextTest extends Specification {
 
     def 'test basic operations' () {
 
         when:
-        def context = new TaskContext()
+        def context = new Context()
         context.add( new StringRef('val1','ciao') )
         context.add( new StringRef('val2', 'alpha') )
         context.add( new StringRef('val2', 'beta') )
@@ -48,14 +48,14 @@ class TaskContextTest extends Specification {
     def 'test copy ' () {
 
         setup:
-        def context = new TaskContext()
+        def context = new Context()
         context.add( new StringRef('val1','ciao') )
         context.add( new StringRef('val2', 'alpha') )
         context.add( new StringRef('val2', 'beta') )
         context.add( new StringRef('val2', 'gamma') )
 
         when:
-        def copy = TaskContext.copy(context)
+        def copy = Context.copy(context)
         context.add( new StringRef('val3', 'Hi here') )
         context.add( new StringRef('val3', 'Hi there') )
 
@@ -71,15 +71,15 @@ class TaskContextTest extends Specification {
 
     def 'test equals and hashCode ' () {
         setup:
-        def context = new TaskContext()
+        def context = new Context()
         context.add( new StringRef('val1','ciao') )
         context.add( new StringRef('val2', 'alpha') )
         context.add( new StringRef('val2', 'beta') )
         context.add( new StringRef('val2', 'gamma') )
 
         when:
-        def copy1 = TaskContext.copy(context)
-        def copy2 = TaskContext.copy(context)
+        def copy1 = Context.copy(context)
+        def copy2 = Context.copy(context)
         copy2.add(new StringRef('x','100'))
 
         then:
@@ -95,7 +95,7 @@ class TaskContextTest extends Specification {
     def 'test add after copy ' () {
 
         setup:
-        def context = new TaskContext()
+        def context = new Context()
         context.add( new StringRef('val1','ciao') )
         context.add( new StringRef('val2', 'alpha') )
         context.add( new StringRef('val2', 'beta') )
@@ -103,10 +103,10 @@ class TaskContextTest extends Specification {
 
         when:
         // first copy is identical
-        def copy1 = TaskContext.copy(context)
+        def copy1 = Context.copy(context)
 
         // second copy -- when a new value is put the former value is override by the new one
-        def copy2 = TaskContext.copy(context)
+        def copy2 = Context.copy(context)
         copy2.add(new StringRef('val2', 'x'))
         copy2.add(new StringRef('val2', 'y'))
         copy2.add(new StringRef('val3', 'New value'))
@@ -129,7 +129,7 @@ class TaskContextTest extends Specification {
     def 'test getCollection ' () {
 
         setup:
-        def context = new TaskContext()
+        def context = new Context()
         context.add( new StringRef('val1','ciao') )
         context.add( new StringRef('val2', 'alpha') )
         context.add( new StringRef('val2', 'beta') )
@@ -145,7 +145,7 @@ class TaskContextTest extends Specification {
 
     def 'test combination' () {
         setup:
-        def context = new TaskContext()
+        def context = new Context()
         context.add( new StringRef('val1','one') )
         context.add( new StringRef('val2', 'alpha') )
         context.add( new StringRef('val2', 'beta') )
@@ -170,7 +170,7 @@ class TaskContextTest extends Specification {
     def 'test plus operator' () {
 
         setup:
-        def context = new TaskContext()
+        def context = new Context()
         context.add( new StringRef('val1','one') )
         context.add( new StringRef('val2', 'alpha') )
         context.add( new StringRef('val2', 'beta') )
@@ -179,11 +179,11 @@ class TaskContextTest extends Specification {
         context.add( new StringRef('val3', 'y') )
 
         when:
-        def delta1 = new TaskContext().put('p','1').put('val3','file1')
-        def delta2 = new TaskContext().put('p','1').put('q','2').put('val3','file2')
-        def delta3 = new TaskContext().put('val3','file3')
+        def delta1 = new Context().put('p','1').put('val3','file1')
+        def delta2 = new Context().put('p','1').put('q','2').put('val3','file2')
+        def delta3 = new Context().put('val3','file3')
 
-        def copy = TaskContext.copy(context)
+        def copy = Context.copy(context)
         copy += delta1 + delta2 + delta3
 
         then:
@@ -206,19 +206,19 @@ class TaskContextTest extends Specification {
     def 'test fromString' () {
 
         expect:
-        TaskContext.fromString( '[]') == []
-        TaskContext.fromString( '[ ]') == []
-        TaskContext.fromString( '[a,bb , ccc]' ) == ['a','bb','ccc']
-        TaskContext.fromString( '[a,bb , , ccc]' ) == ['a','bb','ccc']   // empty values are removed
+        Context.fromString( '[]') == []
+        Context.fromString( '[ ]') == []
+        Context.fromString( '[a,bb , ccc]' ) == ['a','bb','ccc']
+        Context.fromString( '[a,bb , , ccc]' ) == ['a','bb','ccc']   // empty values are removed
 
-        TaskContext.fromString( '1..5') == [1,2,3,4,5]
-        TaskContext.fromString( 'aa..ac') == ['aa','ab','ac']
+        Context.fromString( '1..5') == [1,2,3,4,5]
+        Context.fromString( 'aa..ac') == ['aa','ab','ac']
     }
 
 
     def 'test put string' () {
         setup:
-        def ctx = new TaskContext()
+        def ctx = new Context()
         ctx.add( new StringRef('val1','one') )
         ctx.add( new StringRef('val2', 'alpha') )
         ctx.add( new StringRef('val2', 'beta') )
@@ -245,7 +245,7 @@ class TaskContextTest extends Specification {
     def 'test add String' () {
 
         setup:
-        def ctx = new TaskContext()
+        def ctx = new Context()
         ctx.add( new StringRef('val1','one') )
         ctx.add( new StringRef('val2', 'alpha') )
         ctx.add( new StringRef('val2', 'beta') )

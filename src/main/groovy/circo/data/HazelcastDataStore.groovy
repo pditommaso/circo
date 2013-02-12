@@ -46,7 +46,6 @@ import groovy.util.logging.Slf4j
  */
 
 @Slf4j
-@CompileStatic
 class HazelcastDataStore extends AbstractDataStore {
 
     private HazelcastInstance hazelcast
@@ -168,10 +167,11 @@ class HazelcastDataStore extends AbstractDataStore {
     protected void init( HazelcastInstance instance ) {
 
         this.hazelcast = instance
-        this.jobsMap = hazelcast.getMap('tasks')
-        this.nodeDataMap = hazelcast.getMap('nodeInfo')
+        this.tasks = hazelcast.getMap('tasks')
+        this.nodeData = hazelcast.getMap('nodeInfo')
         this.idGen = hazelcast.getAtomicNumber('idGenerator')
         this.nodeIdGen = hazelcast.getAtomicNumber('nodeIdGen')
+        this.jobs = hazelcast.getMap('jobs')
     }
 
     TaskId nextTaskId() { new TaskId( idGen.addAndGet(1) ) }
@@ -204,7 +204,7 @@ class HazelcastDataStore extends AbstractDataStore {
         // the query criteria
         def criteria = likeOp ? "id.toString() LIKE '$value'" : "id.toString() = '$value'"
 
-        def result = (jobsMap as IMap) .values(new SqlPredicate(criteria))
+        def result = (tasks as IMap) .values(new SqlPredicate(criteria))
         new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
     }
 
@@ -213,7 +213,7 @@ class HazelcastDataStore extends AbstractDataStore {
         assert nodeId
 
         def criteria = "ownerId = $nodeId"
-        def result = (jobsMap as IMap) .values(new SqlPredicate(criteria))
+        def result = (tasks as IMap) .values(new SqlPredicate(criteria))
         new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
 
     }
@@ -222,7 +222,7 @@ class HazelcastDataStore extends AbstractDataStore {
         assert status
 
         def criteria = new SqlPredicate("status IN (${status.join(',')})  ")
-        def result = (jobsMap as IMap) .values(criteria)
+        def result = (tasks as IMap) .values(criteria)
         new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
 
     }
@@ -246,7 +246,7 @@ class HazelcastDataStore extends AbstractDataStore {
         }
 
         listenersMap.put(callback, entry)
-        (jobsMap as IMap) .addLocalEntryListener(entry)
+        (tasks as IMap) .addLocalEntryListener(entry)
 
     }
 
@@ -254,7 +254,7 @@ class HazelcastDataStore extends AbstractDataStore {
     void removeNewTaskListener( Closure listener ) {
         def entry = listenersMap.get(listener)
         if ( !entry ) { log.warn "No listener registered for: $listener"; return }
-        (jobsMap as IMap).removeEntryListener(entry)
+        (tasks as IMap).removeEntryListener(entry)
     }
 
 
