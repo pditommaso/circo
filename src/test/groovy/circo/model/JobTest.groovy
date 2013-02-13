@@ -36,6 +36,8 @@ class JobTest extends Specification{
         collector1.missingTasks = [new TaskId(1), new TaskId(4), new TaskId(10)]
         collector1.input = new Context().put('y','a')
         collector1.output = new Context()
+        collector1.completionTime = System.currentTimeMillis()
+        collector1.numOfTasks = 99
 
         def copy1 = SerializationUtils.clone(collector1)
         def copy2 = Job.copy(collector1)

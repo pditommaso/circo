@@ -19,6 +19,7 @@
 
 package circo.model
 
+import circo.util.CircoHelper
 import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
@@ -49,6 +50,11 @@ class Job implements Serializable {
     JobStatus status
 
     /**
+     * Number of tasks that made up the job
+     */
+    int numOfTasks
+
+    /**
      * The list of tasks to be processed to fulfill the requested job
      */
     Set<TaskId> missingTasks = new LinkedHashSet<>()
@@ -63,6 +69,20 @@ class Job implements Serializable {
      */
     Context output
 
+    /**
+     * When this job has been created
+     */
+    final long creationTime = System.currentTimeMillis()
+
+    /**
+     * When the job has been completed
+     */
+    long completionTime
+
+    def String getCreationTimeFmt() { CircoHelper.getSmartTimeFormat(creationTime) }
+
+    def String getCompletionTimeFmt() { completionTime ? CircoHelper.getSmartTimeFormat(completionTime) : '-' }
+
 
     def Job( UUID id ) {
         assert id
@@ -76,7 +96,34 @@ class Job implements Serializable {
 
     boolean isFailed() { status == JobStatus.FAILED  }
 
+    static final private TERMINATED = [JobStatus.FAILED, JobStatus.SUCCESS ]
 
+    void setStatus( JobStatus status ) {
+        this.status = status
+
+        if( status in TERMINATED ) {
+            this.completionTime = System.currentTimeMillis()
+        }
+
+    }
+
+    /**
+     * @param that The instance to be copied 
+     */
+    private Job( Job that ) {
+
+        this.requestId = that.requestId
+        this.sender = that.sender ? WorkerRef.copy(that.sender) : null
+        this.status = that.status
+        this.missingTasks = that.missingTasks ? (Set<TaskId>)that.missingTasks.clone() : null
+        this.numOfTasks = that.numOfTasks
+        this.input = that.input ? Context.copy( that.input ) : null
+        this.output = that.output ? Context.copy( that.output ) : null
+        this.creationTime = that.creationTime
+        this.completionTime = that.completionTime
+    }
+    
+    
     /**
      * Makes a copy of this collector
      *
@@ -85,15 +132,7 @@ class Job implements Serializable {
      */
     static def Job copy( Job that ) {
         assert that
-
-        def result = new Job(that.requestId)
-        result.status = that.status
-        result.missingTasks = that.missingTasks ? (Set<TaskId>)that.missingTasks.clone() : null
-        result.input = that.input ? Context.copy( that.input ) : null
-        result.output = that.output ? Context.copy( that.output ) : null
-        result.sender = that.sender ? WorkerRef.copy(that.sender) : null
-
-        return result
+        return new Job(that)
     }
 
 }

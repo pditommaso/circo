@@ -202,27 +202,7 @@ class NodeData implements Serializable {
 
     def String toFmtString() {
 
-        // gen info
-        def id = CircoHelper.fmt(this.id, 3)
-        def addr = CircoHelper.fmt(this.address)
-        def stat = this.status?.toString()
-        def uptime = this.getStartTimeFmt()
 
-        // workers info
-        def procs = CircoHelper.fmt( numOfWorkers(), 2 )
-        def runs = CircoHelper.fmt( numOfBusyWorkers(), 2)
-
-        // queue and processed jobs
-        def queue = CircoHelper.fmt( numOfQueuedTasks(), 4)
-        def count = CircoHelper.fmt( numOfProcessedTasks(), 4 )
-        def failed = numOfFailedTasks()
-
-        def jobs = "${queue} /${count}"
-        if( failed ) {
-            jobs += ' - ' + CircoHelper.fmt(failed, 2)
-        }
-
-        "${id} ${addr} ${stat} ${uptime} ${runs} /${procs} $jobs" .toString()
 
     }
 

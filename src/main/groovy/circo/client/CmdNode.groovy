@@ -19,6 +19,8 @@
 
 package circo.client
 
+import circo.ui.TableBuilder
+import circo.util.CircoHelper
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
@@ -87,19 +89,38 @@ class CmdNode extends AbstractCommand {
         }
 
 
-        println """\
-        id   address     status  up time  procs  jobs
-        -----------------------------------------"""
-        .stripIndent()
+        if ( !nodes ) { return }
 
-        if ( !nodes ) { println "--"; return }
+
+        def table = new TableBuilder()
+            .head('id')
+            .head('address')
+            .head('status')
+            .head('up-time')
+            .head('cpu')
+            .head('R')
+            .head('Q')
+            .head('E')
+            .head('T')
+
 
         nodes.sort { NodeData it -> it.id } .each { NodeData node ->
 
-            println node.toFmtString()
+            table << node.id
+            table << CircoHelper.fmt(node.address)
+            table << node.status?.toString()
+            table << node.getStartTimeFmt()
+            table << node.numOfWorkers()        // cpu
+            table << node.numOfBusyWorkers()    // running
+            table << node.numOfQueuedTasks()    // queued
+            table << node.numOfFailedTasks()    // errors
+            table << node.numOfProcessedTasks() // total processed
+            table.closeRow()
 
         }
 
+
+        println table.toString()
 
     }
 }

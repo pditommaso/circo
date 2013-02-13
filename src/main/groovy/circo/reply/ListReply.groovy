@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -18,7 +18,6 @@
  */
 
 package circo.reply
-
 import circo.model.Job
 import circo.model.TaskEntry
 import circo.util.SerializeId
@@ -26,19 +25,33 @@ import groovy.transform.InheritConstructors
 import groovy.transform.ToString
 
 /**
+ * Holds the reply data for the {@code CmdList} command
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
+
+@ToString(includeNames = true, includePackage = false)
 @InheritConstructors
-@ToString(includePackage = false, includeSuper = true)
-class StatReply extends AbstractReply {
+class ListReply extends AbstractReply {
 
-    List<Job> jobs
+    List<JobInfo> jobs
 
-    List<TaskEntry> tasks
 
-    StatReplyData stats
+    @SerializeId
+    static class JobInfo implements Serializable {
 
+        JobInfo( Job job ) {
+            this.target = job
+        }
+
+        @Delegate
+        Job target
+
+        String command
+
+        List<TaskEntry> failedTasks
+
+
+    }
 
 }

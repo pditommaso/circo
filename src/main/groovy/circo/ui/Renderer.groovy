@@ -109,11 +109,11 @@ class WorkerRenderer extends DataHolder {
     def WorkerRenderer(WorkerData data, TaskEntry jobEntry) {
         assert data
 
-        this.worker = TextLabel.of(data.worker.path().name()).pad(15)
-        this.jobId = TextLabel.of(data.currentTaskId?.toFmtString()).pad(5).right()
-        this.processed = TextLabel.of(data.processed).number().pad(5)
-        this.failed = TextLabel.of(data.failed).pad(3).number()
-        this.jobAttempts = TextLabel.of(jobEntry?.attempts).number().pad(5) << AnsiStyle.error()
+        this.worker = TextLabel.of(data.worker.path().name()).width(15)
+        this.jobId = TextLabel.of(data.currentTaskId?.toFmtString()).width(5).right()
+        this.processed = TextLabel.of(data.processed).number().width(5)
+        this.failed = TextLabel.of(data.failed).width(3).number()
+        this.jobAttempts = TextLabel.of(jobEntry?.attempts).number().width(5) << AnsiStyle.error()
     }
 
 
@@ -253,7 +253,7 @@ class TextLabel {
 
     enum Align { RIGHT, LEFT }
 
-    int pad
+    int width
 
     Align align = Align.LEFT
 
@@ -263,18 +263,25 @@ class TextLabel {
 
     def List<LabelDecorator> decorators = []
 
+    def Integer max
+
     /**
      * Create a label with the provided value
      */
-    TextLabel( def value ) { this.value = value }
+    TextLabel( def value ) {
+        this.value = value
+        this.align = ( value instanceof Number || value?.toString()?.isNumber() ) ? Align.RIGHT : Align.LEFT
+    }
 
-    def TextLabel pad( int num ) { this.pad = num; this }
+    def TextLabel width( int num ) { this.width = num; this }
 
     def TextLabel left() { this.align = Align.LEFT; this }
 
     def TextLabel right() { this.align = Align.RIGHT; this }
 
     def TextLabel number() { this.align = Align.RIGHT; this }
+
+    def TextLabel max( int value ) { this.max = value; this }
 
     /**
      * Switch OFF the decorators rendering
@@ -311,16 +318,22 @@ class TextLabel {
 
         String result = value ? value.toString() : '-'
 
-        if( pad && align == Align.LEFT ) {
-            result = result.padRight(pad)
+        if( width && align == Align.LEFT ) {
+            result = result.padRight(width)
         }
-        else if ( pad && align == Align.RIGHT ) {
-            result = result.padLeft(pad)
+        else if ( width && align == Align.RIGHT ) {
+            result = result.padLeft(width)
         }
         else {
             result
         }
 
+        // apply the max rule
+        if ( max != null ) {
+            result = applyMax(result)
+        }
+
+        // if not active return as it is
         if( !active )  {
             return result
         }
@@ -328,7 +341,40 @@ class TextLabel {
         decorators.each {
             result = it.apply(this,result)
         }
-        return result
+
+        result
+    }
+
+    String applyMax( String str ) {
+        assert str
+
+        if( str.length()<=max) {
+            return str
+        }
+
+        def cut
+        if( align == Align.LEFT ) {
+            cut = str.substring(max)
+            str = str.substring(0,max)
+        }
+        else {
+            int p = str.size()-max
+            cut = str.substring( 0, p )
+            str = str.substring( p, str.size() )
+        }
+
+        if( str.size()>3 && !cut.isAllWhitespace() ) {
+            if ( align == Align.LEFT ) {
+                str = str[0..-3] + '..'
+            }
+            else if( align == Align.RIGHT  ) {
+                str = '..' + str[2..-1]
+            }
+        }
+
+
+        return str
+
     }
 
     /**

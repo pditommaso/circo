@@ -49,7 +49,10 @@ interface DataStore {
      */
     boolean putJob( Job job )
 
+
     Job updateJob( UUID requestId, Closure updateAction )
+
+    List<Job> findAllJobs()
 
 
     /**

@@ -18,22 +18,29 @@
  */
 
 package circo.daemon
+
 import static test.TestHelper.newProbe
 import static test.TestHelper.newTestActor
 
+import circo.client.CmdList
 import circo.client.CmdNode
 import circo.client.CmdStat
 import circo.client.CmdSub
-import circo.model.NodeDataTest
 import circo.model.Context
+import circo.model.Job
+import circo.model.JobStatus
+import circo.model.NodeDataTest
 import circo.model.TaskEntry
 import circo.model.TaskId
+import circo.model.TaskResult
 import circo.model.TaskStatus
+import circo.reply.ListReply
 import circo.reply.NodeReply
 import circo.reply.StatReply
 import circo.reply.SubReply
 import scala.concurrent.duration.Duration
 import test.ActorSpecification
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -155,10 +162,10 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd job with some id' () {
 
         setup:
-        final job1 = new TaskEntry('1','echo 1')
-        final job2 = new TaskEntry('2','echo 2')
-        test.ActorSpecification.dataStore.saveTask(job1)
-        test.ActorSpecification.dataStore.saveTask(job2)
+        final task1 = new TaskEntry('1','echo 1')
+        final task2 = new TaskEntry('2','echo 2')
+        test.ActorSpecification.dataStore.saveTask(task1)
+        test.ActorSpecification.dataStore.saveTask(task2)
 
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
@@ -169,25 +176,86 @@ class FrontEndTest extends ActorSpecification {
         def result = sender.expectMsgClass(StatReply)
 
         then:
-        result.tasks == [ job1, job2 ]
+        result.tasks == [ task1, task2 ]
         result.warn == ["Cannot find any job for id: '3'"]
         result.error.size() == 0
         result.info.size() == 0
 
     }
 
+
+    def 'text cmd list' () {
+
+        setup:
+        final requestId1 = UUID.randomUUID()
+        final requestId2 = UUID.randomUUID()
+
+        final task1 = TaskEntry.create(1)  { TaskEntry it -> it.req.ticket = requestId1; it.req.script = 'Hello' }
+        final task2 = TaskEntry.create(2)  { TaskEntry it -> it.req.ticket = requestId1; it.req.script = 'Hello'; it.status = TaskStatus.TERMINATED }
+
+        final task3 = TaskEntry.create(3)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao' }
+        final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao'; it.status = TaskStatus.TERMINATED }
+        final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao'; it.result = new TaskResult(exitCode: 1) }
+
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
+        dataStore.saveTask(task4)
+        dataStore.saveTask(task5)
+
+
+        /*
+         * the jobs
+         */
+        final job1 = new Job(requestId1)
+        final job2 = new Job(requestId2)
+        job2.missingTasks << task3.id
+        job2.status = JobStatus.FAILED
+
+        dataStore.putJob(job1)
+        dataStore.putJob(job2)
+
+
+        /*
+         * prepare the command
+         */
+        def sender = newProbe(test.ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
+
+        def cmd = new CmdList()
+
+        /*
+         * WHEN
+         */
+        when:
+        frontend.tell( cmd, sender.getRef() )
+        def result = sender.expectMsgClass(ListReply)
+
+        /*
+         * THEN
+         */
+        then:
+        result.jobs.size() == 2
+        result.jobs.find { it.requestId == requestId1 }.command == 'Hello'
+        result.jobs.find { it.requestId == requestId2 }.command == 'Ciao'
+
+        result.jobs.find { it.requestId == requestId1 }.failedTasks == null
+        result.jobs.find { it.requestId == requestId2 }.failedTasks == [task5]
+
+    }
+
     def 'test cmd stat' () {
 
         setup:
-        final job1 = new TaskEntry(1,'echo 1')
-        final job2 = TaskEntry.create('2')  { it.status = TaskStatus.TERMINATED }
-        final job3 = new TaskEntry(3,'echo 3')
-        final job4 = TaskEntry.create('4')  { it.status = TaskStatus.TERMINATED }
+        final task1 = new TaskEntry(1,'echo 1')
+        final task2 = TaskEntry.create('2')  { it.status = TaskStatus.TERMINATED }
+        final task3 = new TaskEntry(3,'echo 3')
+        final task4 = TaskEntry.create('4')  { it.status = TaskStatus.TERMINATED }
 
-        test.ActorSpecification.dataStore.saveTask(job1)
-        test.ActorSpecification.dataStore.saveTask(job2)
-        test.ActorSpecification.dataStore.saveTask(job3)
-        test.ActorSpecification.dataStore.saveTask(job4)
+        test.ActorSpecification.dataStore.saveTask(task1)
+        test.ActorSpecification.dataStore.saveTask(task2)
+        test.ActorSpecification.dataStore.saveTask(task3)
+        test.ActorSpecification.dataStore.saveTask(task4)
 
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
@@ -199,7 +267,7 @@ class FrontEndTest extends ActorSpecification {
         def result = sender.expectMsgClass(StatReply)
 
         then:
-        result.tasks.sort() == [ job2, job4 ]
+        result.tasks.sort() == [ task2, task4 ]
         result.error.size() == 0
         result.warn.size() == 0
         result.info.size() == 0

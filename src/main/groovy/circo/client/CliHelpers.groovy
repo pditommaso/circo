@@ -24,7 +24,6 @@ import com.beust.jcommander.Parameter
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
-
 /**
  * Base class for all commands
  *
@@ -171,6 +170,7 @@ class AppCommandsFactory {
         //cmdParser.addCommand( new CmdGet() )
         cmdParser.addCommand( new CmdContext() )
         cmdParser.addCommand( new CmdHistory() )
+        cmdParser.addCommand( new CmdList() )
 
         return cmdParser
     }

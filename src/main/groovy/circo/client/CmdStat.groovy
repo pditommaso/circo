@@ -62,13 +62,14 @@ class CmdStat extends AbstractCommand {
             return
         }
 
+        // messages returned by the server
         result.printMessages()
 
         if( result.stats ) {
             printStats(result.stats)
         }
         else if( this.jobs ) {
-            printJobsDetails( result.tasks )
+            printTasksDetails( result.tasks )
         }
         else {
             printJobsTable( result.tasks )
@@ -90,7 +91,7 @@ class CmdStat extends AbstractCommand {
         .stripIndent()
     }
 
-    def static void printJobsDetails( List<TaskEntry> jobs )  {
+    def static void printTasksDetails( List<TaskEntry> jobs )  {
 
         log.debug "Print details for jobs: ${jobs}"
 

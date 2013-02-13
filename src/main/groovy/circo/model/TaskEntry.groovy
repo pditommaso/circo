@@ -68,7 +68,9 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
      */
     def int attempts
 
-    /** Number of times this jobs has been cancelled by the user */
+    /**
+     * Number of times this jobs has been cancelled by the user
+     */
     def int cancelled
 
     /**

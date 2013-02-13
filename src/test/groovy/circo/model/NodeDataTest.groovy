@@ -18,14 +18,10 @@
  */
 
 package circo.model
-
-import akka.actor.Address
-import spock.lang.Specification
-
 import static test.TestHelper.addr
 
+import spock.lang.Specification
 import test.TestHelper
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -251,30 +247,6 @@ class NodeDataTest extends Specification {
     }
 
 
-    def "test toStringFmt"() {
-
-        setup:
-        def worker1 = new WorkerRefMock('/w1')
-        def worker2 = new WorkerRefMock('/w2')
-        def worker3 = new WorkerRefMock('/w3')
-
-        def node = new NodeData()
-        node.address = new Address('akka','def','192.44.12.1', 2551)
-        node.status = NodeStatus.ALIVE
-        node.putWorkerData( WorkerData.of(worker1) { it.processed=1 } )
-        node.putWorkerData( WorkerData.of(worker2) { it.processed=2 } )
-        node.putWorkerData( WorkerData.of(worker3) { it.processed=3 } )
-
-        when:
-        def count = 0
-        node.eachWorker { WorkerData data -> count += data.processed }
-
-        println node.toFmtString()
-
-        then:
-        node.toFmtString()
-
-    }
 
     /**
      * Helper method to create a {@code NodeData} instance for test purpose

@@ -78,6 +78,10 @@ abstract class AbstractDataStore implements DataStore {
     }
 
 
+    List<Job> findAllJobs() {
+        new ArrayList<Job>(jobs.values())
+    }
+
     boolean saveTask( TaskEntry task ) {
         assert task
         def old = tasks.put( task.id, task )

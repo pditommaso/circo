@@ -20,33 +20,37 @@
 
 
 package circo.daemon
+
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.UntypedActor
 import circo.client.AbstractCommand
 import circo.client.CmdGet
+import circo.client.CmdList
 import circo.client.CmdNode
 import circo.client.CmdStat
 import circo.client.CmdSub
 import circo.data.DataStore
 import circo.messages.PauseWorker
 import circo.messages.ResumeWorker
+import circo.model.Context
 import circo.model.DataRef
 import circo.model.Job
 import circo.model.JobStatus
 import circo.model.NodeData
-import circo.model.Context
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskReq
 import circo.model.TaskStatus
 import circo.model.WorkerRef
+import circo.reply.ListReply
 import circo.reply.NodeReply
 import circo.reply.ResultReply
 import circo.reply.StatReply
 import circo.reply.SubReply
 import circo.util.CircoHelper
 import groovy.util.logging.Slf4j
+
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -93,6 +97,7 @@ class FrontEnd extends UntypedActor {
         dispatchTable[ CmdSub ] = this.&handleCmdSub
         dispatchTable[ CmdStat ] = this.&handleCmdStat
         dispatchTable[ CmdNode ] = this.&handleCmdNode
+        dispatchTable[ CmdList ] = this.&handleCmdList
         //dispatchTable[ CmdGet ] = this.&handleCmdGet
     }
 
@@ -152,10 +157,40 @@ class FrontEnd extends UntypedActor {
             }
 
             // reply back
-            getSender().tell(reply, getSelf())
+            sender().tell(reply, self())
         }
     }
 
+    void handleCmdList( CmdList command ) {
+        assert command
+
+        /*
+         *  Look for all the jobs
+         */
+        def jobs = dataStore.findAllJobs().collect { new ListReply.JobInfo(it) }
+        jobs.each {  ListReply.JobInfo it ->
+
+            // set the command
+            // TODO ++ this must change - the TaskReq have to become JobReq
+            it.command = dataStore.findTasksByRequestId(it.requestId).find()?.req?.script
+
+            // find all failed tasks
+            if( it.failed ) {
+                it.failedTasks = dataStore.findTasksByRequestId(it.requestId).findAll { TaskEntry entry -> entry.failed }
+            }
+
+        }
+
+        /*
+         * create the reply object
+         */
+
+        def reply = new ListReply(command.ticket)
+        reply.jobs = jobs
+
+        sender().tell(reply, self())
+
+    }
 
 
     void handleCmdStat(CmdStat command) {
@@ -289,6 +324,8 @@ class FrontEnd extends UntypedActor {
         job.missingTasks.addAll( listOfTasks *. getId() )
         job.input = command.context ? Context.copy(command.context) : new Context()
         job.sender = new WorkerRef(getSender())
+        job.numOfTasks = listOfTasks.size()
+
         dataStore.putJob(job)
 
         listOfTasks.each { dataStore.saveTask(it) }
