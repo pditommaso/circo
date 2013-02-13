@@ -34,11 +34,11 @@ import groovy.transform.EqualsAndHashCode
 @EqualsAndHashCode
 class TaskId implements java.io.Serializable, Comparable<TaskId> {
 
-    def long value
+    def int value
 
     def TaskId( def value ) {
         assert value
-        this.value = value instanceof Number ? value.longValue() : Long.parseLong(value.toString(), 16)
+        this.value = value instanceof Number ? value.intValue() : Integer.parseInt(value.toString(), 16)
     }
 
     def TaskId( TaskId that ) {
@@ -51,15 +51,15 @@ class TaskId implements java.io.Serializable, Comparable<TaskId> {
         new TaskId( that.value )
     }
 
-    def String toString() { Long.toHexString(value) }
+    def String toString() { Integer.toHexString(value) }
 
     def String toFmtString() {
-        def result = Long.toHexString(value)
+        def result = Integer.toHexString(value)
         return result.charAt(0).isLetter() ? '0'+result : result
     }
 
     def String toFmtString(Closure closure) {
-        closure.call(Long.toHexString(value))
+        closure.call(Integer.toHexString(value))
     }
 
     /**

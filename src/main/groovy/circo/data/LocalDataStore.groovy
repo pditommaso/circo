@@ -20,7 +20,6 @@
 package circo.data
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
 
@@ -39,7 +38,7 @@ class LocalDataStore extends AbstractDataStore {
 
     private List jobsListeners = []
 
-    private AtomicLong idGen = new AtomicLong()
+    private AtomicInteger idGen = new AtomicInteger()
 
     private AtomicInteger nodeIdGen = new AtomicInteger()
 
