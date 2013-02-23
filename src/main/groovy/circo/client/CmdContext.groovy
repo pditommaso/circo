@@ -18,16 +18,12 @@
  */
 
 package circo.client
-
-import circo.model.StringRef
 import circo.model.Context
+import circo.model.StringRef
 import com.beust.jcommander.DynamicParameter
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.util.logging.Slf4j
-
-import static circo.Const.LIST_CLOSE_BRACKET
-import static circo.Const.LIST_OPEN_BRACKET
 /**
  * Command to manage the job context
  *
@@ -83,7 +79,7 @@ class CmdContext extends AbstractCommand {
          * The 'get' a value from the context and print it out to the console
          */
         if( fGet ) {
-            return valuesToStr(ctx.getValues(fGet))
+            return ctx.getValueAsString(fGet)
         }
 
         /*
@@ -168,57 +164,13 @@ class CmdContext extends AbstractCommand {
         def result = new StringBuilder()
         def names = context.getNames().sort()
         names.each { String it ->
-            result << "$it=${valuesToStr(context.getValues(it))}\n"
+            result << "$it=${context.getValueAsString(it)}\n"
         }
 
         result.toString()
     }
 
 
-    /*
-     * Convert a generic item to a string
-     */
-    String str( def item ) {
-        if( item instanceof File ) {
-            return item.name
-        }
-        else {
-            return item?.toString()
-        }
-    }
-
-    /**
-     *  Converts a collection of items to it string representation
-     */
-    String valuesToStr( def items ) {
-
-        if( items instanceof Range ) {
-            items.toString()
-        }
-
-        else if ( items instanceof Collection ) {
-            if ( items.size() == 0 ) return '-'
-
-            if ( items.size() == 1 ) return str(items[0])
-
-            // verify if the list is made up all of synonyms
-            def list = items.collect{ str(it) }.unique(false)
-            if( list.size() == 1 ) {
-                return "${LIST_OPEN_BRACKET}${str(list[0])},..${items.size()-1} more${LIST_CLOSE_BRACKET}"
-            }
-            else if ( list.size() <= 10 ){
-                return LIST_OPEN_BRACKET + items.collect { str(it) }.join(fDelim) + LIST_CLOSE_BRACKET
-            }
-            else {
-                return LIST_OPEN_BRACKET + items[0..9].collect { str(it) }.join(fDelim) + ",..${items.size()-10} more" + LIST_CLOSE_BRACKET
-            }
-        }
-
-        else {
-            str(items)
-        }
-
-    }
 
 
 

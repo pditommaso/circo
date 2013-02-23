@@ -38,7 +38,5 @@ class StatReply extends AbstractReply {
 
     List<TaskEntry> tasks
 
-    StatReplyData stats
-
 
 }

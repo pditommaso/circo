@@ -18,6 +18,8 @@
  */
 
 package circo.data
+import java.nio.channels.FileChannel
+
 import akka.actor.Address
 import circo.model.Job
 import circo.model.NodeData
@@ -25,15 +27,29 @@ import circo.model.NodeStatus
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
-import circo.reply.StatReplyData
-import groovy.transform.CompileStatic
 /**
  * Define the operations provided by the data storage system
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@CompileStatic
 interface DataStore {
+
+    /**
+     * Shut-down the underlying data store
+     */
+    void shutdown()
+
+
+    // ------------- tasks queue --------------------------------
+
+    void appendToQueue( TaskId taskId )
+
+    TaskId takeFromQueue()
+
+    boolean isEmptyQueue()
+
+
+    // -------------- JOB operations ----------------------------
 
 
     /**
@@ -47,13 +63,17 @@ interface DataStore {
      * @param job
      * @return
      */
-    boolean putJob( Job job )
-
+    void storeJob( Job job )
 
     Job updateJob( UUID requestId, Closure updateAction )
 
+    boolean replaceJob( Job oldValue, Job newValue )
+
     List<Job> findAllJobs()
 
+
+
+    // ----------------- tasks operations -----------------------
 
     /**
      * @return Generate a unique identifier to be used a {@code TaskEntry} key
@@ -65,7 +85,7 @@ interface DataStore {
      * @param task A {@code TaskEntry} instance
      * @return {@code true} if {@code job} was created as a new entry, {@code false} when the entry is updated
      */
-    boolean saveTask( TaskEntry task )
+    void storeTask( TaskEntry task )
 
     /**
      * Get a job with the specified ID
@@ -93,21 +113,7 @@ interface DataStore {
      * @param address
      * @return
      */
-    List<TaskEntry> findAllTasksOwnerBy( Integer nodeId )
-
-    /**
-     * Add a new listener closure invoke when a new {@code TaskEntry} in added in the storage
-     *
-     * @param listener
-     */
-    void addNewTaskListener( Closure listener )
-
-    /**
-     * Remove the specified instance from the listeners registered
-     *
-     * @param listener
-     */
-    void removeNewTaskListener( Closure listener )
+    List<TaskEntry> findTasksOwnedBy( Integer nodeId )
 
 
     /**
@@ -126,45 +132,96 @@ interface DataStore {
      */
     List<TaskEntry> findTasksByStatusString( String status )
 
+    /**
+     * Find all {@code TaskEntry} created by the request specified
+     *
+     * @param requestId
+     * @return The list of tasks or an empty list if not task exist for the specified ID
+     */
     List<TaskEntry> findTasksByRequestId( UUID requestId )
 
-    /**
-     * The job status statistics i.e. how many jobs for each status
-     */
-    StatReplyData findTasksStat()
+
+
+    // --------------- NODE operations -------------------------------------
+
 
     /**
-     * Find the {@code TaskEntry} instance by the specified ID, apply the specified closure and save it
-     *
-     * @param taskId
-     * @param closure
-     * @return {@code true} if saved successfully, @{Code false} otherwise
+     * @return A unique identifier for a cluster node instance
      */
-    boolean updateTask( TaskId taskId, Closure closure )
-
-    /**
-     * @return The count of {@code TaskEntry} stored
-     */
-    long countTasks()
-
     int nextNodeId()
 
+    /**
+     * Get a node data structure by its unique ID
+     *
+     * @param nodeId The node primary key
+     * @return The associated {@code NodeData} instance of {@code null} if don't exist
+     */
     NodeData getNodeData(int nodeId)
 
-    List<NodeData> findNodeDataByAddress( Address address )
+    /**
+     * Store the specified {@code NodeData} object into the storage
+     * @param nodeData The object to be saved
+     */
+    void storeNodeData( NodeData nodeData )
 
-    List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status )
-
-    NodeData putNodeData( NodeData nodeData )
-
+    /**
+     * Replace an existing {code NodeData} instance - oldValue - by an updated version
+     * @param oldValue
+     * @param newValue
+     * @return
+     */
     boolean replaceNodeData( NodeData oldValue, NodeData newValue )
 
-    NodeData updateNodeData( NodeData current, Closure closure )
+    /**
+     * Remove the specified {@code NodeData}
+     *
+     * @param nodeToRemove The {@code NodeData} instance to be removed
+     * @return {@code true} if removed successfully or {@code false} otherwise
+     */
+    boolean removeNodeData( NodeData nodeToRemove )
 
-    boolean removeNodeData( NodeData dataToRemove )
-
+    /**
+     * @return All the {@code NodeData} instances or an empty list if no data is available
+     */
     List<NodeData> findAllNodesData()
 
-    void shutdown()
+
+    /**
+     * Find all the node associated with the specified address
+     *
+     * @param address The node {@code Address} of the required {@code NodeData}
+     * @return The list of matching nodes or an empty list if there no nodes for the specified address
+     */
+    List<NodeData> findNodeDataByAddress( Address address )
+
+    /**
+     * Find all the nodes for the specified address and status
+     * @param address The node {@code Address} of the required {@code NodeData}
+     * @param status The {@code NodeStatus} of the required {@code NodeData}
+     * @return The list of matching nodes or an empty list if there no nodes for the specified address
+     */
+    List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status )
+
+
+    // ----------------------------- FILES operations -------------------------------------
+
+    /**
+     * Store a file content in the cluster cache
+     *
+     * @param fileName A fully qualified file name that must be unique across all cluster node
+     * @param fileContent The binary content to be stored
+     */
+    void putFile( String fileName, FileChannel fileContent );
+
+    /**
+     * Get the binary content of a file stored in the cluster cache
+     *
+     * @param fileName The fully qualified file name
+     * @param target The target file that where the content the file data is going to be stored
+     * @return An {@code InputStream} to access the file content ot {@code null} if the file does not exist in the cache
+     */
+    FileChannel getFile( String fileName, FileChannel target )
+
+
 
 }

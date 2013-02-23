@@ -1,7 +1,9 @@
+import circo.util.CircoHelper
+
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,29 +19,19 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
-
-import circo.model.TaskId
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
 /**
  *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
-@InheritConstructors
-class SubReply extends AbstractReply {
 
-    /**
-     * The list of identifiers of the job created fulfilling the submitted request
-     */
-    List<TaskId> taskIds
 
-    boolean success
+def x = ('Z' as char) - ('A' as char)
 
-    String toString() {
-        "${SubReply.class.simpleName}(ticket:$ticket, taskIds:$taskIds)"
-    }
+println (('A'..'Z')+('0'..'9'))
 
+20.times {
+
+    CircoHelper.createScratchDir()
 
 }
+

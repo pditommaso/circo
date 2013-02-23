@@ -51,6 +51,8 @@ class ListReply extends AbstractReply {
 
         List<TaskEntry> failedTasks
 
+        List<TaskEntry> pendingTasks
+
 
     }
 

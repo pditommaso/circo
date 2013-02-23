@@ -19,6 +19,7 @@
 
 package circo.model
 
+import circo.client.CustomIntRange
 import spock.lang.Specification
 /**
  *
@@ -38,10 +39,8 @@ class ContextTest extends Specification {
         then:
         context.size() == 2
         context.getNames().sort() == ['val1','val2']
-        context.getRef('val1') == [ new StringRef('val1','ciao') ]
         context.getData('val1') == 'ciao'
 
-        context.getRef('val2') == [ new StringRef('val2','alpha'), new StringRef('val2','beta'), new StringRef('val2','gamma') ]
         context.getData('val2') == ['alpha','beta','gamma']
     }
 
@@ -136,9 +135,9 @@ class ContextTest extends Specification {
         context.add( new StringRef('val2', 'gamma') )
 
         expect:
-        context.getValues('val1') == ['ciao']
-        context.getValues('val2')  == ['alpha','beta','gamma']
-        context.getValues('val9')  == []
+        context.getData('val1') == 'ciao'
+        context.getData('val2')  == ['alpha','beta','gamma']
+        context.getData('val9')  == new EmptyRef()
 
 
     }
@@ -190,15 +189,15 @@ class ContextTest extends Specification {
         copy.names.sort() == ['p','q','val1','val2','val3']
 
         // the 'val1' and 'val2' does not change
-        copy.getValues('val1') == ['one']
-        copy.getValues('val2').toSet() == ['alpha','beta','gamma'].toSet()
+        copy.getData('val1') == 'one'
+        copy.getData('val2') as Set == ['alpha','beta','gamma'].toSet()
         // 'val3' has been replaced by the delta
-        copy.getValues('val3').toSet() == ['file1','file2','file3'].toSet()
+        copy.getData('val3') as Set == ['file1','file2','file3'].toSet()
         // these are new
-        copy.getValues('p') == ['1','1']
-        copy.getValues('q') == ['2']
-        copy.getValues('q') != ['1','1']
-        copy.getValues('X') == []
+        copy.getData('p') == ['1','1']
+        copy.getData('q') == '2'
+        copy.getData('q') != ['1','1']
+        copy.getData('X') == new EmptyRef()
 
     }
 
@@ -264,6 +263,20 @@ class ContextTest extends Specification {
         ctx.getData('val2') == ['alpha','beta','gamma','a','b']
         ctx.getData('val3') == ['ciao','1','2','3']
         ctx.getData('val4') == ['aa','ab','ac','ad']
+
+    }
+
+    def 'test getValueAsString' () {
+
+        expect:
+        Context.itemsToString(new CustomIntRange(1,10)) == "1..10"         // basic range
+        Context.itemsToString(new CustomIntRange(0,9,3)) == "0..9:3"       // range with step
+        Context.itemsToString([1,3,6,8]) == "[1,3,6,8]"                    // list representation
+        Context.itemsToString(['hola','hola','hola','hola']) == '[hola,..3 more]' // same repetition of the same value
+        Context.itemsToString(['Hello']) == 'Hello'                        // single value is printed without brackets
+        Context.itemsToString(999) == '999'
+        Context.itemsToString([new FileRef('/path/name_1',1), new FileRef('/path/name_2',1)]) == '[name_1,name_2]'  // parent path are removed from files
+        Context.itemsToString([new FileRef('/path/name_1',1), new FileRef('/path/name_1',1)]) == '[name_1,..1 more]'  // parent path are removed from files
 
     }
 

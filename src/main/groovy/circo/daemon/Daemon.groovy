@@ -18,6 +18,7 @@
  */
 
 package circo.daemon
+
 import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.Address
@@ -29,9 +30,10 @@ import circo.data.DataStore
 import circo.data.HazelcastDataStore
 import circo.data.LocalDataStore
 import circo.messages.NodeShutdown
+import circo.model.AddressRef
+import circo.model.FileRef
 import circo.model.WorkerRef
 import circo.ui.TerminalUI
-import circo.util.CircoHelper
 import circo.util.CmdLine
 import circo.util.LoggerHelper
 import com.beust.jcommander.JCommander
@@ -41,6 +43,7 @@ import groovy.util.logging.Slf4j
 import org.slf4j.MDC
 import sun.misc.Signal
 import sun.misc.SignalHandler
+
 /**
  *  Launch a cluster node instance
  *
@@ -59,7 +62,7 @@ public class Daemon {
 
     protected CmdLine cmdLine
 
-    List<Address> nodes
+    List<AddressRef> nodes
 
     Address selfAddress
 
@@ -82,40 +85,29 @@ public class Daemon {
     def Daemon(CmdLine cmdLine) {
         this.cmdLine = cmdLine
 
+        // -- configure to run in local mode i.e. embedded server running locally
         if( cmdLine.local ) {
             log.debug "Using local mode"
             multiCast = true
-            nodes = parseAddresses(Const.LOCAL_ADDRESS)
+            nodes = AddressRef.list(Const.LOCAL_ADDRESS)
         }
 
         else if ( cmdLine.join ) {
             log.debug "Using join mode: ${cmdLine?.join}"
 
             if ( cmdLine?.join == 'auto') {
-                nodes = parseAddresses( InetAddress.getLocalHost().getHostAddress() )
+                nodes = AddressRef.list( InetAddress.getLocalHost().getHostAddress() )
                 multiCast = true
             }
             else if( cmdLine?.join?.startsWith('auto:') ) {
                 multiCast = true
-                nodes = parseAddresses(cmdLine.join.substring('auto:'.size()))
+                nodes = AddressRef.list(cmdLine.join.substring('auto:'.size()))
             }
             else {
-                nodes = parseAddresses(cmdLine.join)
+                nodes = AddressRef.list(cmdLine.join)
             }
         }
 
-    }
-
-    static private List<Address> parseAddresses( String addresses ) {
-        def result  = []
-
-        if( !addresses ) return result
-
-        addresses.eachLine { String line ->
-            line.split('[,\b]').each { String it -> result << (Address)CircoHelper.parseAddress(it) }
-        }
-
-        return result
     }
 
     /*
@@ -149,30 +141,34 @@ public class Daemon {
         }
 
         /*
-         * Create the Akka system
-         */
-        system = ActorSystem.create(Const.DEFAULT_AKKA_SYSTEM);
-        cluster = Cluster.get(system)
-        selfAddress = cluster.selfAddress()
-        joinNodes(cluster)
-        WorkerRef.init(system, selfAddress)
-
-
-        /*
          * Create the in-mem data store
          */
         if( cmdLine.local ) {
             log.info "Running in local mode (no distributed data structures)"
-            this.dataStore = new LocalDataStore()
+            dataStore = new LocalDataStore()
         }
+
         else {
-            log.debug "Launching Hazelcast (1) -- multicast: ${multiCast} - nodes: $nodes"
-            List<String> members = nodes.collect { Address it -> it.host().get() }
-            def itself = cluster.selfAddress().host().get()
-            if ( !members.contains(itself)) { members.add(itself) }
-            log.debug "Launching Hazelcast (2) -- members: ${members}"
-            dataStore = new HazelcastDataStore( ConfigFactory.load(), members, multiCast )
+            log.debug "Launching Infinispan -- nodes: $nodes"
+            //dataStore = new InfinispanDataStore( nodes )
+            dataStore = new HazelcastDataStore( ConfigFactory.load(), nodes, multiCast )
         }
+
+
+        /*
+         * Create the Akka system
+         */
+        system = ActorSystem.create(Const.DEFAULT_CLUSTER_NAME);
+        cluster = Cluster.get(system)
+        selfAddress = cluster.selfAddress()
+        joinAkkaNodes(cluster)
+
+        /*
+         * Initialize data structures
+         */
+        WorkerRef.init(system, selfAddress)
+        FileRef.currentNodeId = nodeId
+        FileRef.dataStore = dataStore
 
         system.registerOnTermination({ sleep(500); System.exit(0) } as Runnable)
 
@@ -200,13 +196,13 @@ public class Daemon {
     /*
      * try to join a random node in the cluster
      */
-    def void joinNodes( Cluster cluster ) {
+    def void joinAkkaNodes( Cluster cluster ) {
         if ( !nodes ) { return }
 
-        def list = new ArrayList<Address>(nodes)
+        def list = new ArrayList<AddressRef>(nodes)
         while( list ) {
-            def addr = list.remove( new Random().nextInt( list.size() )  )
-            if( addr == selfAddress) {
+            def addr = list.remove( new Random().nextInt( list.size() )  ) .toAkkaAddress()
+            if( addr == selfAddress ) {
                 log.debug "Skipping joining to itself"
                 continue
             }

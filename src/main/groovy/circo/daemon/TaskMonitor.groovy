@@ -48,14 +48,23 @@ class TaskMonitor extends UntypedActor {
 
     private long inactiveTimeout
 
+    /*
+     * The current node index. Beside it seems unused, this variable is referenced by the {@code NodeCategory} mixin
+     */
     private int nodeId
 
+    /**
+     * Initialize the task monitor
+     */
     def void preStart() {
         setMDCVariables()
         log.debug "++ Starting actor ${getSelf().path()}"
         getContext().watch(executor)
     }
 
+    /**
+     * The the actor stop, clear the current watchdog
+     */
     def void postStop() {
         setMDCVariables()
         log.debug "~~ Stopping actor ${getSelf().path()}"

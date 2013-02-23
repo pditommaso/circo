@@ -43,20 +43,6 @@ class CmdContextTest extends Specification {
         parser = new JCommander(cmd)
     }
 
-    def 'test to string'() {
-
-           expect:
-           cmd.valuesToStr(new CustomIntRange(1,10)) == "1..10"         // basic range
-           cmd.valuesToStr(new CustomIntRange(0,9,3)) == "0..9:3"       // range with step
-           cmd.valuesToStr([1,3,6,8]) == "[1,3,6,8]"                    // list representation
-           cmd.valuesToStr(['hola','hola','hola','hola']) == '[hola,..3 more]' // same repetition of the same value
-           cmd.valuesToStr(['Hello']) == 'Hello'                        // single value is printed without brackets
-           cmd.valuesToStr(999) == '999'
-           cmd.valuesToStr([new File('/path/name_1'), new File('/path/name_2')]) == '[name_1,name_2]'  // parent path are removed from files
-           cmd.valuesToStr([new File('/path/name_1'), new File('/path/name_1')]) == '[name_1,..1 more]'  // parent path are removed from files
-
-    }
-
 
     def 'test get' () {
 
@@ -131,9 +117,9 @@ class CmdContextTest extends Specification {
         cmd.apply(ctx)
 
         then:
-        ctx.getValues('A') == ['1']
-        ctx.getValues('B') == ['x','y','z']
-        ctx.getValues('C') == ['0','1','2','3']
+        ctx.getData('A') == '1'
+        ctx.getData('B') == ['x','y','z']
+        ctx.getData('C') == ['0','1','2','3']
 
         cleanup:
         file.delete()
@@ -155,9 +141,9 @@ class CmdContextTest extends Specification {
 
         then:
         ctx.size() == 3 + count
-        ctx.getValues('X_1') == ['uno']
-        ctx.getValues('X_2') == ['due']
-        ctx.getValues('X_3') == ['tre']
+        ctx.getData('X_1') == 'uno'
+        ctx.getData('X_2') == 'due'
+        ctx.getData('X_3') == 'tre'
     }
 
     def 'test import ENV with grep' () {
@@ -176,7 +162,7 @@ class CmdContextTest extends Specification {
 
         then:
         ctx.size() == 1 + count
-        ctx.getValues('Z')  == ['9']
+        ctx.getData('Z')  == '9'
 
     }
 

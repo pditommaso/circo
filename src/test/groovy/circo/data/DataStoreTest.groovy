@@ -1,28 +1,29 @@
 package circo.data
-import static test.TestHelper.addr
-
 import circo.model.Job
 import circo.model.JobStatus
 import circo.model.NodeData
+import circo.model.NodeStatus
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskReq
+import circo.model.TaskResult
 import circo.model.TaskStatus
 import circo.model.WorkerRefMock
-import com.hazelcast.core.Hazelcast
+import spock.lang.Shared
 import spock.lang.Specification
+import test.TestHelper
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class DataStoreTest extends Specification {
+abstract class DataStoreTest extends Specification {
+
+    @Shared
+    DataStore store
 
 
-    private void shutdown(def store) {
-        if( store instanceof HazelcastDataStore ) {
-            Hazelcast.shutdownAll()
-        }
-    }
+    // ------------------ JOB operations tests ---------------------
 
     def 'test getJob and putJob' () {
 
@@ -30,21 +31,13 @@ class DataStoreTest extends Specification {
         final id = UUID.randomUUID()
         def job = new Job(id)
         job.status = JobStatus.SUBMITTED
-        job.missingTasks << TaskId.of(1) << TaskId.of(33)
 
         when:
-        store.putJob(job)
+        store.storeJob(job)
 
         then:
         store.getJob(id) == job
         store.getJob(UUID.randomUUID()) == null
-
-
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
 
     }
 
@@ -54,8 +47,7 @@ class DataStoreTest extends Specification {
         final id = UUID.randomUUID()
         def job = new Job(id)
         job.status = JobStatus.SUBMITTED
-        job.missingTasks << TaskId.of(1) << TaskId.of(33)
-        store.putJob(job)
+        store.storeJob(job)
 
         when:
         def result = store.updateJob( id ) { Job it ->
@@ -66,38 +58,55 @@ class DataStoreTest extends Specification {
         store.getJob(id).submitted
         store.getJob(id) == result
 
+    }
 
-        cleanup:
-        shutdown(store)
 
-        where:
-        store << [  new LocalDataStore() ]
+    def 'test findAllJobs' () {
 
+        setup:
+        store.storeJob( new Job( UUID.randomUUID() ) )
+        store.storeJob( new Job( UUID.randomUUID() ) )
+        store.storeJob( new Job( UUID.randomUUID() ) )
+        store.storeJob( new Job( UUID.randomUUID() ) )
+
+        when:
+        def list = store.findAllJobs()
+
+        then:
+        list.size() == 4
 
     }
 
 
+    // ------------------------ TASK operations tests ---------------------------------------
 
+    def 'test nextTaskId' () {
 
-    def 'test task get and set '( ) {
+        when:
+        TaskId first = store.nextTaskId()
+        TaskId second = store.nextTaskId()
+        TaskId third = store.nextTaskId()
+
+        then:
+        first != second
+        second != third
+        first.value +1 == second.value
+        second.value +1 == third.value
+
+    }
+
+    def 'test getTask and storeTask'( ) {
 
         when:
         def id = TaskId.of(1)
         def entry = new TaskEntry( id, new TaskReq(script: 'Hola') )
-        def result = store.saveTask(entry)
-
+        store.storeTask(entry)
 
         then:
-        result == true
         entry == store.getTask(id)
         entry == store.getTask(TaskId.of(1))
         null == store.getTask( TaskId.of(321) )
 
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
     }
 
     def 'test getTask' () {
@@ -107,196 +116,162 @@ class DataStoreTest extends Specification {
         def id1 = TaskId.of('abc')
         def id2 = TaskId.of(222)
 
-        store.saveTask( TaskEntry.create(id1) { it.req.script = 'script1' } )
-        store.saveTask( TaskEntry.create(id2) { it.req.script = 'script2' } )
+        store.storeTask( TaskEntry.create(id1) { it.req.script = 'script1' } )
+        store.storeTask( TaskEntry.create(id2) { it.req.script = 'script2' } )
 
         expect:
         store.getTask(id0) == null
         store.getTask(TaskId.of('abc')).req.script == 'script1'
         store.getTask(TaskId.of(222)).req.script == 'script2'
 
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
-
     }
 
-    def testUpdate() {
-
-        when:
-        def id = TaskId.of(1)
-        def entry = new TaskEntry( id, new TaskReq(script: 'Hola') )
-        def resultNew = store.saveTask(entry)
-
-        def resultUpdate = store.updateTask( id ) { TaskEntry it ->
-            it.attempts = 2
-        }
-
-        then:
-        resultNew == true
-        resultUpdate == false
-        store.getTask(id) .attempts == 2
-
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
-
-    }
-
-    def 'test add listener' () {
-
-        when:
-        TaskEntry invoked = null
-        def entry = TaskEntry.create( 1243 )
-        store.addNewTaskListener { it ->
-            invoked = it
-        }
-        def firstIsNew = store.saveTask(entry)
-        def secondIsNew = store.saveTask(entry)
-
-        then:
-        firstIsNew
-        !secondIsNew
-        invoked == entry
-
-        where:
-        store << [ new LocalDataStore(),  new HazelcastDataStore()  ]
-    }
-
-    def 'test remove listener' () {
-
-        when:
-        def invoked
-        def entry = TaskEntry.create( 1243 )
-        def count=0
-        def callback = { count++ }
-        store.addNewTaskListener( callback )
-        store.removeNewTaskListener( callback )
-        store.saveTask(entry)
-        store.saveTask(entry)
-
-
-        then:
-        count == 0
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()   ]
-
-    }
-
-
-    def 'test findJobsByStatus' () {
+    def 'test findAllTests' () {
 
         setup:
-        def job1 = TaskEntry.create('1') { it.status = TaskStatus.NEW }
-        def job2 = TaskEntry.create('2') { it.status = TaskStatus.PENDING }
-        def job3 = TaskEntry.create('3') { it.status = TaskStatus.PENDING }
-        def job4 = TaskEntry.create('4') { it.status = TaskStatus.TERMINATED }
-        def job5 = TaskEntry.create('5') { it.status = TaskStatus.TERMINATED }
-        def job6 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
+        def task1 = TaskEntry.create('1') { it.status = TaskStatus.NEW }
+        def task2 = TaskEntry.create('2') { it.status = TaskStatus.PENDING }
+        def task3 = TaskEntry.create('3') { it.status = TaskStatus.PENDING }
+        def task4 = TaskEntry.create('4') { it.status = TaskStatus.TERMINATED }
+        def task5 = TaskEntry.create('5') { it.status = TaskStatus.TERMINATED }
+        def task6 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
+        store.storeTask(task1)
+        store.storeTask(task2)
+        store.storeTask(task3)
+        store.storeTask(task4)
+        store.storeTask(task5)
+        store.storeTask(task6)
 
-        store.saveTask(job1)
-        store.saveTask(job2)
-        store.saveTask(job3)
-        store.saveTask(job4)
-        store.saveTask(job5)
-        store.saveTask(job6)
+        def task7 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
 
-        expect:
-        store.findTasksByStatus(TaskStatus.NEW).toSet() == [job1] as Set
-        store.findTasksByStatus(TaskStatus.PENDING).toSet() == [job2,job3] as Set
-        store.findTasksByStatus(TaskStatus.TERMINATED).toSet() == [job4,job5,job6] as Set
-        store.findTasksByStatus(TaskStatus.READY) == []
-        store.findTasksByStatus(TaskStatus.NEW, TaskStatus.PENDING).toSet() == [job1,job2,job3] as Set
 
-        cleanup:
-        shutdown(store)
+        when:
+        def list = store.findAllTasks()
 
-        where:
-        store << [ new LocalDataStore(), new HazelcastDataStore() ]
-
+        then:
+        list.size() == 6
+        list.contains(task1)
+        list.contains(task2)
+        list.contains(task3)
+        list.contains(task4)
+        list.contains(task5)
+        list.contains(task6)
+        list.contains(task7)
     }
 
-    def 'test findByRequestId' () {
+
+    def 'test findTasksByStatus' () {
+
+        setup:
+        def task1 = TaskEntry.create('1') { TaskEntry it-> it.status = TaskStatus.NEW }
+        def task2 = TaskEntry.create('2') { TaskEntry it-> it.status = TaskStatus.PENDING }
+        def task3 = TaskEntry.create('3') { TaskEntry it-> it.status = TaskStatus.PENDING }
+        def task4 = TaskEntry.create('4') { TaskEntry it-> it.status = TaskStatus.TERMINATED }
+        def task5 = TaskEntry.create('5') { TaskEntry it-> it.status = TaskStatus.TERMINATED }
+        def task6 = TaskEntry.create('6') { TaskEntry it-> it.status = TaskStatus.TERMINATED }
+
+        store.storeTask(task1)
+        store.storeTask(task2)
+        store.storeTask(task3)
+        store.storeTask(task4)
+        store.storeTask(task5)
+        store.storeTask(task6)
+
+        expect:
+        store.findTasksByStatus(TaskStatus.NEW).toSet() == [task1] as Set
+        store.findTasksByStatus(TaskStatus.PENDING).toSet() == [task2,task3] as Set
+        store.findTasksByStatus(TaskStatus.TERMINATED).toSet() == [task4,task5,task6] as Set
+        store.findTasksByStatus(TaskStatus.READY) == []
+        store.findTasksByStatus(TaskStatus.NEW, TaskStatus.PENDING).toSet() == [task1,task2,task3] as Set
+    }
+
+    def 'test findTasksByStatusString' () {
+
+        setup:
+        def task1 = TaskEntry.create('1') { TaskEntry it-> it.status = TaskStatus.NEW }
+        def task2 = TaskEntry.create('2') { TaskEntry it-> it.status = TaskStatus.PENDING }
+        def task3 = TaskEntry.create('3') { TaskEntry it-> it.status = TaskStatus.PENDING }
+        def task4 = TaskEntry.create('4') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult() }
+        def task5 = TaskEntry.create('5') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult() }
+        def task6 = TaskEntry.create('6') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult(exitCode: 0) }
+
+        store.storeTask(task1)
+        store.storeTask(task2)
+        store.storeTask(task3)
+        store.storeTask(task4)
+        store.storeTask(task5)
+        store.storeTask(task6)
+
+        expect:
+        store.findTasksByStatusString('new').toSet() == [task1] as Set
+        store.findTasksByStatusString('pending').toSet() == [task2,task3] as Set
+        store.findTasksByStatusString( 'success' ).toSet() == [task6] as Set
+        store.findTasksByStatusString( 'error' ).toSet() == [task4,task5] as Set
+        store.findTasksByStatusString( 'failed' ).toSet() == [task4,task5] as Set
+    }
+
+    def 'test findTasksByRequestId' () {
         setup:
         def req1 = UUID.randomUUID()
         def req2 = UUID.randomUUID()
 
-        def job1 = TaskEntry.create('1') { TaskEntry it -> it.status = TaskStatus.NEW; it.req.ticket = req1 }
-        def job2 = TaskEntry.create('2') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req1  }
-        def job3 = TaskEntry.create('3') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req2  }
-        def job4 = TaskEntry.create('4') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
-        def job5 = TaskEntry.create('5') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
-        def job6 = TaskEntry.create('6') { TaskEntry it -> it.status = TaskStatus.TERMINATED  }
+        def task1 = TaskEntry.create('1') { TaskEntry it -> it.status = TaskStatus.NEW; it.req.ticket = req1 }
+        def task2 = TaskEntry.create('2') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req1  }
+        def task3 = TaskEntry.create('3') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req2  }
+        def task4 = TaskEntry.create('4') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
+        def task5 = TaskEntry.create('5') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
+        def task6 = TaskEntry.create('6') { TaskEntry it -> it.status = TaskStatus.TERMINATED  }
 
-        store.saveTask(job1)
-        store.saveTask(job2)
-        store.saveTask(job3)
-        store.saveTask(job4)
-        store.saveTask(job5)
-        store.saveTask(job6)
+        store.storeTask(task1)
+        store.storeTask(task2)
+        store.storeTask(task3)
+        store.storeTask(task4)
+        store.storeTask(task5)
+        store.storeTask(task6)
 
         expect:
-        store.findTasksByRequestId( req1 ).toSet() == [job1,job2] as Set
-        store.findTasksByRequestId( req2 ).toSet() == [job3,job4,job5] as Set
-
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [ new LocalDataStore(), new HazelcastDataStore() ]
+        store.findTasksByRequestId( req1 ).toSet() == [task1,task2] as Set
+        store.findTasksByRequestId( req2 ).toSet() == [task3,task4,task5] as Set
 
     }
 
 
-
-
-    def 'test findJobsByID' () {
+    def 'test findTasksById' () {
 
         setup:
+        def task1 = TaskEntry.create( '11' )
+        def task2 = TaskEntry.create( '23' )
+        def task3 = TaskEntry.create( '33' )
+        def task4 = TaskEntry.create( '34' )
+        def task5 = TaskEntry.create( '35' )
+        def task6 = TaskEntry.create( '36' )
 
-        def job1 = TaskEntry.create( '11' )
-        def job2 = TaskEntry.create( '23' )
-        def job3 = TaskEntry.create( '33' )
-        def job4 = TaskEntry.create( '34' )
-        def job5 = TaskEntry.create( '35' )
-        def job6 = TaskEntry.create( '36' )
-
-        store.saveTask(job1)
-        store.saveTask(job2)
-        store.saveTask(job3)
-        store.saveTask(job4)
-        store.saveTask(job5)
-        store.saveTask(job6)
+        store.storeTask(task1)
+        store.storeTask(task2)
+        store.storeTask(task3)
+        store.storeTask(task4)
+        store.storeTask(task5)
+        store.storeTask(task6)
 
         expect:
-        store.findTasksById( '11' ) == [job1]
-        store.findTasksById( '1*' ) == [job1]
+        store.findTasksById( '11' ) == [task1]
+        store.findTasksById( '1*' ) == [task1]
         store.findTasksById( '12' ) == []
 
-        store.findTasksById( '33' ) == [job3]
-        store.findTasksById( '34' ) == [job4]
-        store.findTasksById( '3*' ).toSet() == [job3,job4,job5,job6].toSet()
+        store.findTasksById( '33' ) == [task3]
+        store.findTasksById( '34' ) == [task4]
+        store.findTasksById( '3*' ).toSet() == [task3,task4,task5,task6].toSet()
 
-        store.findTasksById( '*3' ).toSet() == [job2,job3].toSet()
+        store.findTasksById( '*3' ).toSet() == [task2,task3].toSet()
 
         // preceding '0' are removed
-        store.findTasksById( '011' ) == [job1]
+        store.findTasksById( '011' ) == [task1]
 
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [ new LocalDataStore(), new HazelcastDataStore() ]
 
     }
 
 
-    def 'test findAllTaskAssignedTo' () {
+    def 'test findAllTasksOwnedBy' () {
 
         setup:
 
@@ -305,50 +280,55 @@ class DataStoreTest extends Specification {
         def task3 = TaskEntry.create(3) { TaskEntry it -> it.ownerId = 2 }
         def task4 = TaskEntry.create(4) { TaskEntry it -> it.ownerId = 2 }
         def task5 = TaskEntry.create(5)
-        store.saveTask(task1)
-        store.saveTask(task2)
-        store.saveTask(task3)
-        store.saveTask(task4)
-        store.saveTask(task5)
+        store.storeTask(task1)
+        store.storeTask(task2)
+        store.storeTask(task3)
+        store.storeTask(task4)
+        store.storeTask(task5)
 
         expect:
-        store.findAllTasksOwnerBy(1).toSet() == [task1] as Set
-        store.findAllTasksOwnerBy(2).toSet() == [task2, task3, task4] as Set
-        store.findAllTasksOwnerBy(99) == []
-
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [ new LocalDataStore(), new HazelcastDataStore() ]
+        store.findTasksOwnedBy(1).toSet() == [task1] as Set
+        store.findTasksOwnedBy(2).toSet() == [task2, task3, task4] as Set
+        store.findTasksOwnedBy(99) == []
 
     }
 
 
+    // ---------------- NODE tests operations ----------------------------------
 
-    def "test getAndPutNodeInfo" () {
+    def 'test nextNodeId' () {
+
+        when:
+        int first = store.nextNodeId()
+        int second = store.nextNodeId()
+        int third = store.nextNodeId()
+
+        then:
+        first != second
+        second != third
+        first +1 == second
+        second +1 == third
+
+    }
+
+
+    def "test getAndPutNodeData" () {
         setup:
         def nodeInfo = new NodeData( id: 99, processed: 7843 )
         nodeInfo.createWorkerData( new WorkerRefMock('worker1') )
         nodeInfo.createWorkerData( new WorkerRefMock('worker2') )
 
         when:
-        store.putNodeData(nodeInfo)
+        store.storeNodeData(nodeInfo)
 
 
         then:
         store.getNodeData(99) == nodeInfo
         store.getNodeData(77) == null
 
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
-
     }
 
-    def "test replaceNodeInfo" () {
+    def "test replaceNodeData" () {
 
         setup:
         def node1 = new NodeData( id: 1, processed: 7843 )
@@ -357,8 +337,8 @@ class DataStoreTest extends Specification {
 
         def node2 = new NodeData( id: 2, processed: 343 )
 
-        store.putNodeData(node1)
-        store.putNodeData(node2)
+        store.storeNodeData(node1)
+        store.storeNodeData(node2)
 
         when:
         def copy1 = new NodeData(node1)
@@ -378,111 +358,175 @@ class DataStoreTest extends Specification {
         !store.replaceNodeData(copy2, newNode2)
 
 
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
     }
 
-    def "test updateNodeInfo" () {
+
+    def 'test removeNodeData' () {
+
 
         setup:
-        def node1 = new NodeData( id: 11, processed: 100, failed: 10 )
-        node1.createWorkerData( new WorkerRefMock('worker1') )
-        node1.createWorkerData( new WorkerRefMock('worker2') )
+        def node1 = new NodeData( id: 1, processed: 7843 )
+        def node2 = new NodeData( id: 2, processed: 343 )
 
-        def node2 = new NodeData( id:  22, processed: 200, failed:  20 )
+        store.storeNodeData(node1)
+        store.storeNodeData(node2)
 
-        store.putNodeData(node1)
-        store.putNodeData(node2)
-
-        // make a copy of this object
-        // BUT the 'node2' is updated after the copy
-        def copy1 = new NodeData(node1)
-        def copy2 = new NodeData(node2)
-        node2.processed++
-        node2.failed++
-        store.putNodeData(node2)
+        def node3 = new NodeData( id: 3, processed: 8593 )
 
         when:
-        def result1 = store.updateNodeData( copy1 ) { NodeData node ->
-            node.processed += 10
-            node.failed += 10
-        }
+        def result1 = store.removeNodeData( node1 )
+        def result2 = store.removeNodeData( node3 )
 
-        def result2 = store.updateNodeData( copy2 ) { NodeData node ->
-            node.processed += 10
-            node.failed += 10
+        then:
+        result1
+        !result2
+        store.getNodeData( 1 ) == null
+        store.getNodeData( 2 ) == node2
+
+    }
+
+    def 'test findAllNodeData' () {
+
+        setup:
+        def node1 = new NodeData( id: 1, processed: 7843 )
+        def node2 = new NodeData( id: 2, processed: 343 )
+        def node3 = new NodeData( id: 3, processed: 8593 )
+
+        store.storeNodeData(node1)
+        store.storeNodeData(node2)
+        store.storeNodeData(node3)
+
+        when:
+        def list = store.findAllNodesData()
+
+        then:
+        list.size() == 3
+        list.toSet() ==  [ node1, node2, node3 ] as Set
+
+    }
+
+   def 'test findNodeDataByAddress' () {
+
+       setup:
+       def addr1 = TestHelper.randomAddress()
+       def addr2 = TestHelper.randomAddress()
+       def addr3 = TestHelper.randomAddress()
+
+       def node1 = new NodeData( id: 1, processed: 7843, address: addr1 )
+       def node2 = new NodeData( id: 2, processed: 343, address: addr2 )
+       def node3 = new NodeData( id: 3, processed: 8593, address: addr3 )
+       def node4 = new NodeData( id: 4, processed: 59054, address: addr3 )
+
+       store.storeNodeData( node1 )
+       store.storeNodeData( node2 )
+       store.storeNodeData( node3 )
+       store.storeNodeData( node4 )
+
+       expect:
+       store.findNodeDataByAddress( addr1 ) == [node1]
+       store.findNodeDataByAddress( addr2 ) == [node2]
+       store.findNodeDataByAddress( addr3 ).toSet() == [ node3, node4 ] as Set
+
+   }
+
+
+    def 'test findNodeDataByAddressAndStatus' () {
+
+        setup:
+        def addr1 = TestHelper.randomAddress()
+        def addr2 = TestHelper.randomAddress()
+        def addr3 = TestHelper.randomAddress()
+
+        def node1 = new NodeData( id: 1, processed: 7843, address: addr1 )
+        def node2 = new NodeData( id: 2, processed: 343, address: addr2, status: NodeStatus.PAUSED )
+        def node3 = new NodeData( id: 3, processed: 8593, address: addr3, status: NodeStatus.DEAD )
+        def node4 = new NodeData( id: 4, processed: 8593, address: addr3, status: NodeStatus.ALIVE )
+
+        store.storeNodeData( node1 )
+        store.storeNodeData( node2 )
+        store.storeNodeData( node3 )
+        store.storeNodeData( node4 )
+
+        expect:
+        store.findNodeDataByAddressAndStatus( addr1, NodeStatus.ALIVE ) == []
+        store.findNodeDataByAddressAndStatus( addr2, NodeStatus.PAUSED ) == [node2]
+        store.findNodeDataByAddressAndStatus( addr3, NodeStatus.ALIVE ).toSet() == [ node4 ] as Set
+
+    }
+
+
+    // ---------------- tasks queue operations
+
+    def 'test appendToQueue and takeFromQueue and isEmptyQueue' () {
+
+        setup:
+        def wasEmpty = store.isEmptyQueue()
+        store.appendToQueue( TaskId.of(1) )
+        store.appendToQueue( TaskId.of(2) )
+        store.appendToQueue( TaskId.of(3) )
+
+        when:
+
+        Set<TaskId> set = []
+        def count = 0
+        while( !store.isEmptyQueue() ) {
+            set << store.takeFromQueue()
+            count++
         }
 
         then:
-        result1.processed  == 110
-        result1.failed == 20
-
-        result2.processed == 211   // fail with HZ
-        result2.failed == 31
-
-
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
+        wasEmpty
+        set.size() == 3
+        set == [ TaskId.of(1),  TaskId.of(2),  TaskId.of(3) ] as Set
+        count == 3
 
     }
 
-    def "test updateNodeInfo for missing entry" () {
+
+    def 'test get and put file' () {
 
         setup:
-        def node1 = new NodeData( address: addr('1.1.1.1'), processed: 100, failed: 10 )
+        def str = """
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse eu velit felis. Nullam fringilla interdum ipsum,
+        at accumsan mauris cursus non. Sed et felis et nisl viverra dignissim vel ut nulla. Sed ultricies, turpis et
+        sollicitudin faucibus, nibh eros dignissim lacus, non fringilla dui erat quis nisi.
 
+        Sed turpis mi, elementum ut sollicitudin iaculis, mattis non nunc. Phasellus at leo eu tellus auctor convallis.
+        Aenean ipsum diam, feugiat vitae ullamcorper mattis, porttitor eu neque. Suspendisse faucibus, massa ut tincidunt
+        vestibulum, felis ligula iaculis sapien, quis imperdiet diam tellus sed lacus. Nulla aliquet ullamcorper quam,
+        vitae consequat sem mollis non.
+
+        Nunc mattis turpis nec eros lobortis at condimentum diam consequat. Nullam fermentum scelerisque sodales. Curabitur ac
+        magna odio, nec sagittis lectus. Praesent at leo eget libero vestibulum elementum id non elit.
+        """
+        .stripIndent()
+        def sourceFile = File.createTempFile('test',null)
+        sourceFile.deleteOnExit()
+        sourceFile.text = str
+
+        //
+        // we put a file in the cache
+        //
         when:
-        store.updateNodeData(node1) {  }
+        def channel1 = new FileInputStream(sourceFile).getChannel()
+        def cachePath1 = fileName
+        store.putFile(cachePath1, channel1)
 
+        def target1 = new File('targetFile'); target1.deleteOnExit()
+        def result1 = store.getFile(cachePath1, new FileOutputStream(target1).getChannel())
+        result1.close()
+
+        // retrieving it, it must be the same
         then:
-        thrown(IllegalStateException)
+        target1.text == str
 
-        cleanup:
-        shutdown(store)
-
+        //
+        // test against different file name
+        //
         where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
+        fileName << ['simpleFile.txt', '/root.file', '/some/path/file.txt']
 
     }
-
-
-    def "test updateNodeInfo for workers" () {
-
-        setup:
-        def node1 = new NodeData( id: 1, processed: 100, failed: 10 )
-        node1.createWorkerData( new WorkerRefMock('/a') )
-        node1.createWorkerData( new WorkerRefMock('/b') )
-        node1.createWorkerData( new WorkerRefMock('/c') )
-
-
-        when:
-        store.putNodeData(node1)
-        node1 = store.updateNodeData(node1) { NodeData it ->
-
-            it.workers.clear()
-
-        }
-
-        then:
-        node1.workers.size() == 0
-        store.getNodeData(1).workers.size() == 0
-
-        cleanup:
-        shutdown(store)
-
-        where:
-        store << [  new LocalDataStore(), new HazelcastDataStore()  ]
-
-
-    }
-
-
 
 
 

@@ -20,7 +20,6 @@
 
 
 package circo.daemon
-
 import akka.actor.ActorRef
 import akka.actor.Address
 import akka.actor.UntypedActor
@@ -33,6 +32,7 @@ import circo.client.CmdSub
 import circo.data.DataStore
 import circo.messages.PauseWorker
 import circo.messages.ResumeWorker
+import circo.messages.WorkToSpool
 import circo.model.Context
 import circo.model.DataRef
 import circo.model.Job
@@ -50,7 +50,6 @@ import circo.reply.StatReply
 import circo.reply.SubReply
 import circo.util.CircoHelper
 import groovy.util.logging.Slf4j
-
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -170,13 +169,18 @@ class FrontEnd extends UntypedActor {
         def jobs = dataStore.findAllJobs().collect { new ListReply.JobInfo(it) }
         jobs.each {  ListReply.JobInfo it ->
 
+            def allTasks = dataStore.findTasksByRequestId(it.requestId)
             // set the command
             // TODO ++ this must change - the TaskReq have to become JobReq
-            it.command = dataStore.findTasksByRequestId(it.requestId).find()?.req?.script
+            it.command = allTasks.find()?.req?.script
 
             // find all failed tasks
-            if( it.failed ) {
-                it.failedTasks = dataStore.findTasksByRequestId(it.requestId).findAll { TaskEntry entry -> entry.failed }
+            it.pendingTasks = []
+            it.failedTasks = []
+
+            allTasks.each{ TaskEntry entry ->
+                if ( entry.failed ) it.failedTasks << entry
+                if ( !entry.terminated ) it.pendingTasks << entry
             }
 
         }
@@ -245,13 +249,6 @@ class FrontEnd extends UntypedActor {
             list = dataStore.findAllTasks()
         }
 
-        /*
-         * return some stats
-         */
-        else {
-            result.stats = dataStore.findTasksStat()
-        }
-
 
         /*
          * reply back to the sender
@@ -273,6 +270,7 @@ class FrontEnd extends UntypedActor {
          * The main Job item
          */
         final job = new Job(command.ticket)
+        final result = new SubReply(command.ticket)
 
         /*
          * create a new task request for each times required
@@ -289,13 +287,23 @@ class FrontEnd extends UntypedActor {
          * Create a job for each entry in the 'eachList'
          */
         else if ( command.eachItems ) {
-            log.debug "sub each: ${command.eachItems}"
-            def index=0
-            command.context.combinations( command.eachItems ) { List<DataRef> variables ->
-                log.debug "Variables combination: ${variables}"
-                def entry = createTaskEntry(command, index++, variables)
-                listOfTasks << entry
+            def missing = []
+            command.eachItems.each {
+                if( !command.context.contains(it) ) missing << it
             }
+
+            if ( missing ) {
+                result.error << "Unknown context entrie(s): ${missing.join(',')}"
+            }
+            else {
+                def index=0
+                command.context.combinations( command.eachItems ) { List<DataRef> variables ->
+                    log.debug "Variables combination: ${variables}"
+                    def entry = createTaskEntry(command, index++, variables)
+                    listOfTasks << entry
+                }
+            }
+
         }
 
         else {
@@ -307,11 +315,16 @@ class FrontEnd extends UntypedActor {
          * reply to the sender with TaskId assigned to the received JobRequest
          */
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
-            def result = new SubReply(command.ticket)
             result.taskIds = listOfTasks .collect { it.id }
+            result.success = listOfTasks.size()>0
             log.debug "Send confirmation to client: $result"
             getSender().tell( result, getSelf() )
         }
+
+        if( listOfTasks.isEmpty() ) {
+            return
+        }
+
 
         /*
          * When the jobs are save, the data-store will trigger one event for each of them
@@ -321,14 +334,16 @@ class FrontEnd extends UntypedActor {
          * is sent to teh client, which will cause a 'dead-lock'
          */
         job.status = JobStatus.SUBMITTED
-        job.missingTasks.addAll( listOfTasks *. getId() )
         job.input = command.context ? Context.copy(command.context) : new Context()
         job.sender = new WorkerRef(getSender())
         job.numOfTasks = listOfTasks.size()
 
-        dataStore.putJob(job)
+        dataStore.storeJob(job)
 
-        listOfTasks.each { dataStore.saveTask(it) }
+        listOfTasks.each { TaskEntry it ->
+            dataStore.storeTask( it )
+            master.tell( new WorkToSpool(it.id), self() )
+        }
 
     }
 

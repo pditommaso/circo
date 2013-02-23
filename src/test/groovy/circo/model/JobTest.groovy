@@ -33,7 +33,6 @@ class JobTest extends Specification{
         when:
         def collector1 = new Job(UUID.randomUUID())
         collector1.status = JobStatus.SUBMITTED
-        collector1.missingTasks = [new TaskId(1), new TaskId(4), new TaskId(10)]
         collector1.input = new Context().put('y','a')
         collector1.output = new Context()
         collector1.completionTime = System.currentTimeMillis()
@@ -43,16 +42,13 @@ class JobTest extends Specification{
         def copy2 = Job.copy(collector1)
 
         def copy3 = Job.copy(collector1)
-        copy3.missingTasks.add( new TaskId(11) )
+        copy3.output.put('x','1')
 
-        def copy4 =  Job.copy(collector1)
-        copy4.output.put('x','1')
 
         then:
         collector1 == copy1
         collector1 == copy2
         collector1 != copy3
-        collector1 != copy4
 
 
     }

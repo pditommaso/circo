@@ -27,7 +27,7 @@
 
 apply plugin: 'groovy'
 //name = 'circo'
-version = '0.3.0'
+version = '0.3.1'
 status = 'alpha'
 
 repositories {

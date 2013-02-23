@@ -18,11 +18,11 @@
  */
 
 package circo.daemon
-import akka.actor.AddressFromURIString
+import circo.data.LocalDataStore
+import circo.model.Context
 import circo.model.FileRef
 import circo.model.TaskEntry
 import circo.model.TaskId
-import circo.model.Context
 import circo.model.TaskReq
 import circo.model.TaskResult
 import spock.lang.Specification
@@ -51,23 +51,12 @@ class TaskExecutorTest extends Specification {
     }
 
 
-    def "test createWorkDir" () {
-
-        when:
-        def path = TaskExecutor.createScratchDir(123554)
-        println path
-
-        then:
-        path.exists()
-        path.isDirectory()
-
-        cleanup:
-        path.delete()
-    }
-
     def 'test stage' () {
 
         setup:
+        FileRef.currentNodeId = 1
+        FileRef.dataStore = new LocalDataStore()
+
         def req = new TaskReq()
         req.script = '''
         cp $file1 file2
@@ -76,7 +65,7 @@ class TaskExecutorTest extends Specification {
         '''
         .stripIndent().trim()
         req.produce = ['file2']
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
 
         when:
         def script = TaskExecutor.stage(req)
@@ -94,6 +83,9 @@ class TaskExecutorTest extends Specification {
     def 'test gather' () {
 
         setup:
+        FileRef.currentNodeId = 1
+        FileRef.dataStore = new LocalDataStore()
+
         def script = """
         cp file1 file2
         run file1_txt
@@ -102,7 +94,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
         def filesToProduce = ['file2.txt','file3.txt']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -110,24 +102,21 @@ class TaskExecutorTest extends Specification {
         files.each { it.createNewFile() }
 
         def result = new TaskResult()
-        def addr = AddressFromURIString.parse('akka://sys@1.1.1.1:2555')
 
         when:
         req.produce = filesToProduce
-        def ctx = TaskExecutor.gather( req, result, workDir, addr).context
+        def ctx = TaskExecutor.gather( req, result, workDir, 1 ).context
 
         then:
         !ctx.contains('file1.txt')
         ctx.contains('file2.txt')
         ctx.contains('file3.txt')
 
-        (ctx.getRef('file2.txt')[0] as FileRef).name == 'file2.txt'
-        (ctx.getRef('file2.txt')[0] as FileRef).address == addr
-        (ctx.getRef('file2.txt')[0] as FileRef).data == files[0]
+        (ctx.getData('file2.txt') as File) == files[0]
+        (ctx.getData('file2.txt') as File).name == 'file2.txt'
 
-        (ctx.getRef('file3.txt')[0] as FileRef).name == 'file3.txt'
-        (ctx.getRef('file3.txt')[0] as FileRef).address == addr
-        (ctx.getRef('file3.txt')[0] as FileRef).data == files[1]
+        (ctx.getData('file3.txt') as File) == files[1]
+        (ctx.getData('file3.txt') as File).name == 'file3.txt'
 
         cleanup:
         files.each { it.delete() }
@@ -137,6 +126,9 @@ class TaskExecutorTest extends Specification {
     def 'test gather with pattern' () {
 
         setup:
+        FileRef.currentNodeId = 1
+        FileRef.dataStore = new LocalDataStore()
+
         def script = """
         cp file1 file2
         run file1_txt
@@ -145,7 +137,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
         def filesToProduce = ['file1.txt', 'file2.txt','file3.txt', 'fasta.fa']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -153,11 +145,10 @@ class TaskExecutorTest extends Specification {
         files.each { it.createNewFile() }
 
         def result = new TaskResult()
-        def addr = AddressFromURIString.parse('akka://sys@1.1.1.1:2555')
 
         when:
         req.produce = ['file*','fasta.fa']
-        def ctx = TaskExecutor.gather( req, result, workDir, addr).context
+        def ctx = TaskExecutor.gather( req, result, workDir, 1 ).context
 
         then:
         ctx.contains('file1.txt')
@@ -166,13 +157,11 @@ class TaskExecutorTest extends Specification {
         ctx.contains('fasta.fa')
         !ctx.contains('file5.txt')
 
-        (ctx.getRef('file1.txt')[0] as FileRef).name == 'file1.txt'
-        (ctx.getRef('file1.txt')[0] as FileRef).address == addr
-        (ctx.getRef('file1.txt')[0] as FileRef).data == files[0]
+        (ctx.getData('file1.txt') as File) == files[0]
+        (ctx.getData('file1.txt') as File).name == 'file1.txt'
 
-        (ctx.getRef('file2.txt')[0] as FileRef).name == 'file2.txt'
-        (ctx.getRef('file2.txt')[0] as FileRef).address == addr
-        (ctx.getRef('file2.txt')[0] as FileRef).data == files[1]
+        (ctx.getData('file2.txt') as File) == files[1]
+        (ctx.getData('file2.txt') as File).name == 'file2.txt'
 
         cleanup:
         files.each { it.delete() }
@@ -183,6 +172,9 @@ class TaskExecutorTest extends Specification {
     def 'test gather with variable aggregation' () {
 
         setup:
+        FileRef.currentNodeId = 1
+        FileRef.dataStore = new LocalDataStore()
+
         def script = """
         cp file1 file2
         run file1_txt
@@ -191,7 +183,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
         def filesToProduce = ['file1.txt', 'file2.txt','file3.txt', 'aln.fa']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -199,19 +191,18 @@ class TaskExecutorTest extends Specification {
         files.each { it.createNewFile() }
 
         def result = new TaskResult()
-        def addr = AddressFromURIString.parse('akka://sys@1.1.1.1:2555')
 
         when:
         req.produce = ['step_result=file*','fasta_result=aln.fa']
-        def ctx = TaskExecutor.gather( req, result, workDir, addr).context
+        def ctx = TaskExecutor.gather( req, result, workDir, 1 ).context
 
         then:
         ctx.contains('step_result')
         ctx.contains('fasta_result')
         !ctx.contains('file3.txt')
 
-        ctx.getRef('step_result').size() == 3
-        ctx.getRef('fasta_result').size() == 1
+        (ctx.getData('step_result') as Collection).collect { File it -> it.name }.toSet() ==  ['file1.txt', 'file2.txt','file3.txt'] as Set
+        (ctx.getData('fasta_result') as File) .name == 'aln.fa'
 
 
         cleanup:

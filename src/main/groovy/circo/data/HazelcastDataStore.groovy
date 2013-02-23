@@ -18,8 +18,7 @@
  */
 
 package circo.data
-import java.util.concurrent.locks.Lock
-
+import circo.model.AddressRef
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
@@ -30,7 +29,6 @@ import com.hazelcast.config.MapConfig
 import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.config.MapStoreConfig
 import com.hazelcast.core.AtomicNumber
-import com.hazelcast.core.EntryEvent
 import com.hazelcast.core.EntryListener
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
@@ -38,7 +36,6 @@ import com.hazelcast.core.IMap
 import com.hazelcast.query.SqlPredicate
 import com.typesafe.config.Config as TypesafeConfig
 import com.typesafe.config.ConfigException
-import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 /**
  *
@@ -61,7 +58,7 @@ class HazelcastDataStore extends AbstractDataStore {
      * properties provided by the 'application.conf' settings
      *
      */
-    def HazelcastDataStore( TypesafeConfig appConfig, List<String> clusterMembers = null, boolean multiCast = false ) {
+    def HazelcastDataStore( TypesafeConfig appConfig, List<AddressRef> clusterMembers = null, boolean multiCast = false ) {
 
         init(createInstance(appConfig, clusterMembers, multiCast))
 
@@ -77,7 +74,7 @@ class HazelcastDataStore extends AbstractDataStore {
      * Parse the configuration settings and create the
      * {@code com.hazelcast.core.HazelcastInstance}  accordingly
      */
-    private HazelcastInstance createInstance(TypesafeConfig appConfig, List<String> clusterMembers, boolean multiCast ) {
+    private HazelcastInstance createInstance(TypesafeConfig appConfig, List<AddressRef> clusterMembers, boolean multiCast ) {
 
         /*
          * general hazelcast configuration
@@ -104,8 +101,8 @@ class HazelcastDataStore extends AbstractDataStore {
 
         if ( clusterMembers ) {
             log.debug "Hazelcast -- adding TCP members: $clusterMembers"
-            clusterMembers.each { String it ->
-                join.getTcpIpConfig().addMember( it )
+            clusterMembers.each { AddressRef it ->
+                join.getTcpIpConfig().addMember( it.toString() )
             }
         }
 
@@ -168,10 +165,13 @@ class HazelcastDataStore extends AbstractDataStore {
 
         this.hazelcast = instance
         this.tasks = hazelcast.getMap('tasks')
-        this.nodeData = hazelcast.getMap('nodeInfo')
+        this.nodes = hazelcast.getMap('nodeInfo')
         this.idGen = hazelcast.getAtomicNumber('idGenerator')
         this.nodeIdGen = hazelcast.getAtomicNumber('nodeIdGen')
         this.jobs = hazelcast.getMap('jobs')
+        this.queue = hazelcast.getMap('queue')
+        this.files = hazelcast.getMap('files')
+
     }
 
     TaskId nextTaskId() { new TaskId( idGen.addAndGet(1) ) }
@@ -179,12 +179,7 @@ class HazelcastDataStore extends AbstractDataStore {
     int nextNodeId() { nodeIdGen.addAndGet(1) }
 
 
-    @Override
-    protected Lock getLock(def key) {
-        hazelcast.getLock(key)
-    }
-
-    List<TaskEntry> findTasksById( final String taskId) {
+    List<TaskEntry> findTasksById( final String taskId ) {
         assert taskId
 
         boolean likeOp = false
@@ -209,7 +204,7 @@ class HazelcastDataStore extends AbstractDataStore {
     }
 
     @Override
-    List<TaskEntry> findAllTasksOwnerBy(Integer nodeId) {
+    List<TaskEntry> findTasksOwnedBy(Integer nodeId) {
         assert nodeId
 
         def criteria = "ownerId = $nodeId"
@@ -226,36 +221,5 @@ class HazelcastDataStore extends AbstractDataStore {
         new ArrayList<TaskEntry>(result as Collection<TaskEntry>)
 
     }
-
-
-    void addNewTaskListener(Closure callback) {
-        assert callback
-
-        def entry = new EntryListener() {
-            @Override
-            void entryAdded(EntryEvent event) { callback.call(event.getValue()) }
-
-            @Override
-            void entryRemoved(EntryEvent event) { }
-
-            @Override
-            void entryUpdated(EntryEvent event) { }
-
-            @Override
-            void entryEvicted(EntryEvent event) { }
-        }
-
-        listenersMap.put(callback, entry)
-        (tasks as IMap) .addLocalEntryListener(entry)
-
-    }
-
-
-    void removeNewTaskListener( Closure listener ) {
-        def entry = listenersMap.get(listener)
-        if ( !entry ) { log.warn "No listener registered for: $listener"; return }
-        (tasks as IMap).removeEntryListener(entry)
-    }
-
 
 }

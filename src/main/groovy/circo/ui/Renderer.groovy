@@ -60,7 +60,7 @@ class ClusterRenderer extends DataHolder {
         """
         Cluster status
         --------------
-        Nodes: ${numOfNodes} - Jobs: ${allJobs} - Processed: ${processedJobs} - Failed: ${failedJobs}
+        Nodes: ${numOfNodes} - Processed: ${processedJobs} - Failed: ${failedJobs}
 
         """
         .stripIndent()
@@ -140,7 +140,6 @@ class ScreenRenderer extends DataHolder {
         def allNodes = store.findAllNodesData()
         def thisNode = allNodes.find { NodeData node -> node.id == nodeId }
         this.cluster = new ClusterRenderer(allNodes)
-        this.cluster.allJobs = TextLabel.of(store.countTasks()).number()
         this.node = new NodeRender( thisNode )
 
         this.workers = thisNode.workers.values().collect { WorkerData item ->

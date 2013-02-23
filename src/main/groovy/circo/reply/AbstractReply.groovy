@@ -83,9 +83,9 @@ abstract class AbstractReply implements Serializable {
     def void printMessages( Level level = null ) {
 
         if ( hasMessages() ) {
-            if ( !level || level == Level.INFO ) info.each { log.info it }
-            if ( !level || level == Level.WARN )  warn.each { log.warn "${it}" }
-            if ( !level || level == Level.ERROR )  error.each { log.error "${it}" }
+            if ( !level || level == Level.INFO ) info.each { AbstractReply.log.info it?.toString() }
+            if ( !level || level == Level.WARN )  warn.each { AbstractReply.log.warn it?.toString() }
+            if ( !level || level == Level.ERROR )  error.each { AbstractReply.log.error it?.toString() }
         }
 
     }

@@ -90,9 +90,9 @@ class CmdSubTest extends Specification {
         then:
         ctx != cmd.context
         cmd.eachItems == ['a','b','c']
-        cmd.context.getValues('Z') == ['999']
-        cmd.context.getValues('b') == ['1']
-        cmd.context.getValues('c') == ['x','y','z']
+        cmd.context.getData('Z') == '999'
+        cmd.context.getData('b') == '1'
+        cmd.context.getData('c') == ['x','y','z']
 
     }
 
@@ -115,9 +115,9 @@ class CmdSubTest extends Specification {
         then:
         ctx != cmd.context
         cmd.eachItems == ['a','b','c']
-        cmd.context.getValues('Z') == ['999']
-        cmd.context.getValues('b') == ['1']
-        cmd.context.getValues('c') == ['x','y','z']
+        cmd.context.getData('Z') == '999'
+        cmd.context.getData('b') == '1'
+        cmd.context.getData('c') == ['x','y','z']
 
     }
 

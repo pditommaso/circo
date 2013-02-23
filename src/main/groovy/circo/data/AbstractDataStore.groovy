@@ -18,9 +18,11 @@
  */
 
 package circo.data
+
+import java.nio.ByteBuffer
+import java.nio.channels.FileChannel
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeoutException
-import java.util.concurrent.locks.Lock
 
 import akka.actor.Address
 import circo.model.Job
@@ -29,10 +31,7 @@ import circo.model.NodeStatus
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
-import circo.reply.StatReplyData
 import groovy.util.logging.Slf4j
-import org.apache.commons.lang.SerializationUtils
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -45,95 +44,98 @@ abstract class AbstractDataStore implements DataStore {
 
     protected ConcurrentMap<TaskId, TaskEntry> tasks
 
-    protected ConcurrentMap<Integer, NodeData> nodeData
+    protected ConcurrentMap<Integer, NodeData> nodes
 
-    protected abstract Lock getLock( def key )
+    protected ConcurrentMap<TaskId, Boolean> queue
 
-    final protected void withLock(TaskId taskId, Closure closure) {
-        def lock = getLock(taskId)
-        lock.lock()
-        try {
-            closure.delegate = this
-            closure.call()
-        }
-        finally {
-            lock.unlock()
-        }
+    protected ConcurrentMap<String, byte[]> files
+
+    // ------------- tasks queue --------------------------------
+
+    TaskId takeFromQueue() {
+
+        DataStoreHelper.takeFromQueue( queue )
+
     }
+
+    void appendToQueue( TaskId taskId )  {
+        queue.put( taskId, Boolean.TRUE )
+    }
+
+    boolean isEmptyQueue() {
+        queue.isEmpty()
+    }
+
+    // -------------- JOB operations ----------------------------
 
     Job getJob( UUID id ) {
         jobs.get(id)
     }
 
-    boolean putJob( Job job ) {
+    void storeJob( Job job ) {
         assert job
         assert job.requestId
 
-        jobs.put(job.requestId, job) != null
+        jobs.put(job.requestId, job)
     }
 
     Job updateJob( UUID requestId, Closure updateMethod ) {
         assert requestId
-        update(requestId, jobs, updateMethod)
+        DataStoreHelper.update(requestId, jobs, updateMethod)
     }
 
+    boolean replaceJob( Job oldValue, Job newValue ) {
+        assert oldValue
+        assert newValue
+        assert oldValue.requestId == newValue.requestId
+
+        jobs.replace(oldValue.requestId, oldValue, newValue)
+    }
 
     List<Job> findAllJobs() {
         new ArrayList<Job>(jobs.values())
     }
 
-    boolean saveTask( TaskEntry task ) {
+    void storeTask( TaskEntry task ) {
         assert task
-        def old = tasks.put( task.id, task )
-        log.trace "## save ${task.dump()} -- was ${old?.dump()}"
-
-        return old == null
+        tasks.put( task.id, task )
     }
 
-    @Override
     TaskEntry getTask( TaskId taskId) {
         assert taskId
         tasks.get(taskId)
     }
 
-    boolean updateTask( TaskId taskId, Closure closure ) {
-        def entry = getTask(taskId)
-        closure.call(entry)
-        saveTask( entry )
+
+    List<TaskEntry> findTasksByStatus( TaskStatus... status ) {
+        assert status
+
+        tasks.values().findAll { TaskEntry task -> task.status in status  }
     }
 
-    long countTasks() { tasks.size() }
 
 
-    StatReplyData findTasksStat() {
-        def result = new StatReplyData()
+    List<TaskEntry> findTasksById( final String taskId ) {
+        assert taskId
 
-        result.pending = findTasksByStatus( TaskStatus.PENDING ).size()
-        result.running = findTasksByStatus( TaskStatus.RUNNING ).size()
+        DataStoreHelper.findTasksById( tasks.values(), taskId )
+    }
 
-        def terminated = findTasksByStatus( TaskStatus.TERMINATED )
-        result.successful = terminated.count { TaskEntry it -> it.success }.toInteger()
-        result.failed = terminated.count { TaskEntry it -> it.failed }.toInteger()
+    @Override
+    List<TaskEntry> findTasksOwnedBy(Integer nodeId) {
+        assert nodeId
 
-        return result
+        return tasks.values().findAll() { TaskEntry it -> it.ownerId == nodeId }
     }
 
 
     List<TaskEntry> findTasksByStatusString( String status ) {
-        if( status?.toLowerCase() in ['s','success'] ) {
-            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
-        }
 
-        if ( status?.toLowerCase() in ['e','error','f','failed'] ) {
-            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
-        }
+        DataStoreHelper.findTasksByStatusString(this, status)
 
-        findTasksByStatus(TaskStatus.fromString(status))
     }
 
     /**
-     * TODO +++ refactor using query api
-     *
      * @param requestId
      * @return
      */
@@ -152,15 +154,14 @@ abstract class AbstractDataStore implements DataStore {
     }
 
     NodeData getNodeData( int nodeId ) {
-        nodeData.get(nodeId)
+        nodes.get(nodeId)
     }
 
-    @Override
     List<NodeData> findNodeDataByAddress( Address address ) {
         assert address
 
         List<NodeData> result = []
-        nodeData.values().each { NodeData node ->
+        nodes.values().each { NodeData node ->
             if ( node.address == address ) {
                 result << node
             }
@@ -169,11 +170,10 @@ abstract class AbstractDataStore implements DataStore {
         return result
     }
 
-    @Override
     List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status ) {
 
         List<NodeData> result = []
-        nodeData.values().each { NodeData node ->
+        nodes.values().each { NodeData node ->
             if ( node.address == address && (!status || node.status == status)  ) {
                 result << node
             }
@@ -182,10 +182,9 @@ abstract class AbstractDataStore implements DataStore {
         return result
     }
 
-    @Override
-    NodeData putNodeData( NodeData nodeData) {
+    void storeNodeData( NodeData nodeData) {
         assert nodeData
-        this.nodeData.put(nodeData.id, nodeData)
+        this.nodes.put(nodeData.id, nodeData)
     }
 
     boolean replaceNodeData( NodeData oldValue, NodeData newValue ) {
@@ -193,7 +192,7 @@ abstract class AbstractDataStore implements DataStore {
         assert newValue
         assert oldValue.id == newValue.id
 
-        nodeData.replace(oldValue.id, oldValue, newValue)
+        nodes.replace(oldValue.id, oldValue, newValue)
     }
 
     NodeData updateNodeData( NodeData node, Closure closure ) {
@@ -233,61 +232,48 @@ abstract class AbstractDataStore implements DataStore {
 
     def boolean removeNodeData( NodeData dataToRemove ) {
         assert dataToRemove
-        nodeData.remove(dataToRemove.address, dataToRemove)
+        nodes.remove(dataToRemove.id, dataToRemove)
     }
 
 
     def List<NodeData> findAllNodesData() {
-        new ArrayList<NodeData>(nodeData.values())
+        new ArrayList<NodeData>(nodes.values())
+    }
+
+
+    // -------------------------------------- FILE operations ------------------------------------------------------
+    /**
+     * Store a file content in the cluster cache
+     *
+     * @param fileName A fully qualified file name that must be unique across all cluster node
+     * @param fileContent The binary content to be stored
+     */
+    void putFile( String fileName, FileChannel source ) {
+        assert fileName
+        assert source
+
+        // TODO ++ look the maximum size of a ByteBuffer is 2G, this is supposed be used only for testing purposes
+        def buffer = ByteBuffer.allocate( source.size() as int )
+        source.read( buffer )
+        files.put( fileName, buffer.array() )
     }
 
     /**
-     * Implements a generic 'optmistic' concurrent update for the object with the ID specified
-     * <p>
-     *     Given the object ID, this method load the associated object in the map specified, after this
-     *     the closure is invoked passing the loaded object as parameter.
-     *     <p>
-     *     The closure may update the object fields and when if exit, the method replace the old
-     *     object with the new one using the {@code ConcurrentMap#replace(K,V,V)} method
-     *     <p>
-     *     The replace is retried until it is able to be fulfilled
+     * Get the binary content of a file stored in the cluster cache
      *
-     * @param id The object ID in the map
-     * @param map The map container
-     * @param closure The update action
-     * @return The updated object stored in the map
+     * @param fileName The fully qualified file name
+     * @param target The target file that where the content the file data is going to be stored
+     * @return An {@code InputStream} to access the file content ot {@code null} if the file does not exist in the cache
      */
-    protected <T extends Serializable> T update( def id, ConcurrentMap<?,T> map, Closure<T> closure ) {
+    FileChannel getFile( String fileName, FileChannel target ) {
+        assert fileName
+        assert target
 
-        int count=0
-        def begin = System.currentTimeMillis()
-        def done = false
-        T newValue
-        while( !done ) {
-            // make a copy of the data structure and invoke the closure in it
-            T value = map.get(id)
-            newValue = SerializationUtils.clone(value) as T
-            closure.call(newValue)
+        def buffer = files.get(fileName)
+        if ( !buffer ) return null
 
-            // try to replace it in the map
-            if( value == newValue ) {
-                return value
-            }
-
-            done = map.replace(id, value, newValue)
-            if( !done ) {
-                if ( System.currentTimeMillis()-begin > 10_000 ) {
-                    throw new TimeoutException("** Update failed (${++count}), unable to replace: ${value.dump()} -- with: ${newValue.dump()} ")
-                }
-                else {
-                    log.debug "Update failed (${++count}), can't replace: ${value} -- with: ${newValue}"
-                    sleep 50
-                }
-            }
-
-        }
-
-        return newValue
+        target.write( ByteBuffer.wrap(buffer) )
+        return target
     }
 
 }

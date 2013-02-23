@@ -48,11 +48,11 @@ import circo.messages.WorkToSpool
 import circo.messages.WorkerCreated
 import circo.messages.WorkerFailure
 import circo.messages.WorkerRequestsWork
+import circo.model.Context
 import circo.model.Job
 import circo.model.JobStatus
 import circo.model.NodeData
 import circo.model.NodeStatus
-import circo.model.Context
 import circo.model.TaskEntry
 import circo.model.TaskStatus
 import circo.model.WorkerData
@@ -149,26 +149,6 @@ class NodeMaster extends UntypedActor  {
 
 
     /**
-     * When a new entry is added to the jobs storage map, the listener is invoked which will add
-     * the job id to the jobs local queue
-     */
-    private onNewTaskAddedListener = { TaskEntry task ->
-        log.debug "Add new task event received for: $task"
-        if( task.status != TaskStatus.NEW ) {
-            log.debug "Skipping add for job: '${task}' since it is not NEW"
-            return
-        }
-
-        task.ownerId = nodeId
-        store.saveTask(task)
-
-        // add this job to the queue
-        def message = WorkToSpool.of(task.id)
-        log.debug "-> $message"
-        getSelf().tell(message, getSelf())
-    }
-
-    /**
      * Creates this master actor
      *
      * @param store The connection to the {@code DataStore}
@@ -207,7 +187,7 @@ class NodeMaster extends UntypedActor  {
             node.address = cluster.selfAddress()
             node.status = NodeStatus.ALIVE
             node.startTimestamp = System.currentTimeMillis()
-            store.putNodeData(node)
+            store.storeNodeData(node)
         }
         else {
             log.debug "** Re-using node data: ${node.dump()}"
@@ -221,9 +201,6 @@ class NodeMaster extends UntypedActor  {
 
         // -- add itself to members map
         allMasters.put(selfAddress, getSelf())
-
-        // --- add the event listener
-        store.addNewTaskListener( onNewTaskAddedListener )
 
         FiniteDuration duration = new FiniteDuration( 1, TimeUnit.SECONDS )
         getContext().system().scheduler().schedule(duration, duration, getSelf(), WorkersNotifier.instance, getContext().dispatcher())
@@ -240,10 +217,7 @@ class NodeMaster extends UntypedActor  {
         setMDCVariables()
 
         log.debug "~~ Stopping actor ${getSelf().path()}"
-        store.putNodeData(node)
-
-        // --- remove the event listener
-        store.removeNewTaskListener( onNewTaskAddedListener )
+        store.storeNodeData(node)
 
         if ( shuttingDown ) {
             log.debug "Shutting down Hazelcast"
@@ -297,7 +271,7 @@ class NodeMaster extends UntypedActor  {
         else if ( tasksDispatcher.containsKey(type) ) {
             log.debug "<- $message"
             tasksDispatcher[type].call(message)
-            store.putNodeData(node)
+            store.storeNodeData(node)
         }
 
         else {
@@ -340,8 +314,8 @@ class NodeMaster extends UntypedActor  {
         final taskId = message.taskId
 
         // -- verify than an entry exists in the db
-        final entry = store.getTask(taskId)
-        if( !entry ) {
+        final task = store.getTask(taskId)
+        if( !task ) {
             // TODO improve this error condition handling
             log.warn "Cannot find any task entry with id: '${taskId}' -- message discarded"
             return
@@ -350,7 +324,7 @@ class NodeMaster extends UntypedActor  {
         // --
         // when the task has already been executed by this node
         // try to forward it to another node
-        if( entry.worker && node.hasWorkerData(entry.worker) && allMasters.size()>1 ) {
+        if( task.worker && node.hasWorkerData(task.worker) && allMasters.size()>1 ) {
             def target = someoneElse()
             log.debug "=> fwd: ${message} TO someoneElse: ${someoneElse()}"
             target.forward(message,getContext())
@@ -361,9 +335,9 @@ class NodeMaster extends UntypedActor  {
             node.queue.add(taskId)
 
             // update the job status
-            entry.status = TaskStatus.PENDING
-            entry.ownerId = nodeId
-            store.saveTask(entry)
+            task.status = TaskStatus.PENDING
+            task.ownerId = nodeId
+            store.storeTask(task)
 
         }
     }
@@ -519,33 +493,36 @@ class NodeMaster extends UntypedActor  {
         /*
          * update job action
          */
-        def updateJobAction = { Job job ->
-
-            // -- check if this job is terminated
-            if( !job.missingTasks.remove(task.id) ) {
-                log.warn "Missing task id: ${task.id} in the list of tasks for job: ${job.dump()}"
-                return
-            }
+        try {
+            final job = store.getJob( task.req.ticket )
 
             // -- the status can be changed only from:
             // 'submitted' -> 'success'
             // 'submitted' -> 'failed'
-
             if( !job.submitted ) {
                 return
             }
 
             // -- if the task is failed, mark the job as failed
+            Job updatedJob = Job.copy(job)
+
             if( !task.isSuccess()  ) {
-                job.status = JobStatus.FAILED
+                updatedJob.status = JobStatus.FAILED
                 // TODO stop all pending tasks execution ?
             }
             // -- try to finalize
-            else if( job.missingTasks.isEmpty() ) {
+            else {
+
+                final allTasks = store.findTasksByRequestId( job.requestId )
+                final numOfTerm = allTasks?.count { TaskEntry it -> it.terminated }
+                if ( numOfTerm < job.numOfTasks ) {
+                    log.trace "Completed tasks: ${numOfTerm} of ${job.numOfTasks}"
+                    return
+                }
+
                 /*
                  * Collect of result context for each tasks
                  */
-                def allTasks = store.findTasksByRequestId( job.requestId )
                 def allResultContext = allTasks.collect { TaskEntry it -> it.result?.context }
 
                 def newContext = job.input ? Context.copy(job.input) : new Context()
@@ -557,26 +534,32 @@ class NodeMaster extends UntypedActor  {
                  * - create the new job output context
                  * - set to success
                  */
-                job.output = newContext
-                job.status = JobStatus.SUCCESS
+                updatedJob.output = newContext
+                updatedJob.status = JobStatus.SUCCESS
             }
-        }
 
+            def result = store.replaceJob( job, updatedJob )
+            if( !result ) {
+                log.debug "Cannot update job ${job.dump()} -- with value: ${updatedJob.dump()}"
+                return
+            }
+            log.debug "Job result: ${result.dump()}"
 
-        try {
-            def result = store.updateJob( task.req.ticket, updateJobAction )
-            if ( !result.sender ) { return }
+            if ( !updatedJob.sender ) {
+                // nobody to notify
+                return
+            }
 
-            if ( result.success ) {
+            if ( updatedJob.success ) {
                 // -- notify success
-                def reply = new JobReply( result.requestId )
+                def reply = new JobReply( updatedJob.requestId )
                 reply.success = true
-                reply.context = result.output
-                result.sender.tell( reply )
+                reply.context = updatedJob.output
+                updatedJob.sender.tell( reply )
             }
-            else if ( result.failed ) {
+            else if ( updatedJob.failed ) {
                 // notify failure
-                result.sender.tell( new JobReply( result.requestId ) )
+                updatedJob.sender.tell( new JobReply( updatedJob.requestId ) )
                 // TODO send task error message to the client ?
             }
 
@@ -817,7 +800,7 @@ class NodeMaster extends UntypedActor  {
     protected void recoverDeadTasks(Integer nodeId) {
         assert nodeId
 
-        List<TaskEntry> tasksToRecover = store.findAllTasksOwnerBy(nodeId)
+        List<TaskEntry> tasksToRecover = store.findTasksOwnedBy(nodeId)
         log.debug "Tasks to recover: ${tasksToRecover.size() ?: 'none'}"
 
         tasksToRecover.each { TaskEntry entry -> manageWorkDone( entry ) }

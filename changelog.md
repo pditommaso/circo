@@ -1,5 +1,13 @@
 CIRCO change-log
 ================
+0.3.1 - Mon, 25 Feb 2013
+- Validating context variable on submit command
+- Job termination synchronization uses finder instead of list of missing items
+- Tasks are any more dispatched by data-store add event
+- Added files support to data store api
+- Simplified context api
+- Enhanced scratch folder creation
+
 0.3.0 - Thu, 8 Feb 2013
 - Big packages and naming refactoring (JobXxx -> TaskXxx)
 - Improved tasks recovering on node crash

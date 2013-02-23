@@ -85,7 +85,15 @@ class ClientApp {
                  */
                 if( replyClass == SubReply ) {
                     def reply = message as SubReply
-                    log.info "Your job ${reply.ticket} has been submitted"
+                    if( reply.success ) {
+                        log.info "Your job ${reply.ticket} has been submitted"
+                    }
+                    else {
+                        log.info "Job submission failed"
+
+                        sink.cancel()
+                        return
+                    }
 
                 }
                 else if ( replyClass == JobReply ) {
@@ -119,6 +127,7 @@ class ClientApp {
         def void handleJobReply( JobReply reply, ReplySink sink ) {
 
             if( reply.success ) {
+                log.debug "Got a Job success reply: ${reply}"
                 app.context = reply.context
             }
 

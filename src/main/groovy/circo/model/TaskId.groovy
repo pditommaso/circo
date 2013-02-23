@@ -37,12 +37,12 @@ class TaskId implements java.io.Serializable, Comparable<TaskId> {
     def int value
 
     def TaskId( def value ) {
-        assert value
+        assert value != null
         this.value = value instanceof Number ? value.intValue() : Integer.parseInt(value.toString(), 16)
     }
 
     def TaskId( TaskId that ) {
-        assert that
+        assert that != null
         new TaskId( that.value )
     }
 

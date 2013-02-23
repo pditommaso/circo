@@ -1,7 +1,8 @@
+import java.lang.reflect.ParameterizedType
 /*
  * Copyright (c) 2012, the authors.
  *
- *    This file is part of Circo.
+ *    This file is part of 'Circo'.
  *
  *    Circo is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
@@ -17,29 +18,45 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
+interface GenType<T> {
 
-import circo.model.TaskId
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
-/**
- *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
- */
-@SerializeId
-@InheritConstructors
-class SubReply extends AbstractReply {
-
-    /**
-     * The list of identifiers of the job created fulfilling the submitted request
-     */
-    List<TaskId> taskIds
-
-    boolean success
-
-    String toString() {
-        "${SubReply.class.simpleName}(ticket:$ticket, taskIds:$taskIds)"
-    }
-
+    MyTypeToken<T> getType()
 
 }
+
+abstract class MyTypeToken<T> implements Serializable {
+
+    Class<T> type
+
+    protected MyTypeToken() {
+        type = (Class<T>)((ParameterizedType)getClass().getGenericSuperclass()).getActualTypeArguments()[0];
+    }
+
+}
+
+
+def mytype = new MyTypeToken<String>() {}.type
+
+assert mytype == String
+
+
+class SimpleString extends MyTypeToken<String> {
+
+}
+
+
+class MyList<T> {
+
+    def token = new MyTypeToken<T>() {}
+
+}
+
+def list = new MyList<String>()
+
+
+println list.token
+
+
+
+
+

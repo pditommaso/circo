@@ -31,14 +31,25 @@ import circo.client.CustomStringRange
 import groovy.util.logging.Slf4j
 
 /**
+ * General utility methods
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
 class CircoHelper {
 
+    static private Random rndGen = new Random()
+
+    static final List<Character> ALPHA = ('a'..'z')
+
+    static final List<Character> NUMERIC = ('0'..'9')
+
+    static final List<Character> ALPHANUM = ('a'..'z')+('0'..'9')
+
     static DATETIME_FORMAT = "dd/MMM/yyyy HH:mm"
+
     static SHORT_DATETIME_FORMAT = "HH:mm dd/MMM"
+
     static TIME_FORMAT = "HH:mm:ss"
 
     static final EMPTY = '-'
@@ -133,7 +144,7 @@ class CircoHelper {
      * @param protocol The akka protocol to be used if it is not specified by the string value. Default {@code Consts#DEFAULT_AKKA_PROTOCOL}
      * @return
      */
-    def static Address parseAddress(String str, int port = Const.DEFAULT_AKKA_PORT, String system = Const.DEFAULT_AKKA_SYSTEM, String protocol = Const.DEFAULT_AKKA_PROTOCOL) {
+    def static Address parseAddress(String str, int port = Const.DEFAULT_AKKA_PORT, String system = Const.DEFAULT_CLUSTER_NAME, String protocol = Const.DEFAULT_AKKA_PROTOCOL) {
         assert str
 
         int p = str.indexOf('@')
@@ -198,7 +209,12 @@ class CircoHelper {
 
     }
 
-
+    /**
+     * The application 'version' string
+     *
+     * @param full
+     * @return
+     */
     static def String version(boolean full=false) {
 
         if ( !full ) {
@@ -222,4 +238,58 @@ class CircoHelper {
         return p != -1 ? str.substring(p+5) : str
     }
 
+    /**
+     * Creates a random string with the number of character specified
+     * e.g. {@code s8hm2nxt3}
+     *
+     * @param len The len of the final random string
+     * @param alphabet The set of characters allowed in the random string
+     * @return The generated random string
+     */
+    static String randomString( int len, List<Character> alphabet = 'a'..'z' ) {
+        assert len
+        assert alphabet
+
+        StringBuilder result = new StringBuilder()
+        def num = alphabet.size()
+
+        len.times { index ->  result.append( alphabet.get( rndGen.nextInt(num) ) ) }
+
+        return result.toString()
+    }
+
+    /**
+     * The process scratch folder
+     * @param seed
+     * @return
+     */
+    static File createScratchDir( final File baseDir = Const.APP_TMP_DIR ) {
+
+        long timestamp = System.currentTimeMillis()
+        while( true ) {
+
+            String rnd1 = randomString(2, NUMERIC)
+            String rnd2 = randomString(2, ALPHA)
+            String rnd3 = randomString(4, ALPHANUM)
+            String rnd4 = randomString(4, ALPHANUM)
+
+            File tempDir = new File(baseDir, "$rnd1/$rnd2/$rnd3-$rnd4");
+            log.trace "Random folder: " + tempDir
+
+            if (tempDir.mkdirs()) {
+                return tempDir;
+            }
+            else if ( !tempDir.exists() ) {
+                // when 'mkdirs' failed because it was unable to create the folder
+                // (since it does not exist) throw an exception
+                throw new IllegalStateException("Cannot create scratch folder: '${tempDir}' -- verify access permissions" )
+            }
+
+            if( System.currentTimeMillis() - timestamp > 1_000 ) {
+                throw new IllegalStateException("Unable to create scratch folder: '${tempDir}' after multiple attempts -- verify access permissions" )
+            }
+
+            Thread.sleep(50)
+        }
+    }
 }

@@ -17,23 +17,22 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
+package circo.data
 
-import circo.util.SerializeId
+import com.hazelcast.core.Hazelcast
+
 /**
- * Model the jobs statistics information i.e. how many jobs are for each {@code TaskStatus}
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@SerializeId
-class StatReplyData implements Serializable {
+class HazelcastDataStoreTest extends DataStoreTest {
 
-    int pending
-    int running
-    int successful
-    int failed
-
-    StatReplyData( ) {
-
+    def void setup() {
+        store = new HazelcastDataStore()
     }
+
+    def void cleanup() {
+        Hazelcast.shutdownAll()
+    }
+
 }

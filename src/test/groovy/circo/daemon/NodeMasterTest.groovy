@@ -66,7 +66,7 @@ class NodeMasterTest extends ActorSpecification {
             selfAddress = address ? addr(address) : TestHelper.randomAddress()
             this.node = new NodeData( id: nodeId, address: selfAddress );
             this.node.status = NodeStatus.ALIVE
-            this.store.putNodeData(node)
+            this.store.storeNodeData(node)
 
         }
 
@@ -90,7 +90,7 @@ class NodeMasterTest extends ActorSpecification {
         setup:
         final theJobId = TaskId.of('2')
         final entry = new TaskEntry ( theJobId, new TaskReq(script: 'Hello') )
-        dataStore.saveTask(entry)
+        dataStore.storeTask(entry)
 
         final master = newTestActor(system, NodeMasterMock)
         final JavaTestKit probe = new JavaTestKit(system);
@@ -157,7 +157,7 @@ class NodeMasterTest extends ActorSpecification {
         def theJobId = TaskId.of('2')
         def entry = new TaskEntry ( theJobId, new TaskReq(script: 'Hello') )
         entry.worker = workerRef1
-        dataStore.saveTask(entry)
+        dataStore.storeTask(entry)
 
         // setup the workers map --> two are free and the last is busy
         // only the free workers will be notified
@@ -216,8 +216,8 @@ class NodeMasterTest extends ActorSpecification {
     def "test WorkerRequestsWork" () {
 
         setup:
-        dataStore.saveTask(new TaskEntry( TaskId.of('3'), new TaskReq(script:'Hello') ))
-        dataStore.saveTask(new TaskEntry( TaskId.of('4'), new TaskReq(script:'Hello') ))
+        dataStore.storeTask(new TaskEntry( TaskId.of('3'), new TaskReq(script:'Hello') ))
+        dataStore.storeTask(new TaskEntry( TaskId.of('4'), new TaskReq(script:'Hello') ))
 
         final master = newTestActor(system, NodeMasterMock )
         final def probe = new JavaTestKit(system)
@@ -265,16 +265,16 @@ class NodeMasterTest extends ActorSpecification {
         def job1 = new TaskEntry(TaskId.of(1), new TaskReq())
         def job2 = new TaskEntry(TaskId.of(2), new TaskReq())
         def job3 = new TaskEntry(TaskId.of(3), new TaskReq())
-        dataStore.saveTask(job1)
-        dataStore.saveTask(job2)
-        dataStore.saveTask(job3)
+        dataStore.storeTask(job1)
+        dataStore.storeTask(job2)
+        dataStore.storeTask(job3)
 
         // this is a node with some work pending
         final masterWithWork = newTestActor(system, NodeMasterMock)
         masterWithWork.actor.node.queue.add(job1.id)
         masterWithWork.actor.node.queue.add(job2.id)
         masterWithWork.actor.node.queue.add(job3.id)
-        dataStore.putNodeData(masterWithWork.actor.node)
+        dataStore.storeNodeData(masterWithWork.actor.node)
 
         // this Master HAS NO work, but receive a message from a worker
         final master = newTestActor(system, NodeMasterMock)
@@ -302,9 +302,9 @@ class NodeMasterTest extends ActorSpecification {
         def job1 = new TaskEntry(TaskId.of(1), new TaskReq())
         def job2 = new TaskEntry(TaskId.of(2), new TaskReq())
         def job3 = new TaskEntry(TaskId.of(3), new TaskReq())
-        dataStore.saveTask(job1)
-        dataStore.saveTask(job2)
-        dataStore.saveTask(job3)
+        dataStore.storeTask(job1)
+        dataStore.storeTask(job2)
+        dataStore.storeTask(job3)
 
         // this is a node with some work pending
         final master1 = newTestActor(system, NodeMasterMock) { new NodeMasterMock(1, '1.1.1.1') }
@@ -320,7 +320,7 @@ class NodeMasterTest extends ActorSpecification {
         master2.actor.node.queue.add(job1.id)
         master2.actor.node.queue.add(job2.id)
         master2.actor.node.queue.add(job3.id)
-        dataStore.putNodeData(master2.actor.node)
+        dataStore.storeNodeData(master2.actor.node)
 
 
         when:
@@ -441,15 +441,14 @@ class NodeMasterTest extends ActorSpecification {
         task4.setSender(senderProbe.getRef())
         task4.ownerId = master2.actor.nodeId
 
-        dataStore.saveTask(task1)
-        dataStore.saveTask(task2)
-        dataStore.saveTask(task3)
-        dataStore.saveTask(task4)
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
+        dataStore.storeTask(task3)
+        dataStore.storeTask(task4)
 
         def job = new Job( requestId )
-        job.missingTasks << task1.id << task2.id << task3.id << task4.id
         job.status = JobStatus.SUBMITTED
-        dataStore.putJob( job )
+        dataStore.storeJob( job )
 
         master2.actor.node.queue << task4.id
 
@@ -539,7 +538,7 @@ class NodeMasterTest extends ActorSpecification {
         node1.createWorkerData(probe1.getRef())
         node1.queue.add(job1.id)
         node1.queue.add(job2.id)
-        dataStore.putNodeData(node1)
+        dataStore.storeNodeData(node1)
 
         // Node2 has THREE jobs in queue
         final probe2 = newProbe(system)
@@ -549,7 +548,7 @@ class NodeMasterTest extends ActorSpecification {
         node2.queue.add(job3.id)
         node2.queue.add(job4.id)
         node2.queue.add(job5.id)
-        dataStore.putNodeData(node2)
+        dataStore.storeNodeData(node2)
 
         final master = newActor(system, NodeMasterMock)
         master.allMasters.put( addr('1.1.1.1'), probe1.getRef() )

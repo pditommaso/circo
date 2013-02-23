@@ -81,7 +81,7 @@ class CmdList extends AbstractCommand {
             table << it.status?.toString() ?: '-'
             table << it.creationTimeFmt
             table << it.completionTimeFmt
-            table << ( it.numOfTasks - it.missingTasks?.size() )
+            table << ( it.numOfTasks - it.pendingTasks?.size() )
             table << ( it.failedTasks?.size())
             table << ( it.numOfTasks )
 

@@ -18,12 +18,14 @@
  */
 
 package circo.daemon
+import java.util.concurrent.Callable
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
 import akka.actor.ActorRef
-import akka.actor.Address
 import akka.actor.UntypedActor
 import akka.dispatch.Futures
 import akka.pattern.Patterns
-import circo.Const
 import circo.data.DataStore
 import circo.exception.MissingInputFileException
 import circo.exception.MissingOutputFileException
@@ -32,20 +34,17 @@ import circo.messages.ProcessKill
 import circo.messages.ProcessStarted
 import circo.messages.ProcessToRun
 import circo.messages.WorkComplete
-import circo.model.FileRef
 import circo.model.Context
+import circo.model.FileRef
 import circo.model.TaskEntry
 import circo.model.TaskReq
 import circo.model.TaskResult
 import circo.model.TaskStatus
+import circo.util.CircoHelper
 import circo.util.ProcessHelper
 import com.google.common.io.Files
 import groovy.io.FileType
 import groovy.util.logging.Slf4j
-
-import java.util.concurrent.Callable
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -179,34 +178,7 @@ class TaskExecutor extends UntypedActor {
         return result
     }
 
-    static private Random rndGen = new Random()
 
-    /**
-     * The process scratch folder
-     * @param seed
-     * @return
-     */
-    static File createScratchDir( int seed ) {
-
-        final baseDir = Const.APP_TMP_DIR
-
-        long timestamp = System.currentTimeMillis()
-        int id = seed
-        while( true ) {
-
-            File tempDir = new File(baseDir, "circo-${Integer.toHexString(id)}");
-            if (tempDir.mkdir()) {
-                return tempDir;
-            }
-
-            if( System.currentTimeMillis() - timestamp > 1000 ) {
-                throw new IllegalStateException("Unable to create a temporary folder '${tempDir}' -- verify access permissions" )
-            }
-
-            Thread.sleep(50)
-            id = id + rndGen.nextInt(Integer.MAX_VALUE)
-        }
-    }
 
     /**
      * The main job execution method
@@ -229,7 +201,7 @@ class TaskExecutor extends UntypedActor {
          */
         try {
             task.launchTime = System.currentTimeMillis()
-            task.workDir = createScratchDir( task.id.hashCode() )
+            task.workDir = CircoHelper.createScratchDir()
 
             // create the local private dir
             privateDir = createPrivateDir(task)
@@ -238,7 +210,7 @@ class TaskExecutor extends UntypedActor {
             Files.write( scriptToExecute.getBytes(), scriptFile )
         }
         finally {
-            store.saveTask(task)
+            store.storeTask(task)
         }
 
 
@@ -259,7 +231,7 @@ class TaskExecutor extends UntypedActor {
             process = builder.start()
             task.pid = ProcessHelper.getPid(process)
             task.status = TaskStatus.RUNNING
-            store.saveTask(task)
+            store.storeTask(task)
 
             def message = new ProcessStarted(task)
             log.debug "-> ${message}"
@@ -298,7 +270,7 @@ class TaskExecutor extends UntypedActor {
             result = new TaskResult( taskId: task.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest)
 
             // collect the files produced by this job
-            gather(task.req, result, task.workDir, monitor.path().address())
+            gather(task.req, result, task.workDir, nodeId)
         }
         finally {
             // -- save the completion time
@@ -372,7 +344,7 @@ class TaskExecutor extends UntypedActor {
      * @param job
      * @param result
      */
-    static private TaskResult gather(TaskReq req, TaskResult result, File workDir, Address nodeAddress ) {
+    static protected TaskResult gather(TaskReq req, TaskResult result, File workDir, int nodeId) {
         assert req
         assert result
         assert workDir
@@ -406,8 +378,13 @@ class TaskExecutor extends UntypedActor {
             // scan to find the file with that name
             int count=0
             workDir.eachFileMatch(FileType.FILES, ~/$filePattern/ ) { File file ->
-                deltaContext.add( new FileRef(name?:file.name, file, nodeAddress) )
-                count++
+                try {
+                    deltaContext.add( new FileRef(file, nodeId, name?:file.name) )
+                    count++
+                }
+                catch( Exception e ) {
+                    log.error("Cannot add file: $file", e )
+                }
             }
 
             // cannot find any file with that name, return an error

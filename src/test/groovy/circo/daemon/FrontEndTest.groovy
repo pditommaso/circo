@@ -67,9 +67,6 @@ class FrontEndTest extends ActorSpecification {
         sub.maxDuration = Duration.create('1 min')
         sub.maxAttempts = 4
 
-        def listenerEntry = null
-        test.ActorSpecification.dataStore.addNewTaskListener { it -> listenerEntry = it }
-
 
         when:
         frontend.tell(sub, sender.getRef())
@@ -99,7 +96,6 @@ class FrontEndTest extends ActorSpecification {
         //entry.req.environment == sub.env
         entry.req.script == sub.command.join(' ')
 
-        listenerEntry == entry
 
     }
 
@@ -164,8 +160,8 @@ class FrontEndTest extends ActorSpecification {
         setup:
         final task1 = new TaskEntry('1','echo 1')
         final task2 = new TaskEntry('2','echo 2')
-        test.ActorSpecification.dataStore.saveTask(task1)
-        test.ActorSpecification.dataStore.saveTask(task2)
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
 
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
@@ -197,11 +193,11 @@ class FrontEndTest extends ActorSpecification {
         final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao'; it.status = TaskStatus.TERMINATED }
         final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao'; it.result = new TaskResult(exitCode: 1) }
 
-        dataStore.saveTask(task1)
-        dataStore.saveTask(task2)
-        dataStore.saveTask(task3)
-        dataStore.saveTask(task4)
-        dataStore.saveTask(task5)
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
+        dataStore.storeTask(task3)
+        dataStore.storeTask(task4)
+        dataStore.storeTask(task5)
 
 
         /*
@@ -209,11 +205,10 @@ class FrontEndTest extends ActorSpecification {
          */
         final job1 = new Job(requestId1)
         final job2 = new Job(requestId2)
-        job2.missingTasks << task3.id
         job2.status = JobStatus.FAILED
 
-        dataStore.putJob(job1)
-        dataStore.putJob(job2)
+        dataStore.storeJob(job1)
+        dataStore.storeJob(job2)
 
 
         /*
@@ -239,8 +234,13 @@ class FrontEndTest extends ActorSpecification {
         result.jobs.find { it.requestId == requestId1 }.command == 'Hello'
         result.jobs.find { it.requestId == requestId2 }.command == 'Ciao'
 
-        result.jobs.find { it.requestId == requestId1 }.failedTasks == null
+        result.jobs.find { it.requestId == requestId1 }.failedTasks == []
+        result.jobs.find { it.requestId == requestId1 }.pendingTasks == [task1]
+
         result.jobs.find { it.requestId == requestId2 }.failedTasks == [task5]
+        result.jobs.find { it.requestId == requestId2 }.pendingTasks == [task3, task5]
+
+
 
     }
 
@@ -252,10 +252,10 @@ class FrontEndTest extends ActorSpecification {
         final task3 = new TaskEntry(3,'echo 3')
         final task4 = TaskEntry.create('4')  { it.status = TaskStatus.TERMINATED }
 
-        test.ActorSpecification.dataStore.saveTask(task1)
-        test.ActorSpecification.dataStore.saveTask(task2)
-        test.ActorSpecification.dataStore.saveTask(task3)
-        test.ActorSpecification.dataStore.saveTask(task4)
+        test.ActorSpecification.dataStore.storeTask(task1)
+        test.ActorSpecification.dataStore.storeTask(task2)
+        test.ActorSpecification.dataStore.storeTask(task3)
+        test.ActorSpecification.dataStore.storeTask(task4)
 
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
@@ -281,8 +281,8 @@ class FrontEndTest extends ActorSpecification {
         def node1 =  NodeDataTest.create(11, 'w1,w2')
         def node2 =  NodeDataTest.create(22, 't0,t1,t2')
 
-        test.ActorSpecification.dataStore.putNodeData(node1)
-        test.ActorSpecification.dataStore.putNodeData(node2)
+        dataStore.storeNodeData(node1)
+        dataStore.storeNodeData(node2)
 
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }

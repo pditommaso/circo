@@ -60,11 +60,11 @@ class Const {
 
     static final String APP_NAME = MAIN_PACKAGE
 
-    static final String APP_VER = "0.3.0"
+    static final String APP_VER = "0.3.1"
 
-    static final long APP_TIMESTAMP = 1360760709177
+    static final long APP_TIMESTAMP = 1361659150662
 
-    static final int APP_BUILDNUM = 350
+    static final int APP_BUILDNUM = 429
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 
@@ -72,7 +72,7 @@ class Const {
 
     static final String DEFAULT_AKKA_PROTOCOL = 'akka'
 
-    static final String DEFAULT_AKKA_SYSTEM = 'circo'
+    static final String DEFAULT_CLUSTER_NAME = 'circo'
 
     static final LOCAL_NAMES = ['this','local','localhost']
 

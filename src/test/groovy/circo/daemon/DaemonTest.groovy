@@ -18,37 +18,11 @@
  */
 
 package circo.daemon
-import akka.actor.Address
-import circo.Const
-import circo.daemon.Daemon
-import spock.lang.Shared
-import spock.lang.Specification
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class DaemonTest extends Specification{
+class DaemonTest  {
 
 
-    @Shared
-    def defName = Const.DEFAULT_AKKA_SYSTEM
-
-    @Shared
-    def defPort = Const.DEFAULT_AKKA_PORT
-    
-    def 'test parseAddresses' () {
-
-
-        expect:
-        Daemon.parseAddresses(addreass) == list
-
-        where:
-        addreass            | list
-//        null                | []
-//        ''                  | []
-//        '1.1.1.1'           | [new Address('akka',defName, '1.1.1.1', defPort)]
-//        '2.2.2.2:4455'      | [new Address('akka',defName,'2.2.2.2',4455)]
-        '1.1.1.1:11,3.3.3.3:33\n4.4.4.4:44\n5.5.5.5,6.6.6.6'  | [new Address('akka',defName,'1.1.1.1',11),new Address('akka',defName,'3.3.3.3',33),new Address('akka',defName,'4.4.4.4',44),new Address('akka',defName,'5.5.5.5',defPort),new Address('akka',defName,'6.6.6.6',defPort)]
-
-    }
 }

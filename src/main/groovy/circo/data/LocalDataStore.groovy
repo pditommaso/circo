@@ -18,25 +18,18 @@
  */
 
 package circo.data
+
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.locks.Lock
-import java.util.concurrent.locks.ReentrantLock
 
-import circo.model.TaskEntry
 import circo.model.TaskId
-import circo.model.TaskStatus
-import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
-@CompileStatic
 class LocalDataStore extends AbstractDataStore {
-
-    private List jobsListeners = []
 
     private AtomicInteger idGen = new AtomicInteger()
 
@@ -45,7 +38,9 @@ class LocalDataStore extends AbstractDataStore {
     def LocalDataStore() {
         jobs = new ConcurrentHashMap<>()
         tasks = new ConcurrentHashMap<>()
-        nodeData = new ConcurrentHashMap<>()
+        nodes = new ConcurrentHashMap<>()
+        queue = new ConcurrentHashMap<>()
+        files = new ConcurrentHashMap<>()
     }
 
     def void shutdown() { }
@@ -54,74 +49,5 @@ class LocalDataStore extends AbstractDataStore {
 
     int nextNodeId() { nodeIdGen.addAndGet(1) }
 
-    @Override
-    protected Lock getLock(key) {
-        new ReentrantLock()
-    }
-
-
-    List<TaskEntry> findTasksByStatus( TaskStatus... status ) {
-        assert status
-        tasks.values().findAll { TaskEntry task -> task.status in status  }
-    }
-
-    boolean saveTask( TaskEntry task) {
-        def isNew = super.saveTask(task)
-
-        if( isNew && jobsListeners )  {
-            try {
-                jobsListeners.each{ Closure it -> it.call(task) }
-            }
-            catch( Exception e ) {
-                log.error "Failed invoking Add New TaskEntry listener", e
-            }
-
-        }
-
-        return isNew
-    }
-
-    List<TaskEntry> findTasksById( final String taskId) {
-        assert taskId
-
-        def value
-        if ( taskId.contains('*') ) {
-            value = taskId.replace('*','.*')
-        }
-        else {
-            value = taskId
-        }
-
-        // remove '0' prefix
-        while( value.size()>1 && value.startsWith('0') ) { value = value.substring(1) }
-
-        tasks.values().findAll { TaskEntry task -> task.id.toFmtString() ==~ /$value/ }
-
-    }
-
-    @Override
-    List<TaskEntry> findAllTasksOwnerBy(Integer nodeId) {
-        assert nodeId
-
-        return tasks.values().findAll() { TaskEntry it -> it.ownerId == nodeId }
-    }
-
-    /**
-     * Find all jobs with the status specified
-     *
-     * @param status
-     * @return
-     */
-    @Override
-    void addNewTaskListener(Closure listener) {
-        assert listener
-        jobsListeners.add(listener)
-    }
-
-
-    void removeNewTaskListener(Closure listener) {
-        assert listener
-        jobsListeners.remove(listener)
-    }
 
 }

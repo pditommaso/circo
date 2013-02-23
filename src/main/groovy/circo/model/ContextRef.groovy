@@ -19,12 +19,11 @@
 
 package circo.model
 
-import akka.actor.Address
+import circo.data.DataStore
+import circo.util.CircoHelper
 import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
-import groovy.transform.ToString
 import groovy.transform.TupleConstructor
-
 /**
  * A reference to a generic data
  *
@@ -34,9 +33,6 @@ interface DataRef extends Serializable {
 
     /** The name associated to this piece of data */
     def String name
-
-    /** The grid node address where the file is allocated */
-    def Address address
 
     /** The underlying data */
     def data
@@ -52,35 +48,94 @@ interface DataRef extends Serializable {
 @SerializeId
 @TupleConstructor
 @EqualsAndHashCode
-@ToString(includePackage = false)
 class FileRef implements DataRef {
 
-    /** The real file on the file system */
-    File file
+    /**
+     * A reference to the current data store provider. This is injected at system bootstrap
+     */
+    static DataStore dataStore
 
-    String name
+    /**
+     * The current cluster node identifier
+     */
+    static int currentNodeId
 
-    Address address
+    /**
+     * The file name, not including the local path structure
+     */
+    final String name
 
-    def FileRef( String name, File file, Address address = null ) {
+    final UUID cacheKey
+
+    final File file
+
+    /**
+     * A map holding the absolute path where the file is stored on the local file system on each cluster node
+     */
+    final Map<Integer,File> localFile = [:]
+
+    /**
+     * Create a reference for a file system file
+     * @param file
+     * @param nodeId
+     * @param name
+     * @return
+     */
+    def FileRef( File file, int nodeId, String name ) {
         assert name != null
         assert file
 
-        this.name = name
         this.file = file
-        this.address = address
+        this.name = name
+        this.localFile[nodeId] = file.absoluteFile
+        this.cacheKey = UUID.randomUUID()
+
+        // save in the cluster storage
+        if ( file.exists() ) {
+            def channel = new FileInputStream(file)?.getChannel()
+            dataStore.putFile( cacheKey.toString(), channel )
+            channel.close()
+        }
+
     }
 
-    def FileRef( File file, Address address = null ) {
-        this(file?.name,file,address)
+    def FileRef( File file, int nodeId ) {
+        this(file, nodeId, file?.name)
     }
 
-    def FileRef( String path, Address address = null ) {
-        this(new File(path),address)
+    def FileRef( String path, int nodeId ) {
+        this(new File(path), nodeId)
     }
 
 
-    def File getData() { file.absoluteFile }
+    def File getData() {
+
+        // -- check if the file is available on the local file system
+        if ( currentNodeId in localFile ) {
+            return localFile[ currentNodeId ]
+        }
+
+        // -- the file is not available in node local file system
+        //    try to retrieve on the cluster cache
+        def result = new File( CircoHelper.createScratchDir(), name )
+        def target = new FileOutputStream(result).getChannel()
+
+        target = dataStore.getFile(cacheKey.toString(), target)
+        if ( !target ) {
+            result.delete()
+            throw new IllegalStateException("Missing cache store file: ${file.toString()}")
+        }
+        target.close()
+
+        // -- keep this file on the local cache
+        localFile[currentNodeId] = result
+
+        return result
+    }
+
+
+    @Override
+    String toString() { file?.toString() }
 
 }
 
@@ -89,53 +144,52 @@ class FileRef implements DataRef {
  */
 @SerializeId
 @EqualsAndHashCode
-@ToString(includePackage = false)
 class StringRef implements DataRef {
 
     String name
 
     String value
 
-    Address address
-
-
-    def StringRef( String label, def value, Address address = null ) {
+    def StringRef( String label, def value ) {
         assert label != null
         assert value != null
 
         this.name = label
         this.value = value.toString()
-        this.address = address
     }
 
     def String getData() { value }
+
+    @Override
+    String toString() { value }
+
 
 }
 
 
 @SerializeId
 @EqualsAndHashCode
-@ToString(includePackage = false)
 class EmptyRef implements DataRef {
 
     public String getName() { throw new IllegalAccessException("Attribute 'name' is not defined for ${EmptyRef.simpleName}") }
 
     public String getData() { '' }
+
+    public String toString() { '' }
 }
 
 @SerializeId
 @EqualsAndHashCode
-@ToString(includePackage = false)
 class ObjectRef implements DataRef {
 
     String name
 
     def data
 
-    Address address
-
     ObjectRef( String name, def data ) {
         this.name = name
         this.data = data
     }
+
+    String toString() { data?.toString() }
 }

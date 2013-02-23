@@ -19,11 +19,8 @@
 
 package circo.model
 
-import akka.actor.AddressFromURIString
-import circo.model.FileRef
-import circo.model.StringRef
+import circo.data.LocalDataStore
 import spock.lang.Specification
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -34,17 +31,10 @@ class StringRefTest extends Specification {
 
         when:
         def ref1 = new StringRef('label', 'Hello world')
-        def ref2 = new StringRef('label2', 'Ciao mondo', AddressFromURIString.parse('akka://sys@1.1.1.1:2551') )
 
         then:
         ref1.name == 'label'
         ref1.value == 'Hello world'
-        ref1.address == null
-
-        ref2.name == 'label2'
-        ref2.value == 'Ciao mondo'
-        ref2.address.host().get() == '1.1.1.1'
-        ref2.address.port().get() == 2551
 
     }
 }
@@ -53,19 +43,54 @@ class FileRefTest extends Specification {
 
     def 'test FileRef' () {
 
+        setup:
+        FileRef.currentNodeId = 1
+
         when:
-        def ref1 = new FileRef(new File('/some/path/file-name.txt'))
-        def ref2 = new FileRef(new File('relative/path/file-name2.txt'), AddressFromURIString.parse('akka://sys@1.1.2.2:2554') )
+        def ref1 = new FileRef(new File('/some/path/file-name.txt'), 1)
 
         then:
         ref1.name == 'file-name.txt'
-        ref1.file == new File('/some/path/file-name.txt')
-        ref1.address == null
-
-        ref2.name == 'file-name2.txt'
-        ref2.file == new File('relative/path/file-name2.txt')
-        ref2.address.host().get() == '1.1.2.2'
-        ref2.address.port().get() == 2554
+        ref1.data == new File('/some/path/file-name.txt')
 
     }
+
+
+    def 'test store a file and get from another node' (){
+
+        setup:
+        FileRef.currentNodeId = 1
+        FileRef.dataStore = new LocalDataStore()
+
+        File sourceFile = File.createTempFile('test',null); sourceFile.deleteOnExit()
+        sourceFile.text = """
+        aaaaa
+        bbbbbbbbb
+        cccccccccc
+        :
+        zzzzzzzzzzz
+        """
+
+        /*
+         * a reference to a file on the node '1' is create
+         */
+        def ref = new FileRef(sourceFile, 1)
+
+
+        /*
+         * simulate access from another node '3'
+         * the file is restore by the configured 'data-store' and re-created on the file system
+         */
+        when:
+        FileRef.currentNodeId = 3
+        def targetFile = ref.getData()
+
+        then:
+        targetFile.exists()
+        targetFile.text == sourceFile.text
+        targetFile.name == sourceFile.name
+        targetFile != sourceFile
+
+    }
+
 }

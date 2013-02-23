@@ -20,7 +20,6 @@
 package circo.client
 import circo.model.TaskEntry
 import circo.reply.StatReply
-import circo.reply.StatReplyData
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
@@ -65,10 +64,7 @@ class CmdStat extends AbstractCommand {
         // messages returned by the server
         result.printMessages()
 
-        if( result.stats ) {
-            printStats(result.stats)
-        }
-        else if( this.jobs ) {
+        if( this.jobs ) {
             printTasksDetails( result.tasks )
         }
         else {
@@ -78,18 +74,6 @@ class CmdStat extends AbstractCommand {
 
     }
 
-    def static void printStats(StatReplyData stats) {
-
-        println """
-        cluster status
-        --------------
-        pending: ${ stats.pending.toString().padLeft(4) }
-        running: ${ stats.running.toString().padLeft(4)  }
-        success: ${ stats.successful.toString().padLeft(4)  }
-        failed : ${ stats.failed.toString().padLeft(4) }
-        """
-        .stripIndent()
-    }
 
     def static void printTasksDetails( List<TaskEntry> jobs )  {
 

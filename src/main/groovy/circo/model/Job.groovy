@@ -55,11 +55,6 @@ class Job implements Serializable {
     int numOfTasks
 
     /**
-     * The list of tasks to be processed to fulfill the requested job
-     */
-    Set<TaskId> missingTasks = new LinkedHashSet<>()
-
-    /**
      * The input context for this task
      */
     Context input
@@ -115,7 +110,6 @@ class Job implements Serializable {
         this.requestId = that.requestId
         this.sender = that.sender ? WorkerRef.copy(that.sender) : null
         this.status = that.status
-        this.missingTasks = that.missingTasks ? (Set<TaskId>)that.missingTasks.clone() : null
         this.numOfTasks = that.numOfTasks
         this.input = that.input ? Context.copy( that.input ) : null
         this.output = that.output ? Context.copy( that.output ) : null

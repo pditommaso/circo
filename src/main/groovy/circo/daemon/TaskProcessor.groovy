@@ -38,7 +38,6 @@ import circo.messages.WorkComplete
 import circo.messages.WorkIsDone
 import circo.messages.WorkIsReady
 import circo.messages.WorkToBeDone
-import circo.messages.WorkToSpool
 import circo.messages.WorkerCreated
 import circo.messages.WorkerFailure
 import circo.messages.WorkerRequestsWork
@@ -46,7 +45,6 @@ import circo.model.TaskId
 import circo.model.TaskResult
 import circo.model.TaskStatus
 import circo.model.WorkerRef
-import circo.reply.ResultReply
 import groovy.util.logging.Slf4j
 import scala.concurrent.duration.Duration
 /**
@@ -197,7 +195,7 @@ class TaskProcessor extends UntypedActor {
         entry.attempts ++
         entry.status = TaskStatus.READY
         entry.worker = new WorkerRef(getSelf())
-        store.saveTask(entry)
+        store.storeTask(entry)
 
         // -- Switching to 'running' mode
         this.state = State.RUNNING
@@ -223,7 +221,7 @@ class TaskProcessor extends UntypedActor {
 
         // -- setting the job result update the job flags as well
         task.result = result
-        store.saveTask(task)
+        store.storeTask(task)
 
         // -- notify the master of the failure
         if( task.failed ) {

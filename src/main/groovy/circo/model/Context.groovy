@@ -77,21 +77,8 @@ class Context implements Serializable {
         new ArrayList<>(holder.keySet())
     }
 
-    def List<DataRef> getRef( String name ) {
-        new ArrayList<>(holder.get(name))
-    }
-
     def List<DataRef> allRefs() {
         new ArrayList<>(holder.values())
-    }
-
-    /**
-     * Return always a collection of data
-     * @param name The required value
-     */
-    def Collection getValues( String name ) {
-
-        holder.get(name) *. data
     }
 
     def Object getData(String name) {
@@ -196,12 +183,65 @@ class Context implements Serializable {
     def boolean isEmpty() { holder.isEmpty() }
 
     /*
+     * Convert a generic item to a string
+     */
+    static String str( def item ) {
+        if( item instanceof FileRef ) {
+            return item?.file?.name
+        }
+        else {
+            return item?.toString()
+        }
+    }
+
+    /**
+     *  Converts a collection of items to it string representation
+     */
+    String getValueAsString( String name) {
+
+        itemsToString(holder.get(name))
+
+    }
+
+
+    static String itemsToString( def items, String fDelim = ',' ) {
+
+        if( items instanceof Range ) {
+            items.toString()
+        }
+
+        else if ( items instanceof Collection ) {
+            if ( items.size() == 0 ) return '-'
+
+            if ( items.size() == 1 ) return str(items[0])
+
+            // verify if the list is made up all of synonyms
+            def list = items.collect{ str(it) }.unique(false)
+            if( list.size() == 1 ) {
+                return "${LIST_OPEN_BRACKET}${str(list[0])},..${items.size()-1} more${LIST_CLOSE_BRACKET}"
+            }
+            else if ( list.size() <= 10 ){
+                return LIST_OPEN_BRACKET + items.collect { str(it) }.join(fDelim) + LIST_CLOSE_BRACKET
+            }
+            else {
+                return LIST_OPEN_BRACKET + items[0..9].collect { str(it) }.join(fDelim) + ",..${items.size()-10} more" + LIST_CLOSE_BRACKET
+            }
+        }
+
+        else {
+            str(items)
+        }
+    }
+
+
+
+    /*
      * Invoke the closure for each possible combination for the variables in the context
      * specified by its names
      */
     void combinations( List<String> names, Closure callback ) {
 
-        List<List<DataRef>> sets = names.collect { getRef(it) }
+        List<List<DataRef>> sets = names.collect { holder.get(it) }
 
         int numOfCombs = 1;
         for(int i = 0; i < sets.size(); numOfCombs *= sets[i++].size());

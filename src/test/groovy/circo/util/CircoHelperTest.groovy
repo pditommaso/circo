@@ -61,12 +61,35 @@ class CircoHelperTest extends Specification {
 
         where:
         str                             |  address
-        '1.1.1.1'                       | new Address( 'akka', Const.DEFAULT_AKKA_SYSTEM, '1.1.1.1', Const.DEFAULT_AKKA_PORT )
-        '2.2.2.2:33'                    | new Address( 'akka', Const.DEFAULT_AKKA_SYSTEM, '2.2.2.2', 33 )
+        '1.1.1.1'                       | new Address( 'akka', Const.DEFAULT_CLUSTER_NAME, '1.1.1.1', Const.DEFAULT_AKKA_PORT )
+        '2.2.2.2:33'                    | new Address( 'akka', Const.DEFAULT_CLUSTER_NAME, '2.2.2.2', 33 )
         'sys@3.3.3.3'                   | new Address( 'akka', 'sys', '3.3.3.3', Const.DEFAULT_AKKA_PORT )
         'http://xyz@192.168.0.1:5700'   | new Address( 'http', 'xyz', '192.168.0.1', 5700 )
 
     }
 
+
+    def 'test randomString' () {
+
+        expect:
+        CircoHelper.randomString(3, 'A'..'A') == 'AAA'
+        CircoHelper.randomString(2, '0'..'9').isNumber()
+
+    }
+
+
+    def "test createScratchDir" () {
+
+        when:
+        def path = CircoHelper.createScratchDir()
+        println path
+
+        then:
+        path.exists()
+        path.isDirectory()
+
+        cleanup:
+        path.delete()
+    }
 
 }

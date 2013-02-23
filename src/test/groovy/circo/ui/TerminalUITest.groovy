@@ -65,7 +65,7 @@ class TerminalUITest extends ActorSpecification {
             failed = 111
         }
 
-        dataStore.putNodeData(nodeData)
+        dataStore.storeNodeData(nodeData)
 
         when:
         def screen = master.underlyingActor().renderScreen()
