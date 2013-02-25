@@ -19,16 +19,22 @@
 
 package circo.data
 
-import groovy.sql.Sql
 import circo.model.TaskEntry
 import circo.model.TaskId
+import circo.model.TaskReq
+import circo.model.TaskStatus
+import com.hazelcast.config.Config
+import groovy.sql.Sql
+import spock.lang.Shared
 import spock.lang.Specification
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class JdbcJobsMapStoreTest extends Specification {
+class HzJdbcTasksMapStoreTest extends Specification {
 
+    @Shared
     def Sql sql
 
     /**
@@ -39,19 +45,24 @@ class JdbcJobsMapStoreTest extends Specification {
      *
      */
     def setup() {
-
+        // the in mem database
         sql = Sql.newInstance('jdbc:h2:mem:Circo')
-        sql.execute ("drop table if exists JOBS")
 
-        JdbcJobsMapStore.createTable(sql)
+        // hazelcast configuration
+        def cfg = new Config()
+        def jobs
 
+
+        def store = new HzJdbcTasksMapStore()
+        store.dropTable(sql)
+        store.createTable(sql)
     }
 
 
     def 'test store' () {
 
         setup:
-        def store = new JdbcJobsMapStore(sql: this.sql)
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
         def job1 = new TaskEntry( '1122', 'Script1' )
         def job2 = new TaskEntry( '4455', 'Script2' )
 
@@ -71,7 +82,7 @@ class JdbcJobsMapStoreTest extends Specification {
     def 'test StoreAll ' () {
 
         setup:
-        def store = new JdbcJobsMapStore(sql: this.sql)
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
         def job1 = new TaskEntry( '1122', 'Script1' )
         def job2 = new TaskEntry( '4455', 'Script2' )
         def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
@@ -100,7 +111,7 @@ class JdbcJobsMapStoreTest extends Specification {
 
     def 'test delete ' () {
         setup:
-        def store = new JdbcJobsMapStore(sql: this.sql)
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
         def job1 = new TaskEntry( '1122', 'Script1' )
         def job2 = new TaskEntry( '4455', 'Script2' )
         def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
@@ -129,7 +140,7 @@ class JdbcJobsMapStoreTest extends Specification {
 
     def 'test deleteAll' () {
         setup:
-        def store = new JdbcJobsMapStore(sql: this.sql)
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
         def job1 = new TaskEntry( '1122', 'Script1' )
         def job2 = new TaskEntry( '4455', 'Script2' )
         def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
@@ -151,7 +162,7 @@ class JdbcJobsMapStoreTest extends Specification {
 
     def 'test load' () {
         setup:
-        def store = new JdbcJobsMapStore(sql: this.sql)
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
         def job1 = new TaskEntry( '1122', 'Script1' )
         def job2 = new TaskEntry( '4455', 'Script2' )
         def job3 = new TaskEntry( new TaskId('4456'), 'Script3' )
@@ -173,7 +184,7 @@ class JdbcJobsMapStoreTest extends Specification {
 
     def 'test allKeys ' () {
         setup:
-        def store = new JdbcJobsMapStore(sql: this.sql)
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
         def job1 = new TaskEntry( '1122', 'Script1' )
         def job2 = new TaskEntry( '4455', 'Script2' )
         def job3 = new TaskEntry( new TaskId('4455'), 'Script3' )
@@ -195,11 +206,11 @@ class JdbcJobsMapStoreTest extends Specification {
 
     def 'test loadAll' () {
         setup:
-        def store = new JdbcJobsMapStore(sql: this.sql)
-        def job1 = new TaskEntry( '1122', 'Script1' )
-        def job2 = new TaskEntry( '4455', 'Script2' )
-        def job3 = new TaskEntry( new TaskId('4455'), 'Script3' )
-        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
+        def job1 = new TaskEntry( 111, 'Script1' )
+        def job2 = new TaskEntry( 222, 'Script2' )
+        def job3 = new TaskEntry( new TaskId(333), 'Script3' )
+        def job4 = new TaskEntry( new TaskId(444), 'Script4' )
 
 
         when:
@@ -211,6 +222,97 @@ class JdbcJobsMapStoreTest extends Specification {
 
         then:
         store.loadAll( [job1.id, job2.id, job4.id] ) == [ (job1.id):job1, (job2.id):job2, (job4.id):job4 ]
+        store.loadAll() as Set == [ job1, job2, job3, job4 ] as Set
+
+    }
+
+
+    def 'test findByStatus' () {
+
+        setup:
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
+        def job1 = TaskEntry.create(111) { TaskEntry it -> it.status = TaskStatus.NEW }
+        def job2 = TaskEntry.create(333) { TaskEntry it -> it.status = TaskStatus.PENDING }
+        def job3 = TaskEntry.create(444) { TaskEntry it -> it.status = TaskStatus.PENDING }
+        def job4 = TaskEntry.create(555) { TaskEntry it -> it.status = TaskStatus.TERMINATED }
+        def job5 = TaskEntry.create(666) { TaskEntry it -> it.status = TaskStatus.TERMINATED }
+        def job6 = TaskEntry.create(777) { TaskEntry it -> it.status = TaskStatus.TERMINATED }
+
+        when:
+        store.store( job1.id, job1 )
+        store.store( job2.id, job2 )
+        store.store( job3.id, job3 )
+        store.store( job4.id, job4 )
+        store.store( job5.id, job5 )
+        store.store( job6.id, job6 )
+
+        then:
+        store.findByStatus(TaskStatus.NEW) == [ job1 ]
+        store.findByStatus(TaskStatus.PENDING) as Set == [ job2, job3 ] as Set
+        store.findByStatus(TaskStatus.TERMINATED) as Set == [ job4,job5,job6 ] as Set
+        store.findByStatus(TaskStatus.NEW, TaskStatus.PENDING) as Set == [ job1, job2, job3 ] as Set
+        store.findByStatus(TaskStatus.READY) == []
+
+    }
+
+
+    def 'test findByOwnerId' () {
+
+        setup:
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
+        def job1 = TaskEntry.create(111) { TaskEntry it -> it.ownerId = 1 }
+        def job2 = TaskEntry.create(222) { TaskEntry it -> it.ownerId = 2 }
+        def job3 = TaskEntry.create(333) { TaskEntry it -> it.ownerId = 2 }
+        def job4 = TaskEntry.create(444) { TaskEntry it -> it.ownerId = 3 }
+        def job5 = TaskEntry.create(555) { TaskEntry it -> it.ownerId = 3 }
+        def job6 = TaskEntry.create(666) { TaskEntry it -> it.ownerId = 3 }
+
+        when:
+        store.store( job1.id, job1 )
+        store.store( job2.id, job2 )
+        store.store( job3.id, job3 )
+        store.store( job4.id, job4 )
+        store.store( job5.id, job5 )
+        store.store( job6.id, job6 )
+
+        then:
+        store.findByOwnerId(1) == [ job1 ]
+        store.findByOwnerId(2) as Set == [ job2, job3 ] as Set
+        store.findByOwnerId(3) as Set == [ job4,job5,job6 ] as Set
+        store.findByOwnerId(4) == []
+
+    }
+
+
+    def 'test findByRequestId' () {
+
+        setup:
+        def store = new HzJdbcTasksMapStore(sql: this.sql)
+        def req1 = UUID.randomUUID()
+        def req2 = UUID.randomUUID()
+        def req3 = UUID.randomUUID()
+        def req4 = UUID.randomUUID()
+
+        def job1 = new TaskEntry( new TaskId(111), new TaskReq(ticket: req1))
+        def job2 = new TaskEntry( new TaskId(222), new TaskReq(ticket: req2))
+        def job3 = new TaskEntry( new TaskId(333), new TaskReq(ticket: req2))
+        def job4 = new TaskEntry( new TaskId(444), new TaskReq(ticket: req3))
+        def job5 = new TaskEntry( new TaskId(555), new TaskReq(ticket: req3))
+        def job6 = new TaskEntry( new TaskId(666), new TaskReq(ticket: req3))
+
+        when:
+        store.store( job1.id, job1 )
+        store.store( job2.id, job2 )
+        store.store( job3.id, job3 )
+        store.store( job4.id, job4 )
+        store.store( job5.id, job5 )
+        store.store( job6.id, job6 )
+
+        then:
+        store.findByRequestId(req1) == [ job1 ]
+        store.findByRequestId(req2) as Set == [ job2, job3 ] as Set
+        store.findByRequestId(req3) as Set == [ job4,job5,job6 ] as Set
+        store.findByRequestId(req4) == []
 
     }
 

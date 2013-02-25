@@ -17,15 +17,18 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.data
-import com.mchange.v2.c3p0.ComboPooledDataSource
+package circo.data.sql
+import javax.sql.DataSource
+
+import com.jolbox.bonecp.BoneCPDataSource
 import com.typesafe.config.Config
 import com.typesafe.config.ConfigValue
 import groovy.util.logging.Slf4j
 
-import javax.sql.DataSource
+
 /**
- * Handles the JDBC {@code Sql} connection object
+ * JDBC {@code DataSource} connection factory, it uses the BoneCP connection pool
+ * <p> See http://jolbox.com
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
@@ -35,53 +38,61 @@ class JdbcDataSourceFactory {
 
 
     static def DataSource create( String url, String user='', String password='' ) {
-        create( url, [user: user, password: password ] )
+        create( url, [username: user, password: password ] )
     }
 
     /**
      * Create DataSource with the provided map of properties
      * <p>
-     *     http://www.mchange.com/projects/c3p0/#configuration_properties
+     *     http://jolbox.com/index.html?page=http://jolbox.com/configuration.html
      *
      * @param url The JDBC connection url
-     * @param conf The configuration properties as defined by CP30
+     * @param conf The configuration properties as defined by BonceCP
      * @return A pooled {code DataSource} instance
      */
-    static def DataSource create( String url, Map<String,String> conf ) {
+    static def DataSource create( String url, Map<String,Object> conf ) {
 
         log.debug "Creating JDBC connection pool with -- config: ${url}"
         if( !url ) {
             throw new IllegalArgumentException('Missing JDBC connection URL -- review JDBC configuration in the application.conf file')
         }
 
-        ComboPooledDataSource cpds = new ComboPooledDataSource();
+        BoneCPDataSource dataSource = new BoneCPDataSource();
+        dataSource.setJdbcUrl(url);
 
         /*
-         * JDBC properties and credentials
+         * set configuration properties
          */
-        cpds.setJdbcUrl(url)
+        conf.each { String name, Object value ->
+            try {
+                dataSource[name] = value
+            }
+            catch( Exception e ) {
 
-        /*
-         * pool properties
-         */
+                if ( log.isDebugEnabled() ) {
+                    log.debug("Not a valid CP30 config property: '$name' = '$value'", e)
+                }
+                else {
+                    log.warn "Not a valid CP30 config property: '$name' = '$value'"
+                }
 
-        if ( conf ) {
-            def properties = new Properties()
-            properties.putAll(conf)
-            cpds.setProperties(properties)
+            }
         }
 
-
-        return cpds
+        return dataSource
     }
 
     /**
-     * Create a JDBC Datasource using a {@code Config} as properties provider
+     * Create a JDBC Data-source using a {@code Config} as properties provider
+     * <p>
+     *     Available properties as defined by
+     *     http://jolbox.com/index.html?page=http://jolbox.com/configuration.html
+     *
      *
      * @param config
      * @return
      */
-    static def DataSource create( Config config  ) {
+    static def DataSource create( Config config ) {
         assert config
         log.debug "Creating JDBC connection pool using config: $config"
 
@@ -97,8 +108,8 @@ class JdbcDataSourceFactory {
         /*
          * Create the connection pool obj - and - set the jdbc url
          */
-        ComboPooledDataSource cpds = new ComboPooledDataSource();
-        cpds.setJdbcUrl(url)
+        BoneCPDataSource dataSource = new BoneCPDataSource();
+        dataSource.setJdbcUrl(url);
 
 
         /*
@@ -114,14 +125,14 @@ class JdbcDataSourceFactory {
 
             if( name && name != 'url') {
                 try {
-                    cpds."$name" = value
+                    dataSource[name] = value
                 }
                 catch( Exception e ) {
                     if ( log.isDebugEnabled() ) {
-                        log.debug("Not a valid CP30 config property: $name = $value", e)
+                        log.debug("Not a valid CP30 config property: '$name' = '$value'", e)
                     }
                     else {
-                        log.warn "Not a valid CP30 config property: $name = $value"
+                        log.warn "Not a valid CP30 config property: '$name' = '$value'"
                     }
                 }
 
@@ -129,7 +140,7 @@ class JdbcDataSourceFactory {
         }
 
 
-        return cpds
+        return dataSource
 
     }
 

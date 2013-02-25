@@ -150,10 +150,8 @@ public class Daemon {
 
         else {
             log.debug "Launching Infinispan -- nodes: $nodes"
-            //dataStore = new InfinispanDataStore( nodes )
             dataStore = new HazelcastDataStore( ConfigFactory.load(), nodes, multiCast )
         }
-
 
         /*
          * Create the Akka system
@@ -232,7 +230,7 @@ public class Daemon {
 
 
         // -- make sure does not exist another node with the same address (but a different 'nodeId')
-        def otherNode = dataStore.findNodeDataByAddress(selfAddress).find()
+        def otherNode = dataStore.findNodesByAddress(selfAddress).find()
         if ( otherNode ) {
             throw new IllegalStateException("A cluster node with address: $selfAddress is already running -- ${otherNode.dump()}")
         }

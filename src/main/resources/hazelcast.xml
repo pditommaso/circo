@@ -5,4 +5,15 @@
             <tcp-ip enabled="true" />
         </join>
     </network>
+
+    <map name="jobs">
+    </map>
+
+    <map name="tasks">
+    </map>
+
+    <map name="nodes">
+    </map>
+
+
 </hazelcast>

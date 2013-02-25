@@ -166,7 +166,7 @@ class FrontEnd extends UntypedActor {
         /*
          *  Look for all the jobs
          */
-        def jobs = dataStore.findAllJobs().collect { new ListReply.JobInfo(it) }
+        def jobs = dataStore.listJobs().collect { new ListReply.JobInfo(it) }
         jobs.each {  ListReply.JobInfo it ->
 
             def allTasks = dataStore.findTasksByRequestId(it.requestId)
@@ -213,7 +213,7 @@ class FrontEnd extends UntypedActor {
 
             command.jobs.each { String it ->
                 try {
-                    def found = dataStore.findTasksById(it)
+                    def found = dataStore.getTask( TaskId.of(it) )
                     if( found ) {
                         list.addAll( found )
                     }
@@ -246,7 +246,7 @@ class FrontEnd extends UntypedActor {
          * The list of all the jobs (!)
          */
         else if( command.all ) {
-            list = dataStore.findAllTasks()
+            list = dataStore.listTasks()
         }
 
 
@@ -450,7 +450,7 @@ class FrontEnd extends UntypedActor {
          * just return the 'stats' for the nodes
          */
         else {
-            reply.nodes = dataStore.findAllNodesData()
+            reply.nodes = dataStore.listNodes()
         }
 
 
@@ -505,7 +505,7 @@ class FrontEnd extends UntypedActor {
     }
 
     private List<Address> allNodesAddresses() {
-        dataStore.findAllNodesData()?.collect { NodeData node -> node.address } ?: []
+        dataStore.listNodes()?.collect { NodeData node -> node.address } ?: []
     }
 
 

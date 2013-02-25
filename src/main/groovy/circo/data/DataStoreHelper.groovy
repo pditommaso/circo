@@ -105,6 +105,7 @@ class DataStoreHelper {
     }
 
 
+    @Deprecated
     static public List<TaskEntry> findTasksById( Collection<TaskEntry> collection, final String taskId ) {
 
         def value

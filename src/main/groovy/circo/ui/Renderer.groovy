@@ -137,7 +137,7 @@ class ScreenRenderer extends DataHolder {
 
     def ScreenRenderer( int nodeId, DataStore store ) {
 
-        def allNodes = store.findAllNodesData()
+        def allNodes = store.listNodes()
         def thisNode = allNodes.find { NodeData node -> node.id == nodeId }
         this.cluster = new ClusterRenderer(allNodes)
         this.node = new NodeRender( thisNode )

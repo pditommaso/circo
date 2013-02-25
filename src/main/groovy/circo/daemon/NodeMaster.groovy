@@ -179,7 +179,7 @@ class NodeMaster extends UntypedActor  {
         // different from 'ALIVE', create a new node structure.
         // This is important to avoid 'dirty' data from a previous 'ALIVE' node
         // that has been stopped, enter in the new node
-        node = store.getNodeData(nodeId)
+        node = store.getNode(nodeId)
         if( !node ) {
             node = new NodeData()
             node.id = nodeId
@@ -187,7 +187,7 @@ class NodeMaster extends UntypedActor  {
             node.address = cluster.selfAddress()
             node.status = NodeStatus.ALIVE
             node.startTimestamp = System.currentTimeMillis()
-            store.storeNodeData(node)
+            store.storeNode(node)
         }
         else {
             log.debug "** Re-using node data: ${node.dump()}"
@@ -217,7 +217,7 @@ class NodeMaster extends UntypedActor  {
         setMDCVariables()
 
         log.debug "~~ Stopping actor ${getSelf().path()}"
-        store.storeNodeData(node)
+        store.storeNode(node)
 
         if ( shuttingDown ) {
             log.debug "Shutting down Hazelcast"
@@ -271,7 +271,7 @@ class NodeMaster extends UntypedActor  {
         else if ( tasksDispatcher.containsKey(type) ) {
             log.debug "<- $message"
             tasksDispatcher[type].call(message)
-            store.storeNodeData(node)
+            store.storeNode(node)
         }
 
         else {
@@ -393,7 +393,7 @@ class NodeMaster extends UntypedActor  {
                 return
             }
 
-            def list =  store.findNodeDataByAddressAndStatus( worker.address(), NodeStatus.ALIVE )
+            def list =  store.findNodesByAddressAndStatus( worker.address(), NodeStatus.ALIVE )
             def otherMaster = list?.size()==1 ? list.get(0).master: null
 
             if ( !otherMaster )  {
@@ -731,7 +731,7 @@ class NodeMaster extends UntypedActor  {
         ActorRef actor
         NodeData node = null
         long max = 0
-        store.findAllNodesData().each { NodeData it ->
+        store.listNodes().each { NodeData it ->
             if( it.queue.size()>max && it.address != selfAddress && it.status == NodeStatus.ALIVE ) {
                 max = it.queue.size()
                 node = it
@@ -745,7 +745,7 @@ class NodeMaster extends UntypedActor  {
     protected void manageMemberDowned( Address nodeAddress ) {
         assert nodeAddress
 
-        List<NodeData> nodes = store.findNodeDataByAddress(nodeAddress)
+        List<NodeData> nodes = store.findNodesByAddress(nodeAddress)
         if( nodes == null ) {
             log.debug "No NodeData for address: ${nodeAddress} -- ignore it"
             return
@@ -771,11 +771,11 @@ class NodeMaster extends UntypedActor  {
 
         int count = 0
         // try to update using concurrent replace
-        while( !store.replaceNodeData(nodeFound, updatedNode) ) {
+        while( !store.replaceNode(nodeFound, updatedNode) ) {
 
             // when fails to update the 'current' node, read it again
             // if the read value is 'DEAD' --> some other node update it to the required status, so skip the operation
-            nodeFound = store.getNodeData(nodeFound.id)
+            nodeFound = store.getNode(nodeFound.id)
             if ( nodeFound.status == NodeStatus.DEAD ) {
                 log.debug "Unable to replace node status to ${NodeStatus.DEAD} for address: ${nodeAddress} -- somebody else done it"
                 return
@@ -800,11 +800,10 @@ class NodeMaster extends UntypedActor  {
     protected void recoverDeadTasks(Integer nodeId) {
         assert nodeId
 
-        List<TaskEntry> tasksToRecover = store.findTasksOwnedBy(nodeId)
+        List<TaskEntry> tasksToRecover = store.findTasksByOwnerId(nodeId)
         log.debug "Tasks to recover: ${tasksToRecover.size() ?: 'none'}"
 
         tasksToRecover.each { TaskEntry entry -> manageWorkDone( entry ) }
-
 
     }
 

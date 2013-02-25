@@ -66,7 +66,7 @@ class NodeMasterTest extends ActorSpecification {
             selfAddress = address ? addr(address) : TestHelper.randomAddress()
             this.node = new NodeData( id: nodeId, address: selfAddress );
             this.node.status = NodeStatus.ALIVE
-            this.store.storeNodeData(node)
+            this.store.storeNode(node)
 
         }
 
@@ -200,7 +200,7 @@ class NodeMasterTest extends ActorSpecification {
         master.tell( new WorkerCreated( workerProbe1.getRef() ) )
         master.tell( new WorkerCreated( workerProbe2.getRef() ) )
 
-        def node = dataStore.getNodeData(nodeId)
+        def node = dataStore.getNode(nodeId)
 
         then:
         node.workers.size() == 2
@@ -274,7 +274,7 @@ class NodeMasterTest extends ActorSpecification {
         masterWithWork.actor.node.queue.add(job1.id)
         masterWithWork.actor.node.queue.add(job2.id)
         masterWithWork.actor.node.queue.add(job3.id)
-        dataStore.storeNodeData(masterWithWork.actor.node)
+        dataStore.storeNode(masterWithWork.actor.node)
 
         // this Master HAS NO work, but receive a message from a worker
         final master = newTestActor(system, NodeMasterMock)
@@ -320,7 +320,7 @@ class NodeMasterTest extends ActorSpecification {
         master2.actor.node.queue.add(job1.id)
         master2.actor.node.queue.add(job2.id)
         master2.actor.node.queue.add(job3.id)
-        dataStore.storeNodeData(master2.actor.node)
+        dataStore.storeNode(master2.actor.node)
 
 
         when:
@@ -386,9 +386,9 @@ class NodeMasterTest extends ActorSpecification {
         master.tell( new WorkerFailure(worker2) )
 
         then:
-        dataStore.getNodeData(master.actor.nodeId).failed == 3
-        dataStore.getNodeData(master.actor.nodeId).getWorkerData(worker1).failed == 2
-        dataStore.getNodeData(master.actor.nodeId).getWorkerData(worker2).failed == 1
+        dataStore.getNode(master.actor.nodeId).failed == 3
+        dataStore.getNode(master.actor.nodeId).getWorkerData(worker1).failed == 2
+        dataStore.getNode(master.actor.nodeId).getWorkerData(worker2).failed == 1
     }
 
     /*
@@ -462,7 +462,7 @@ class NodeMasterTest extends ActorSpecification {
         then:
         // the NodeData for the dead node has been removed
         // so, getNodeData returns null
-        dataStore.getNodeData(master1.actor.nodeId).status == NodeStatus.DEAD
+        dataStore.getNode(master1.actor.nodeId).status == NodeStatus.DEAD
 
         // The job finished (successfully or with errors) are sent back to the sender
         senderProbe.expectMsgAllOf(result1)
@@ -538,7 +538,7 @@ class NodeMasterTest extends ActorSpecification {
         node1.createWorkerData(probe1.getRef())
         node1.queue.add(job1.id)
         node1.queue.add(job2.id)
-        dataStore.storeNodeData(node1)
+        dataStore.storeNode(node1)
 
         // Node2 has THREE jobs in queue
         final probe2 = newProbe(system)
@@ -548,7 +548,7 @@ class NodeMasterTest extends ActorSpecification {
         node2.queue.add(job3.id)
         node2.queue.add(job4.id)
         node2.queue.add(job5.id)
-        dataStore.storeNodeData(node2)
+        dataStore.storeNode(node2)
 
         final master = newActor(system, NodeMasterMock)
         master.allMasters.put( addr('1.1.1.1'), probe1.getRef() )

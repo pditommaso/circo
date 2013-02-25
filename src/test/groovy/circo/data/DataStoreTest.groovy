@@ -61,7 +61,7 @@ abstract class DataStoreTest extends Specification {
     }
 
 
-    def 'test findAllJobs' () {
+    def 'test listJobs' () {
 
         setup:
         store.storeJob( new Job( UUID.randomUUID() ) )
@@ -70,7 +70,7 @@ abstract class DataStoreTest extends Specification {
         store.storeJob( new Job( UUID.randomUUID() ) )
 
         when:
-        def list = store.findAllJobs()
+        def list = store.listJobs()
 
         then:
         list.size() == 4
@@ -126,7 +126,7 @@ abstract class DataStoreTest extends Specification {
 
     }
 
-    def 'test findAllTests' () {
+    def 'test listTasks' () {
 
         setup:
         def task1 = TaskEntry.create('1') { it.status = TaskStatus.NEW }
@@ -135,6 +135,7 @@ abstract class DataStoreTest extends Specification {
         def task4 = TaskEntry.create('4') { it.status = TaskStatus.TERMINATED }
         def task5 = TaskEntry.create('5') { it.status = TaskStatus.TERMINATED }
         def task6 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
+
         store.storeTask(task1)
         store.storeTask(task2)
         store.storeTask(task3)
@@ -142,11 +143,11 @@ abstract class DataStoreTest extends Specification {
         store.storeTask(task5)
         store.storeTask(task6)
 
-        def task7 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
+        def task7 = TaskEntry.create('7') { it.status = TaskStatus.TERMINATED }
 
 
         when:
-        def list = store.findAllTasks()
+        def list = store.listTasks()
 
         then:
         list.size() == 6
@@ -156,7 +157,7 @@ abstract class DataStoreTest extends Specification {
         list.contains(task4)
         list.contains(task5)
         list.contains(task6)
-        list.contains(task7)
+        !list.contains(task7)
     }
 
 
@@ -236,42 +237,8 @@ abstract class DataStoreTest extends Specification {
     }
 
 
-    def 'test findTasksById' () {
 
-        setup:
-        def task1 = TaskEntry.create( '11' )
-        def task2 = TaskEntry.create( '23' )
-        def task3 = TaskEntry.create( '33' )
-        def task4 = TaskEntry.create( '34' )
-        def task5 = TaskEntry.create( '35' )
-        def task6 = TaskEntry.create( '36' )
-
-        store.storeTask(task1)
-        store.storeTask(task2)
-        store.storeTask(task3)
-        store.storeTask(task4)
-        store.storeTask(task5)
-        store.storeTask(task6)
-
-        expect:
-        store.findTasksById( '11' ) == [task1]
-        store.findTasksById( '1*' ) == [task1]
-        store.findTasksById( '12' ) == []
-
-        store.findTasksById( '33' ) == [task3]
-        store.findTasksById( '34' ) == [task4]
-        store.findTasksById( '3*' ).toSet() == [task3,task4,task5,task6].toSet()
-
-        store.findTasksById( '*3' ).toSet() == [task2,task3].toSet()
-
-        // preceding '0' are removed
-        store.findTasksById( '011' ) == [task1]
-
-
-    }
-
-
-    def 'test findAllTasksOwnedBy' () {
+    def 'test findTasksByOwnerId' () {
 
         setup:
 
@@ -287,9 +254,9 @@ abstract class DataStoreTest extends Specification {
         store.storeTask(task5)
 
         expect:
-        store.findTasksOwnedBy(1).toSet() == [task1] as Set
-        store.findTasksOwnedBy(2).toSet() == [task2, task3, task4] as Set
-        store.findTasksOwnedBy(99) == []
+        store.findTasksByOwnerId(1).toSet() == [task1] as Set
+        store.findTasksByOwnerId(2).toSet() == [task2, task3, task4] as Set
+        store.findTasksByOwnerId(99) == []
 
     }
 
@@ -319,12 +286,12 @@ abstract class DataStoreTest extends Specification {
         nodeInfo.createWorkerData( new WorkerRefMock('worker2') )
 
         when:
-        store.storeNodeData(nodeInfo)
+        store.storeNode(nodeInfo)
 
 
         then:
-        store.getNodeData(99) == nodeInfo
-        store.getNodeData(77) == null
+        store.getNode(99) == nodeInfo
+        store.getNode(77) == null
 
     }
 
@@ -337,8 +304,8 @@ abstract class DataStoreTest extends Specification {
 
         def node2 = new NodeData( id: 2, processed: 343 )
 
-        store.storeNodeData(node1)
-        store.storeNodeData(node2)
+        store.storeNode(node1)
+        store.storeNode(node2)
 
         when:
         def copy1 = new NodeData(node1)
@@ -352,10 +319,10 @@ abstract class DataStoreTest extends Specification {
 
         then:
         // copy1 is a clone of node1 -- it does not change so, it can be replaced with a new value
-        store.replaceNodeData(copy1, newNode1)
+        store.replaceNode(copy1, newNode1)
 
         // node2 is changed after it was copied -- the replace will fail
-        !store.replaceNodeData(copy2, newNode2)
+        !store.replaceNode(copy2, newNode2)
 
 
     }
@@ -368,36 +335,36 @@ abstract class DataStoreTest extends Specification {
         def node1 = new NodeData( id: 1, processed: 7843 )
         def node2 = new NodeData( id: 2, processed: 343 )
 
-        store.storeNodeData(node1)
-        store.storeNodeData(node2)
+        store.storeNode(node1)
+        store.storeNode(node2)
 
         def node3 = new NodeData( id: 3, processed: 8593 )
 
         when:
-        def result1 = store.removeNodeData( node1 )
-        def result2 = store.removeNodeData( node3 )
+        def result1 = store.removeNode( node1 )
+        def result2 = store.removeNode( node3 )
 
         then:
         result1
         !result2
-        store.getNodeData( 1 ) == null
-        store.getNodeData( 2 ) == node2
+        store.getNode( 1 ) == null
+        store.getNode( 2 ) == node2
 
     }
 
-    def 'test findAllNodeData' () {
+    def 'test listNodes' () {
 
         setup:
         def node1 = new NodeData( id: 1, processed: 7843 )
         def node2 = new NodeData( id: 2, processed: 343 )
         def node3 = new NodeData( id: 3, processed: 8593 )
 
-        store.storeNodeData(node1)
-        store.storeNodeData(node2)
-        store.storeNodeData(node3)
+        store.storeNode(node1)
+        store.storeNode(node2)
+        store.storeNode(node3)
 
         when:
-        def list = store.findAllNodesData()
+        def list = store.listNodes()
 
         then:
         list.size() == 3
@@ -417,15 +384,15 @@ abstract class DataStoreTest extends Specification {
        def node3 = new NodeData( id: 3, processed: 8593, address: addr3 )
        def node4 = new NodeData( id: 4, processed: 59054, address: addr3 )
 
-       store.storeNodeData( node1 )
-       store.storeNodeData( node2 )
-       store.storeNodeData( node3 )
-       store.storeNodeData( node4 )
+       store.storeNode( node1 )
+       store.storeNode( node2 )
+       store.storeNode( node3 )
+       store.storeNode( node4 )
 
        expect:
-       store.findNodeDataByAddress( addr1 ) == [node1]
-       store.findNodeDataByAddress( addr2 ) == [node2]
-       store.findNodeDataByAddress( addr3 ).toSet() == [ node3, node4 ] as Set
+       store.findNodesByAddress( addr1 ) == [node1]
+       store.findNodesByAddress( addr2 ) == [node2]
+       store.findNodesByAddress( addr3 ).toSet() == [ node3, node4 ] as Set
 
    }
 
@@ -442,15 +409,15 @@ abstract class DataStoreTest extends Specification {
         def node3 = new NodeData( id: 3, processed: 8593, address: addr3, status: NodeStatus.DEAD )
         def node4 = new NodeData( id: 4, processed: 8593, address: addr3, status: NodeStatus.ALIVE )
 
-        store.storeNodeData( node1 )
-        store.storeNodeData( node2 )
-        store.storeNodeData( node3 )
-        store.storeNodeData( node4 )
+        store.storeNode( node1 )
+        store.storeNode( node2 )
+        store.storeNode( node3 )
+        store.storeNode( node4 )
 
         expect:
-        store.findNodeDataByAddressAndStatus( addr1, NodeStatus.ALIVE ) == []
-        store.findNodeDataByAddressAndStatus( addr2, NodeStatus.PAUSED ) == [node2]
-        store.findNodeDataByAddressAndStatus( addr3, NodeStatus.ALIVE ).toSet() == [ node4 ] as Set
+        store.findNodesByAddressAndStatus( addr1, NodeStatus.ALIVE ) == []
+        store.findNodesByAddressAndStatus( addr2, NodeStatus.PAUSED ) == [node2]
+        store.findNodesByAddressAndStatus( addr3, NodeStatus.ALIVE ).toSet() == [ node4 ] as Set
 
     }
 

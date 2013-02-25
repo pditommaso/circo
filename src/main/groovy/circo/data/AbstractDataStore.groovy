@@ -50,7 +50,7 @@ abstract class AbstractDataStore implements DataStore {
 
     protected ConcurrentMap<String, byte[]> files
 
-    // ------------- tasks queue --------------------------------
+    // ------------- Task QUEUE (?) --------------------------------
 
     TaskId takeFromQueue() {
 
@@ -92,21 +92,27 @@ abstract class AbstractDataStore implements DataStore {
         jobs.replace(oldValue.requestId, oldValue, newValue)
     }
 
-    List<Job> findAllJobs() {
+    List<Job> listJobs() {
         new ArrayList<Job>(jobs.values())
     }
 
+
+    // ------------------------- TASKS operation -----------------------------------------
+
+    @Override
     void storeTask( TaskEntry task ) {
         assert task
         tasks.put( task.id, task )
     }
 
+    @Override
     TaskEntry getTask( TaskId taskId) {
         assert taskId
         tasks.get(taskId)
     }
 
 
+    @Override
     List<TaskEntry> findTasksByStatus( TaskStatus... status ) {
         assert status
 
@@ -114,21 +120,15 @@ abstract class AbstractDataStore implements DataStore {
     }
 
 
-
-    List<TaskEntry> findTasksById( final String taskId ) {
-        assert taskId
-
-        DataStoreHelper.findTasksById( tasks.values(), taskId )
-    }
-
     @Override
-    List<TaskEntry> findTasksOwnedBy(Integer nodeId) {
+    List<TaskEntry> findTasksByOwnerId(Integer nodeId) {
         assert nodeId
 
         return tasks.values().findAll() { TaskEntry it -> it.ownerId == nodeId }
     }
 
 
+    @Override
     List<TaskEntry> findTasksByStatusString( String status ) {
 
         DataStoreHelper.findTasksByStatusString(this, status)
@@ -139,6 +139,7 @@ abstract class AbstractDataStore implements DataStore {
      * @param requestId
      * @return
      */
+    @Override
     List<TaskEntry> findTasksByRequestId( UUID requestId ) {
 
         def result = tasks.values().findAll { TaskEntry task ->
@@ -148,20 +149,24 @@ abstract class AbstractDataStore implements DataStore {
         return new ArrayList<>(result)
     }
 
-
-    List<TaskEntry> findAllTasks() {
+    @Override
+    List<TaskEntry> listTasks() {
         new ArrayList<>(tasks.values())
     }
 
-    NodeData getNodeData( int nodeId ) {
+    // ------------------------------- NODE DATA operations ---------------------------------
+
+    @Override
+    NodeData getNode( int nodeId ) {
         nodes.get(nodeId)
     }
 
-    List<NodeData> findNodeDataByAddress( Address address ) {
+    @Override
+    List<NodeData> findNodesByAddress( Address address ) {
         assert address
 
         List<NodeData> result = []
-        nodes.values().each { NodeData node ->
+        listNodes().each { NodeData node ->
             if ( node.address == address ) {
                 result << node
             }
@@ -170,11 +175,12 @@ abstract class AbstractDataStore implements DataStore {
         return result
     }
 
-    List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status ) {
+    @Override
+    List<NodeData> findNodesByAddressAndStatus( Address address, NodeStatus status ) {
 
         List<NodeData> result = []
-        nodes.values().each { NodeData node ->
-            if ( node.address == address && (!status || node.status == status)  ) {
+        findNodesByAddress(address).each { NodeData node ->
+            if ( !status || node.status == status  ) {
                 result << node
             }
         }
@@ -182,12 +188,14 @@ abstract class AbstractDataStore implements DataStore {
         return result
     }
 
-    void storeNodeData( NodeData nodeData) {
+    @Override
+    void storeNode( NodeData nodeData) {
         assert nodeData
-        this.nodes.put(nodeData.id, nodeData)
+        nodes.put(nodeData.id, nodeData)
     }
 
-    boolean replaceNodeData( NodeData oldValue, NodeData newValue ) {
+    @Override
+    boolean replaceNode( NodeData oldValue, NodeData newValue ) {
         assert oldValue
         assert newValue
         assert oldValue.id == newValue.id
@@ -195,6 +203,7 @@ abstract class AbstractDataStore implements DataStore {
         nodes.replace(oldValue.id, oldValue, newValue)
     }
 
+    @Override
     NodeData updateNodeData( NodeData node, Closure closure ) {
         assert node
 
@@ -206,7 +215,7 @@ abstract class AbstractDataStore implements DataStore {
             closure.call(copy)
 
             // try to replace it in the map
-            done = replaceNodeData(node, copy)
+            done = replaceNode(node, copy)
             if( done ) {
                 // -- OK, return the 'copy'
                 node = copy
@@ -214,7 +223,7 @@ abstract class AbstractDataStore implements DataStore {
             // -- the update operation failed
             //    try it again reloading the 'NodeInfo' from the storage
             else if( System.currentTimeMillis()-begin < 1000 ) {
-                node = getNodeData(copy.id)
+                node = getNode(copy.id)
                 if ( !node ) {
                     throw new IllegalStateException("Cannot update NodeData item because not entry exists for address ${copy.address}")
                 }
@@ -230,13 +239,15 @@ abstract class AbstractDataStore implements DataStore {
     }
 
 
-    def boolean removeNodeData( NodeData dataToRemove ) {
+    @Override
+    def boolean removeNode( NodeData dataToRemove ) {
         assert dataToRemove
         nodes.remove(dataToRemove.id, dataToRemove)
     }
 
 
-    def List<NodeData> findAllNodesData() {
+    @Override
+    def List<NodeData> listNodes() {
         new ArrayList<NodeData>(nodes.values())
     }
 

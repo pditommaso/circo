@@ -69,7 +69,7 @@ interface DataStore {
 
     boolean replaceJob( Job oldValue, Job newValue )
 
-    List<Job> findAllJobs()
+    List<Job> listJobs()
 
 
 
@@ -95,17 +95,11 @@ interface DataStore {
      */
     TaskEntry getTask( TaskId taskId )
 
-    /**
-     *
-     * @param taskId
-     * @return
-     */
-    List<TaskEntry> findTasksById( String taskId );
 
     /**
      * @return The list of all defined jobs
      */
-    List<TaskEntry> findAllTasks()
+    List<TaskEntry> listTasks()
 
     /**
      * Find all the tasks currently assigned to a cluster node specified it {@code Address}
@@ -113,7 +107,7 @@ interface DataStore {
      * @param address
      * @return
      */
-    List<TaskEntry> findTasksOwnedBy( Integer nodeId )
+    List<TaskEntry> findTasksByOwnerId( Integer nodeId )
 
 
     /**
@@ -156,13 +150,13 @@ interface DataStore {
      * @param nodeId The node primary key
      * @return The associated {@code NodeData} instance of {@code null} if don't exist
      */
-    NodeData getNodeData(int nodeId)
+    NodeData getNode(int nodeId)
 
     /**
      * Store the specified {@code NodeData} object into the storage
      * @param nodeData The object to be saved
      */
-    void storeNodeData( NodeData nodeData )
+    void storeNode( NodeData nodeData )
 
     /**
      * Replace an existing {code NodeData} instance - oldValue - by an updated version
@@ -170,7 +164,7 @@ interface DataStore {
      * @param newValue
      * @return
      */
-    boolean replaceNodeData( NodeData oldValue, NodeData newValue )
+    boolean replaceNode( NodeData oldValue, NodeData newValue )
 
     /**
      * Remove the specified {@code NodeData}
@@ -178,12 +172,12 @@ interface DataStore {
      * @param nodeToRemove The {@code NodeData} instance to be removed
      * @return {@code true} if removed successfully or {@code false} otherwise
      */
-    boolean removeNodeData( NodeData nodeToRemove )
+    boolean removeNode( NodeData nodeToRemove )
 
     /**
      * @return All the {@code NodeData} instances or an empty list if no data is available
      */
-    List<NodeData> findAllNodesData()
+    List<NodeData> listNodes()
 
 
     /**
@@ -192,7 +186,7 @@ interface DataStore {
      * @param address The node {@code Address} of the required {@code NodeData}
      * @return The list of matching nodes or an empty list if there no nodes for the specified address
      */
-    List<NodeData> findNodeDataByAddress( Address address )
+    List<NodeData> findNodesByAddress( Address address )
 
     /**
      * Find all the nodes for the specified address and status
@@ -200,7 +194,7 @@ interface DataStore {
      * @param status The {@code NodeStatus} of the required {@code NodeData}
      * @return The list of matching nodes or an empty list if there no nodes for the specified address
      */
-    List<NodeData> findNodeDataByAddressAndStatus( Address address, NodeStatus status )
+    List<NodeData> findNodesByAddressAndStatus( Address address, NodeStatus status )
 
 
     // ----------------------------- FILES operations -------------------------------------

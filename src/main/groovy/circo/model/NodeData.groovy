@@ -21,6 +21,7 @@ package circo.model
 import akka.actor.ActorRef
 import akka.actor.Address
 import circo.util.CircoHelper
+import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.util.logging.Slf4j
@@ -30,6 +31,7 @@ import groovy.util.logging.Slf4j
  */
 
 @Slf4j
+@SerializeId
 @EqualsAndHashCode
 @ToString(includes = ['id', 'address','queue','workers','status', 'processed', 'failed'], includePackage = false, includeNames = true)
 class NodeData implements Serializable {
@@ -46,6 +48,7 @@ class NodeData implements Serializable {
 
     /**
      * The node IP address
+     * TODO refactor to AddressRef
      */
     Address address
 

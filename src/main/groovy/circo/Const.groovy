@@ -60,11 +60,11 @@ class Const {
 
     static final String APP_NAME = MAIN_PACKAGE
 
-    static final String APP_VER = "0.3.1"
+    static final String APP_VER = "0.3.2"
 
-    static final long APP_TIMESTAMP = 1361659150662
+    static final long APP_TIMESTAMP = 1361811465055
 
-    static final int APP_BUILDNUM = 429
+    static final int APP_BUILDNUM = 434
 
     static final String LOCAL_ADDRESS = '127.0.0.1'
 

@@ -281,8 +281,8 @@ class FrontEndTest extends ActorSpecification {
         def node1 =  NodeDataTest.create(11, 'w1,w2')
         def node2 =  NodeDataTest.create(22, 't0,t1,t2')
 
-        dataStore.storeNodeData(node1)
-        dataStore.storeNodeData(node2)
+        dataStore.storeNode(node1)
+        dataStore.storeNode(node2)
 
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }

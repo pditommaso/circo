@@ -17,9 +17,9 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.data
-import com.mchange.v2.c3p0.ComboPooledDataSource
-import com.mchange.v2.c3p0.DataSources
+package circo.data.sql
+
+import com.jolbox.bonecp.BoneCPDataSource
 import com.typesafe.config.ConfigFactory
 import spock.lang.Specification
 /**
@@ -39,23 +39,22 @@ class JdbcDataSourceFactoryTest extends Specification {
         !ds.getConnection().isClosed()
 
         cleanup:
-        DataSources.destroy(ds)
+        (ds as BoneCPDataSource).close()
     }
 
     def 'test create with map ' () {
 
         when:
-        def ds = JdbcDataSourceFactory.create( 'jdbc:h2:mem:Circo', [user:'paolo', password:'ciao'] )
+        def ds = JdbcDataSourceFactory.create( 'jdbc:h2:mem:Circo', [username:'paolo', password:'ciao'] )
 
         then:
         noExceptionThrown()
-        !ds.getConnection().isClosed()
-        ds instanceof ComboPooledDataSource
-        (ds as ComboPooledDataSource).getUser() == 'paolo'
-        (ds as ComboPooledDataSource).getPassword() == 'ciao'
+        ds instanceof BoneCPDataSource
+        (ds as BoneCPDataSource).getUsername() == 'paolo'
+        (ds as BoneCPDataSource).getPassword() == 'ciao'
 
         cleanup:
-        DataSources.destroy(ds)
+        (ds as BoneCPDataSource).close()
 
     }
 
@@ -67,11 +66,9 @@ class JdbcDataSourceFactoryTest extends Specification {
         store {
             jdbc {
               url = "jdbc:h2:mem:xxx"
-              user = paolo
+              username = paolo
               password = zzz
-              minPoolSize = 1
-              maxPoolSize = 10
-              acquireIncrement = 1
+              acquireIncrement = 2
             }
         }
         """
@@ -83,17 +80,14 @@ class JdbcDataSourceFactoryTest extends Specification {
 
         then:
         noExceptionThrown()
-        !ds.getConnection().isClosed()
-        ds instanceof ComboPooledDataSource
-        (ds as ComboPooledDataSource).getUser() == 'paolo'
-        (ds as ComboPooledDataSource).getPassword() == 'zzz'
-        (ds as ComboPooledDataSource).getAcquireIncrement() == 1
-        (ds as ComboPooledDataSource).getMinPoolSize() == 1
-        (ds as ComboPooledDataSource).getMaxPoolSize() == 10
+        ds instanceof BoneCPDataSource
+        (ds as BoneCPDataSource).getUsername() == 'paolo'
+        (ds as BoneCPDataSource).getPassword() == 'zzz'
+        (ds as BoneCPDataSource).getAcquireIncrement() == 2
 
 
         cleanup:
-        DataSources.destroy(ds)
+        (ds as BoneCPDataSource).close()
 
     }
 

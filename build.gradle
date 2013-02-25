@@ -27,7 +27,7 @@
 
 apply plugin: 'groovy'
 //name = 'circo'
-version = '0.3.1'
+version = '0.3.2'
 status = 'alpha'
 
 repositories {
@@ -39,7 +39,7 @@ repositories {
 }
 
 dependencies {
-    groovy module ('org.codehaus.groovy:groovy-all:2.0.6') {
+    groovy module ('org.codehaus.groovy:groovy-all:2.0.7') {
         transitive = true
     }
     //compile ( 'org.infinispan:infinispan-core:5.1.7.Final' )
@@ -65,7 +65,8 @@ dependencies {
               'org.fusesource.jansi:jansi:1.9',
               'net.java.dev.jna:jna:3.5.1',
               'net.java.dev.jna:platform:3.5.1',
-              'c3p0:c3p0:0.9.1.2'
+              'c3p0:c3p0:0.9.1.2',
+              'com.jolbox:bonecp:0.7.1.RELEASE'
               )
 
     compile ( 'org.hyperic:sigar:1.6.5.132' ) {

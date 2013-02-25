@@ -1,5 +1,10 @@
 CIRCO change-log
 ================
+0.3.2 - Tue, 26 Feb 2013
+- Using BoneCP connection pool instead of CP30
+- Refactored Hazelcast MapStore with enhanced JDBC support
+- Upgraded to Groovy 2.0.7
+
 0.3.1 - Mon, 25 Feb 2013
 - Validating context variable on submit command
 - Job termination synchronization uses finder instead of list of missing items

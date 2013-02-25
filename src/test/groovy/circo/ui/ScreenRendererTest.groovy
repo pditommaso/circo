@@ -42,12 +42,12 @@ class ScreenRendererTest extends ActorSpecification {
         def w4 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         node1.processed = 10
         node1.failed = 1
-        dataStore.storeNodeData(node1)
+        dataStore.storeNode(node1)
 
         def node2 = new NodeData(id: 22)
         def w5 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
-        dataStore.storeNodeData(node2)
+        dataStore.storeNode(node2)
 
         dataStore.storeTask( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
         dataStore.storeTask( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
@@ -73,12 +73,12 @@ class ScreenRendererTest extends ActorSpecification {
         def w2 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w3 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w4 = node1.createWorkerData( new JavaTestKit(system).getRef() )
-        dataStore.storeNodeData(node1)
+        dataStore.storeNode(node1)
 
         def node2 = new NodeData(id: 22)
         def w5 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
-        dataStore.storeNodeData(node2)
+        dataStore.storeNode(node2)
 
         dataStore.storeTask( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
         dataStore.storeTask( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
@@ -145,12 +145,12 @@ class ScreenRendererTest extends ActorSpecification {
         def w2 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w3 = node1.createWorkerData( new JavaTestKit(system).getRef() )
         def w4 = node1.createWorkerData( new JavaTestKit(system).getRef() )
-        dataStore.storeNodeData(node1)
+        dataStore.storeNode(node1)
 
         def node2 = new NodeData( id: 22 )
         def w5 = node2.createWorkerData( new JavaTestKit(system).getRef() )
         def w6 = node2.createWorkerData( new JavaTestKit(system).getRef() )
-        dataStore.storeNodeData(node2)
+        dataStore.storeNode(node2)
 
         dataStore.storeTask( new TaskEntry(TaskId.of(1), new TaskReq(script: 'do this')) )
         dataStore.storeTask( new TaskEntry(TaskId.of(2), new TaskReq(script: 'do that')) )
