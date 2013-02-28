@@ -18,8 +18,10 @@
  */
 
 package circo.data
+
 import javax.sql.DataSource
 
+import circo.data.sql.JdbcDataSourceFactory
 import com.hazelcast.core.MapStore
 import groovy.sql.Sql
 import groovy.util.logging.Slf4j
@@ -47,18 +49,31 @@ abstract class AbstractHzJdbcMapStore<K extends Serializable, V extends Serializ
      * Store constructor, tries to create the SQL table if not exists
      */
     AbstractHzJdbcMapStore() {
-        if ( fDataSource ) {
-            createTable(new Sql(fDataSource))
+        if ( JdbcDataSourceFactory.instance ) {
+            this.sql = new Sql(JdbcDataSourceFactory.instance)
         }
     }
+
+    AbstractHzJdbcMapStore(Sql sql, boolean createTableIfNotExist=false) {
+        this.sql = sql
+
+        if ( createTableIfNotExist ) {
+            log.debug "Creating DB table: $tableName"
+            createTable()
+        }
+    }
+
+    AbstractHzJdbcMapStore(DataSource dataSource, boolean createTableIfNotExist=false) {
+        this(new Sql(dataSource),createTableIfNotExist)
+    }
+
 
     /**
      * Default table create method
      *
      * @param sql
      */
-    def void createTable( def Sql sql ) {
-        assert sql
+    def void createTable() {
 
         sql.execute """
             create table if not exists ${tableName} (
@@ -69,24 +84,10 @@ abstract class AbstractHzJdbcMapStore<K extends Serializable, V extends Serializ
     }
 
 
-    def void dropTable( def Sql sql ) {
-        assert sql
+    def void dropTable() {
         sql.execute ("drop table if exists $tableName".toString())
     }
 
-    /**
-     * The JDBC data-source -- it is defined static since it will be inject during the application
-     * bootstrap with a single value
-     */
-    private static DataSource fDataSource
-
-    def static void setDataSource( DataSource dataSource ) {
-        assert dataSource
-
-        // assign the data source
-        fDataSource = dataSource
-
-    }
 
     /**
      * The interval SQL object, this should be used only for test purpose
@@ -97,8 +98,7 @@ abstract class AbstractHzJdbcMapStore<K extends Serializable, V extends Serializ
 
     def Sql getSql() {
         if( fSql ) return fSql
-        if ( fDataSource ) return new Sql(fDataSource)
-        throw new IllegalStateException('Missing JDBC data-source property ')
+        throw new IllegalStateException('Missing JDBC data-source ')
     }
 
 
@@ -173,8 +173,8 @@ abstract class AbstractHzJdbcMapStore<K extends Serializable, V extends Serializ
         sql.eachRow(statement, values) { row ->
 
             final id = objToKey(row[0])
-            final task = row[1] ? SerializationUtils.deserialize(row[1] as byte[]) : null
-            result.put( id, task as V)
+            final item = row[1] ? SerializationUtils.deserialize(row[1] as byte[]) : null
+            result.put( id, item as V )
         }
 
         return result

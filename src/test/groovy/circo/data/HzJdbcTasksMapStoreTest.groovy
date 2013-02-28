@@ -18,16 +18,13 @@
  */
 
 package circo.data
-
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskReq
 import circo.model.TaskStatus
-import com.hazelcast.config.Config
 import groovy.sql.Sql
 import spock.lang.Shared
 import spock.lang.Specification
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -48,14 +45,9 @@ class HzJdbcTasksMapStoreTest extends Specification {
         // the in mem database
         sql = Sql.newInstance('jdbc:h2:mem:Circo')
 
-        // hazelcast configuration
-        def cfg = new Config()
-        def jobs
-
-
-        def store = new HzJdbcTasksMapStore()
-        store.dropTable(sql)
-        store.createTable(sql)
+        def store = new HzJdbcTasksMapStore(sql:sql)
+        store.dropTable()
+        store.createTable()
     }
 
 

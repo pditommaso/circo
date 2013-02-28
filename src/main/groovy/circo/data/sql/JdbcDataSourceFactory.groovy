@@ -36,9 +36,11 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class JdbcDataSourceFactory {
 
+    static DataSource instance
+
 
     static def DataSource create( String url, String user='', String password='' ) {
-        create( url, [username: user, password: password ] )
+        instance = create( url, [username: user, password: password ] )
     }
 
     /**
@@ -79,7 +81,7 @@ class JdbcDataSourceFactory {
             }
         }
 
-        return dataSource
+        instance = dataSource
     }
 
     /**
@@ -140,7 +142,7 @@ class JdbcDataSourceFactory {
         }
 
 
-        return dataSource
+        instance = dataSource
 
     }
 

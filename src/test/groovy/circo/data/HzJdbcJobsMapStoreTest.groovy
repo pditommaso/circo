@@ -43,9 +43,9 @@ class HzJdbcJobsMapStoreTest extends Specification {
 
         sql = Sql.newInstance('jdbc:h2:mem:Circo')
 
-        def store = new HzJdbcJobsMapStore()
-        store.dropTable(sql)
-        store.createTable(sql)
+        def store = new HzJdbcJobsMapStore(sql: sql)
+        store.dropTable()
+        store.createTable()
     }
 
 

@@ -20,11 +20,13 @@
 package circo.data
 
 import circo.model.NodeData
+import groovy.transform.InheritConstructors
 
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@InheritConstructors
 class HzJdbcNodesMapStore extends AbstractHzJdbcMapStore<Integer,NodeData> {
 
     @Override

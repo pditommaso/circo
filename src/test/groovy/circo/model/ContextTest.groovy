@@ -275,8 +275,8 @@ class ContextTest extends Specification {
         Context.itemsToString(['hola','hola','hola','hola']) == '[hola,..3 more]' // same repetition of the same value
         Context.itemsToString(['Hello']) == 'Hello'                        // single value is printed without brackets
         Context.itemsToString(999) == '999'
-        Context.itemsToString([new FileRef('/path/name_1',1), new FileRef('/path/name_2',1)]) == '[name_1,name_2]'  // parent path are removed from files
-        Context.itemsToString([new FileRef('/path/name_1',1), new FileRef('/path/name_1',1)]) == '[name_1,..1 more]'  // parent path are removed from files
+        Context.itemsToString([new FileRef('/path/name_1'), new FileRef('/path/name_2')]) == '[name_1,name_2]'  // parent path are removed from files
+        Context.itemsToString([new FileRef('/path/name_1'), new FileRef('/path/name_1')]) == '[name_1,..1 more]'  // parent path are removed from files
 
     }
 

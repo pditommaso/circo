@@ -41,6 +41,8 @@ import circo.messages.WorkToBeDone
 import circo.messages.WorkerCreated
 import circo.messages.WorkerFailure
 import circo.messages.WorkerRequestsWork
+import circo.model.Job
+import circo.model.JobStatus
 import circo.model.TaskId
 import circo.model.TaskResult
 import circo.model.TaskStatus
@@ -182,26 +184,36 @@ class TaskProcessor extends UntypedActor {
      */
     protected void handleWorkToBeDone( WorkToBeDone message ) {
 
-        final entry = store.getTask( message.taskId )
-        if( !entry ) {
+        final task = store.getTask( message.taskId )
+        if( !task ) {
             log.error "Oops! Unknown task with id: ${message.taskId}"
             return
         }
 
         // -- set the currentJobId
-        currentTaskId = entry.id
+        currentTaskId = task.id
 
         // -- increment the 'attempts' counter and save it
-        entry.attempts ++
-        entry.status = TaskStatus.READY
-        entry.worker = new WorkerRef(getSelf())
-        store.storeTask(entry)
+        task.attempts ++
+        task.status = TaskStatus.READY
+        task.worker = new WorkerRef(getSelf())
+        store.storeTask(task)
+
+        // -- set the job to 'running' status
+        final job = store.getJob( task.req.ticket )
+        if( job && job.status == JobStatus.SUBMITTED ) {
+            store.updateJob(task.req.ticket) { Job thisJob ->
+                // change the status to RUNNING
+                thisJob.status = JobStatus.RUNNING
+            }
+        }
+
 
         // -- Switching to 'running' mode
         this.state = State.RUNNING
 
         // -- notify the runner to launch the job
-        final processToRun = new ProcessToRun(entry)
+        final processToRun = new ProcessToRun(task)
         log.debug "-> $processToRun to executor"
         executor.tell(processToRun, self())
 

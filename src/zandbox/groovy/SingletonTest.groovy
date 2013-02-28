@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2012, the authors.
  *
@@ -17,18 +18,21 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.model
-
 /**
- * Models the possible status of a job
  *
- * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
+ *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-enum JobStatus {
 
-    SUBMITTED,
-    RUNNING,
-    SUCCESS,
-    FAILED
+
+class Base {
+
+    static Integer field
 
 }
+
+class A extends Base {}
+class B extends Base {}
+
+A.field = 1
+
+assert B.field == 1

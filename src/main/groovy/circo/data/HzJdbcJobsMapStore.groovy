@@ -18,17 +18,16 @@
  */
 
 package circo.data
-
 import circo.model.Job
-import groovy.sql.Sql
+import groovy.transform.InheritConstructors
 import groovy.util.logging.Slf4j
-
 /**
  *
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
 @Slf4j
+@InheritConstructors
 class HzJdbcJobsMapStore extends AbstractHzJdbcMapStore<UUID, Job> {
 
 
@@ -37,8 +36,7 @@ class HzJdbcJobsMapStore extends AbstractHzJdbcMapStore<UUID, Job> {
         return "JOBS"
     }
 
-    def void createTable( def Sql sql ) {
-        assert sql
+    def void createTable( ) {
 
         sql.execute """
             create table if not exists ${tableName} (

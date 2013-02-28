@@ -199,19 +199,14 @@ class TaskExecutor extends UntypedActor {
         /*
          * create the private scratch directory to run the task
          */
-        try {
-            task.launchTime = System.currentTimeMillis()
-            task.workDir = CircoHelper.createScratchDir()
+        task.launchTime = System.currentTimeMillis()
+        task.workDir = CircoHelper.createScratchDir()
 
-            // create the local private dir
-            privateDir = createPrivateDir(task)
-            // save the script to a file
-            scriptFile = new File(privateDir,'script')
-            Files.write( scriptToExecute.getBytes(), scriptFile )
-        }
-        finally {
-            store.storeTask(task)
-        }
+        // create the local private dir
+        privateDir = createPrivateDir(task)
+        // save the script to a file
+        scriptFile = new File(privateDir,'script')
+        Files.write( scriptToExecute.getBytes(), scriptFile )
 
 
         try {
@@ -231,7 +226,7 @@ class TaskExecutor extends UntypedActor {
             process = builder.start()
             task.pid = ProcessHelper.getPid(process)
             task.status = TaskStatus.RUNNING
-            store.storeTask(task)
+            store.storeTask(task);
 
             def message = new ProcessStarted(task)
             log.debug "-> ${message}"
@@ -270,7 +265,7 @@ class TaskExecutor extends UntypedActor {
             result = new TaskResult( taskId: task.id, exitCode: exitCode, output: output.toString(), cancelled: cancelRequest)
 
             // collect the files produced by this job
-            gather(task.req, result, task.workDir, nodeId)
+            gather(task.req, result, task.workDir)
         }
         finally {
             // -- save the completion time
@@ -295,6 +290,26 @@ class TaskExecutor extends UntypedActor {
     }
 
     def static BASIC_VARIABLE = /\$([^ \n\r\f\t\$]+)/
+
+    /**
+     * Invokes the list action, wrapping them with a transaction if they are more than one
+     * @param actions
+     */
+    private void safeApply( Closure... actions ) {
+
+        if( !actions ) return
+
+        if( actions.size() == 1 ) {
+            actions[0].call()
+        }
+
+        else {
+            store.withTransaction {
+                actions.each { it.call() }
+            }
+        }
+
+    }
 
     static private String stage( TaskReq request ) {
         assert request
@@ -344,7 +359,7 @@ class TaskExecutor extends UntypedActor {
      * @param job
      * @param result
      */
-    static protected TaskResult gather(TaskReq req, TaskResult result, File workDir, int nodeId) {
+    static protected TaskResult gather(TaskReq req, TaskResult result, File workDir) {
         assert req
         assert result
         assert workDir
@@ -379,7 +394,7 @@ class TaskExecutor extends UntypedActor {
             int count=0
             workDir.eachFileMatch(FileType.FILES, ~/$filePattern/ ) { File file ->
                 try {
-                    deltaContext.add( new FileRef(file, nodeId, name?:file.name) )
+                    deltaContext.add( new FileRef(file, name ?: file.name) )
                     count++
                 }
                 catch( Exception e ) {

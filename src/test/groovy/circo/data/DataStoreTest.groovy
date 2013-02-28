@@ -44,19 +44,25 @@ abstract class DataStoreTest extends Specification {
     def 'test updateJob' () {
 
         setup:
-        final id = UUID.randomUUID()
-        def job = new Job(id)
-        job.status = JobStatus.SUBMITTED
-        store.storeJob(job)
+        def job1 = new Job(UUID.randomUUID())
+        job1.status = JobStatus.RUNNING
+        store.storeJob(job1)
+
+        def job2 = new Job(UUID.randomUUID())
+        job2.status = JobStatus.FAILED
+        store.storeJob(job2)
 
         when:
-        def result = store.updateJob( id ) { Job it ->
-            it.status = JobStatus.SUBMITTED
-        }
+        boolean done1 = store.updateJob( job1.requestId ) { Job it -> it.status = JobStatus.SUBMITTED }
+        boolean done2 = store.updateJob( job2.requestId ) { Job it -> it.status = JobStatus.FAILED }
+        boolean done3 = store.updateJob( UUID.randomUUID() ) { Job it -> it.status = JobStatus.FAILED }
 
         then:
-        store.getJob(id).submitted
-        store.getJob(id) == result
+        done1  // this must be TRUE
+        !done2  // this must be FALSE, because the object does not change, so it is not updated
+        !done3 // this must be FALSE, because the entry does not exist
+
+        store.getJob(job1.requestId).submitted
 
     }
 
@@ -475,23 +481,42 @@ abstract class DataStoreTest extends Specification {
         // we put a file in the cache
         //
         when:
-        def channel1 = new FileInputStream(sourceFile).getChannel()
-        def cachePath1 = fileName
-        store.putFile(cachePath1, channel1)
+        def fileId = UUID.randomUUID()
+        store.storeFile(fileId, sourceFile)
 
-        def target1 = new File('targetFile'); target1.deleteOnExit()
-        def result1 = store.getFile(cachePath1, new FileOutputStream(target1).getChannel())
-        result1.close()
-
-        // retrieving it, it must be the same
         then:
-        target1.text == str
+        store.getFile(fileId) == sourceFile
+        store.getFile(fileId).text == str
 
         //
         // test against different file name
         //
         where:
         fileName << ['simpleFile.txt', '/root.file', '/some/path/file.txt']
+
+    }
+
+
+    // ------------------------ TEST SINK ----------------------------------------
+
+    def 'test put task sink ' () {
+
+        setup:
+        def req1 = UUID.randomUUID()
+        def req2 = UUID.randomUUID()
+        def task1 = TaskEntry.create(1) { TaskEntry it -> it.req.ticket = req1 }
+        def task2 = TaskEntry.create(2) { TaskEntry it -> it.req.ticket = req2 }
+        def task3 = TaskEntry.create(3) { TaskEntry it -> it.req.ticket = req2 }
+
+        when:
+        store.storeTaskSink( task1 )
+        store.storeTaskSink( task2 )
+        store.storeTaskSink( task3 )
+
+        then:
+        store.countTasksMissing(req1) == 1
+        store.countTasksMissing(req2) == 2
+        store.countTasksMissing(UUID.randomUUID()) == 0
 
     }
 

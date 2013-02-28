@@ -22,7 +22,10 @@ package circo.data
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
+import circo.model.TaskEntry
 import circo.model.TaskId
+import com.google.common.collect.ArrayListMultimap
+import com.google.common.collect.Multimap
 import groovy.util.logging.Slf4j
 /**
  *
@@ -31,23 +34,63 @@ import groovy.util.logging.Slf4j
 @Slf4j
 class LocalDataStore extends AbstractDataStore {
 
-    private AtomicInteger idGen = new AtomicInteger()
+    private AtomicInteger taskIdGen = new AtomicInteger()
 
     private AtomicInteger nodeIdGen = new AtomicInteger()
+
+    private ConcurrentHashMap<UUID, File> files = new ConcurrentHashMap<>()
+
+    private Multimap<UUID,TaskId> sink = ArrayListMultimap.create()
 
     def LocalDataStore() {
         jobs = new ConcurrentHashMap<>()
         tasks = new ConcurrentHashMap<>()
         nodes = new ConcurrentHashMap<>()
         queue = new ConcurrentHashMap<>()
-        files = new ConcurrentHashMap<>()
     }
 
     def void shutdown() { }
 
-    TaskId nextTaskId() { new TaskId( idGen.addAndGet(1) ) }
+    def void withTransaction(Closure closure) { closure.call() }
+
+    // ------------------------------ TASKS ------------------------------------------
+
+    TaskId nextTaskId() { new TaskId( taskIdGen.addAndGet(1) ) }
+
+    // ------------------------------ NODE -------------------------------------------
 
     int nextNodeId() { nodeIdGen.addAndGet(1) }
+
+    // ----------------------------- SINK --------------------------------------------
+
+    void storeTaskSink( TaskEntry task ) {
+        assert task
+        assert task?.req?.ticket
+
+        sink.put(task.req.ticket,task.id)
+    }
+
+    boolean removeTaskSink( TaskEntry task ) {
+        assert task
+        assert task?.req?.ticket
+
+        sink.remove(task.req.ticket, task.id)
+    }
+
+    int countTasksMissing( UUID requestId ) {
+        sink.get(requestId).size()
+    }
+
+
+    // ----------------------------- FILES -------------------------------------------
+
+    void storeFile( UUID fileId, File file ) {
+        files.put(fileId, file)
+    }
+
+    File getFile( UUID fileId ) {
+        files.get(fileId)
+    }
 
 
 }

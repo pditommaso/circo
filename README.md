@@ -74,6 +74,13 @@ License
 The *Circo* framework source code is released under the GNU GPL3 License.
 
 
+Credits 
+-------
+
+YourKit is kindly supporting this open source project with its full-featured Java Profiler.
+Read more http://www.yourkit.com
+
+
 Contact
 -------
 Paolo Di Tommaso - paolo (dot) ditommaso (at) gmail (dot) com

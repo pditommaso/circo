@@ -24,7 +24,6 @@ import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -32,7 +31,7 @@ import groovy.transform.TupleConstructor
 @SerializeId
 @TupleConstructor
 @EqualsAndHashCode
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 class ProcessStarted implements Serializable {
 
     final TaskEntry task
@@ -41,7 +40,7 @@ class ProcessStarted implements Serializable {
 
 
 @SerializeId
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 class ProcessKill implements Serializable {
 
     /** Whenever the job is killed by a user requested 'pause' operation */
@@ -52,7 +51,7 @@ class ProcessKill implements Serializable {
 
 @SerializeId
 @Singleton
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 class ProcessIsAlive implements Serializable {
 
 }
@@ -60,7 +59,7 @@ class ProcessIsAlive implements Serializable {
 @SerializeId
 @TupleConstructor
 @EqualsAndHashCode
-@ToString(includePackage = false)
+@ToString(includePackage = false, includeNames = true)
 class ProcessToRun implements Serializable {
 
     final TaskEntry task
@@ -72,3 +71,16 @@ class ProcessToRun implements Serializable {
 class NodeShutdown implements Serializable {
 
 }
+
+@SerializeId
+@TupleConstructor
+@ToString(includePackage = false, includeNames = true)
+class ProcessJobComplete implements  Serializable {
+
+    /**
+     * The task entry that completes the overall job
+     */
+    TaskEntry task
+
+}
+

@@ -40,11 +40,11 @@ class CircoHelper {
 
     static private Random rndGen = new Random()
 
-    static final List<Character> ALPHA = ('a'..'z')
+    static final char[] ALPHA = ('a'..'z') as char[]
 
-    static final List<Character> NUMERIC = ('0'..'9')
+    static final char[] NUMERIC = ('0'..'9') as char[]
 
-    static final List<Character> ALPHANUM = ('a'..'z')+('0'..'9')
+    static final char[] ALPHANUM = (('a'..'z')+('0'..'9')) as char[]
 
     static DATETIME_FORMAT = "dd/MMM/yyyy HH:mm"
 
@@ -246,17 +246,24 @@ class CircoHelper {
      * @param alphabet The set of characters allowed in the random string
      * @return The generated random string
      */
-    static String randomString( int len, List<Character> alphabet = 'a'..'z' ) {
-        assert len
-        assert alphabet
+    static String randomString( int len, char[] alphabet ) {
+        assert alphabet.size() > 0
 
         StringBuilder result = new StringBuilder()
-        def num = alphabet.size()
+        final max = alphabet.size()
 
-        len.times { index ->  result.append( alphabet.get( rndGen.nextInt(num) ) ) }
+        len.times {
+            def index = rndGen.nextInt(max)
+            result.append( alphabet[index] )
+        }
 
         return result.toString()
     }
+
+    static String randomString( int len ) {
+        randomString(len, ALPHA)
+    }
+
 
     /**
      * The process scratch folder
@@ -273,8 +280,7 @@ class CircoHelper {
             String rnd3 = randomString(4, ALPHANUM)
             String rnd4 = randomString(4, ALPHANUM)
 
-            File tempDir = new File(baseDir, "$rnd1/$rnd2/$rnd3-$rnd4");
-            log.trace "Random folder: " + tempDir
+            File tempDir = new File(baseDir, "$rnd1/$rnd2/$rnd3-$rnd4".toString());
 
             if (tempDir.mkdirs()) {
                 return tempDir;

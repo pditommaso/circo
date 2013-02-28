@@ -40,6 +40,11 @@ class Job implements Serializable {
     final UUID requestId
 
     /**
+     * @return The first 8 characters of the request id
+     */
+    String getShortReqId() { requestId?.toString()?.substring(0,8) }
+
+    /**
      * The sender actor to which reply the {@code JobReply} instance
      */
     WorkerRef sender
@@ -91,11 +96,16 @@ class Job implements Serializable {
 
     boolean isFailed() { status == JobStatus.FAILED  }
 
+    boolean isRunning() { status == JobStatus.RUNNING }
+
     static final private TERMINATED = [JobStatus.FAILED, JobStatus.SUCCESS ]
 
     void setStatus( JobStatus status ) {
-        this.status = status
 
+        // guard condition -- avoid to update 'completionTime' when status has not changed
+        if( this.status == status ) return
+
+        this.status = status
         if( status in TERMINATED ) {
             this.completionTime = System.currentTimeMillis()
         }

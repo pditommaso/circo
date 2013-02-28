@@ -41,6 +41,7 @@ import akka.cluster.Member
 import circo.data.DataStore
 import circo.messages.NodeShutdown
 import circo.messages.PauseWorker
+import circo.messages.ProcessJobComplete
 import circo.messages.ResumeWorker
 import circo.messages.WorkIsDone
 import circo.messages.WorkToBeDone
@@ -140,6 +141,7 @@ class NodeMaster extends UntypedActor  {
         tasksDispatcher[WorkerFailure] = this.&handleWorkerFailure
         tasksDispatcher[PauseWorker] = this.&handlePauseWorker
         tasksDispatcher[ResumeWorker] = this.&handleResumeWorker
+        tasksDispatcher[ProcessJobComplete] = this.&handleJobComplete
 
         tasksDispatcher[Terminated] = this.&handleTerminated
         tasksDispatcher[NodeShutdown] = this.&handleShutdown
@@ -339,6 +341,9 @@ class NodeMaster extends UntypedActor  {
             task.ownerId = nodeId
             store.storeTask(task)
 
+            // mark the task to which it is required to collect a result
+            store.storeTaskSink(task)
+
         }
     }
 
@@ -482,6 +487,11 @@ class NodeMaster extends UntypedActor  {
             return
         }
 
+        def removed = store.removeTaskSink(task)
+        if ( !removed ) {
+            log.debug "Oops. Unable to remove sink flag for task id: ${task.id}-- ${task.dump()}"
+            return
+        }
 
         // -- notify the client for the available result
         if( task.sender && task.req.notifyResult ) {
@@ -490,79 +500,28 @@ class NodeMaster extends UntypedActor  {
             task.sender.tell ( reply, self() )
         }
 
-        /*
-         * update job action
-         */
+        self().tell ( new ProcessJobComplete(task), null )
+
+    }
+
+    protected void handleJobComplete( ProcessJobComplete message )  {
+
+        Job job = null
+        final task = message.task
+
         try {
-            final job = store.getJob( task.req.ticket )
-
-            // -- the status can be changed only from:
-            // 'submitted' -> 'success'
-            // 'submitted' -> 'failed'
-            if( !job.submitted ) {
-                return
+            boolean done = store.updateJob( task.req.ticket ) { Job thisJob ->
+                checkIfJobCompletes(thisJob, task)
+                job = thisJob
             }
 
-            // -- if the task is failed, mark the job as failed
-            Job updatedJob = Job.copy(job)
-
-            if( !task.isSuccess()  ) {
-                updatedJob.status = JobStatus.FAILED
-                // TODO stop all pending tasks execution ?
+            if ( done && job ) {
+                log.debug "*Job Complete*: ${job.dump()}"
+                notifyJobComplete(job)
             }
-            // -- try to finalize
             else {
-
-                final allTasks = store.findTasksByRequestId( job.requestId )
-                final numOfTerm = allTasks?.count { TaskEntry it -> it.terminated }
-                if ( numOfTerm < job.numOfTasks ) {
-                    log.trace "Completed tasks: ${numOfTerm} of ${job.numOfTasks}"
-                    return
-                }
-
-                /*
-                 * Collect of result context for each tasks
-                 */
-                def allResultContext = allTasks.collect { TaskEntry it -> it.result?.context }
-
-                def newContext = job.input ? Context.copy(job.input) : new Context()
-                allResultContext.each { Context delta ->
-                    newContext += delta
-                }
-
-                /*
-                 * - create the new job output context
-                 * - set to success
-                 */
-                updatedJob.output = newContext
-                updatedJob.status = JobStatus.SUCCESS
+                log.debug "Job was not updated: ${job.dump()} "
             }
-
-            def result = store.replaceJob( job, updatedJob )
-            if( !result ) {
-                log.debug "Cannot update job ${job.dump()} -- with value: ${updatedJob.dump()}"
-                return
-            }
-            log.debug "Job result: ${result.dump()}"
-
-            if ( !updatedJob.sender ) {
-                // nobody to notify
-                return
-            }
-
-            if ( updatedJob.success ) {
-                // -- notify success
-                def reply = new JobReply( updatedJob.requestId )
-                reply.success = true
-                reply.context = updatedJob.output
-                updatedJob.sender.tell( reply )
-            }
-            else if ( updatedJob.failed ) {
-                // notify failure
-                updatedJob.sender.tell( new JobReply( updatedJob.requestId ) )
-                // TODO send task error message to the client ?
-            }
-
 
         }
         catch( Exception e ) {
@@ -571,6 +530,72 @@ class NodeMaster extends UntypedActor  {
             // TODO stop current execution ?
         }
 
+    }
+
+    protected void checkIfJobCompletes( Job job, TaskEntry task ) {
+
+        // 'submitted' -> 'success'
+        // 'submitted' -> 'failed'
+
+        if( !job.running ) {
+            log.debug "Oops. Job '${job.shortReqId}..' not in RUNNING status -- ${job.dump()}"
+            return
+        }
+
+        if( !task.isSuccess()  ) {
+            job.status = JobStatus.FAILED
+            // TODO ++ stop all pending tasks execution ?
+        }
+
+        // -- try to finalize
+        else {
+
+            final missingTasks = store.countTasksMissing(job.requestId)
+            if ( missingTasks ) {
+                log.trace "Job '${job.shortReqId}..' missing tasks: ${missingTasks} of ${job.numOfTasks}"
+                return
+            }
+
+            /*
+             * if here, the job has completed since there are not more pending tasks
+             */
+            job.status = JobStatus.SUCCESS
+
+            // -- create the resulting job context
+            def allResultContext = store.findTasksByRequestId(job.requestId).collect { TaskEntry it -> it.result?.context }
+
+            def newContext = job.input ? Context.copy(job.input) : new Context()
+            allResultContext.each { Context delta ->
+                newContext += delta
+            }
+
+            // assign it to the job
+            job.output = newContext
+
+        }
+
+
+    }
+
+    protected void notifyJobComplete( Job job )  {
+
+        if ( !job.sender ) {
+            // nobody to notify
+            return
+        }
+
+        if ( job.success ) {
+            // -- notify success
+            def reply = new JobReply( job.requestId )
+            reply.success = true
+            reply.context = job.output
+            job.sender.tell( reply )
+        }
+        else if ( job.failed ) {
+            // notify failure
+            job.sender.tell( new JobReply( job.requestId ) )
+            // TODO send task error message to the client ?
+        }
 
     }
 

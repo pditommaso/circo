@@ -18,17 +18,16 @@
  */
 
 package circo.data
-
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
-import groovy.sql.Sql
+import groovy.transform.InheritConstructors
 import org.apache.commons.lang.SerializationUtils
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@InheritConstructors
 class HzJdbcTasksMapStore extends AbstractHzJdbcMapStore<TaskId, TaskEntry> {
 
 
@@ -36,7 +35,7 @@ class HzJdbcTasksMapStore extends AbstractHzJdbcMapStore<TaskId, TaskEntry> {
     String getTableName() { "TASKS" }
 
     @Override
-    def void createTable( def Sql sql ) {
+    def void createTable() {
         assert sql
 
         sql.execute """

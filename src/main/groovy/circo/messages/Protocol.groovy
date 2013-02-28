@@ -31,8 +31,8 @@ import circo.model.WorkerRef
  *  @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
-@ToString(includePackage = false)
 @EqualsAndHashCode
+@ToString(includePackage = false)
 class WorkerCreated implements Serializable {
 
     final WorkerRef worker
@@ -46,8 +46,8 @@ class WorkerCreated implements Serializable {
     }
 }
 
-@ToString(includePackage = false)
 @EqualsAndHashCode
+@ToString(includePackage = false)
 class WorkerRequestsWork implements Serializable {
 
     final WorkerRef worker
@@ -62,9 +62,9 @@ class WorkerRequestsWork implements Serializable {
 
 }
 
-@ToString(includePackage = false, includeNames = true)
 @EqualsAndHashCode
 @TupleConstructor
+@ToString(includePackage = false, includeNames = true)
 class WorkIsDone implements Serializable {
 
     final WorkerRef worker
@@ -73,9 +73,9 @@ class WorkIsDone implements Serializable {
 
 }
 
-@ToString(includePackage = false, includeNames = true)
 @EqualsAndHashCode
 @TupleConstructor
+@ToString(includePackage = false, includeNames = true)
 class WorkToBeDone implements Serializable {
 
     final TaskId taskId
@@ -83,8 +83,8 @@ class WorkToBeDone implements Serializable {
 }
 
 
-@ToString(includePackage = false, includeNames = true)
 @Singleton
+@ToString(includePackage = false, includeNames = true)
 class WorkIsReady implements  Serializable { }
 
 
@@ -97,9 +97,9 @@ class WorkComplete implements Serializable {
 
 }
 
-@ToString(includePackage = false, includeNames = true)
 @TupleConstructor
 @EqualsAndHashCode
+@ToString(includePackage = false, includeNames = true)
 class WorkToSpool implements Serializable {
 
     final TaskId taskId
@@ -108,9 +108,9 @@ class WorkToSpool implements Serializable {
 
 }
 
-@ToString(includePackage = false)
 @TupleConstructor
 @EqualsAndHashCode
+@ToString(includePackage = false)
 class WorkerFailure implements Serializable {
 
     final WorkerRef worker
@@ -125,8 +125,8 @@ class WorkerFailure implements Serializable {
 
 }
 
-@ToString(includePackage = false, includeNames = true)
 @EqualsAndHashCode
+@ToString(includePackage = false, includeNames = true)
 class PauseWorker implements Serializable {
 
     /** Hard pause -- all running jobs will be killed */
@@ -134,10 +134,11 @@ class PauseWorker implements Serializable {
 
 }
 
-@ToString(includePackage = false)
 @EqualsAndHashCode
+@ToString(includePackage = false)
 class ResumeWorker implements Serializable {
 
 }
+
 
 

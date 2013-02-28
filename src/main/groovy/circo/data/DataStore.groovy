@@ -18,7 +18,6 @@
  */
 
 package circo.data
-import java.nio.channels.FileChannel
 
 import akka.actor.Address
 import circo.model.Job
@@ -38,6 +37,8 @@ interface DataStore {
      * Shut-down the underlying data store
      */
     void shutdown()
+
+    void withTransaction(Closure closure)
 
 
     // ------------- tasks queue --------------------------------
@@ -65,7 +66,7 @@ interface DataStore {
      */
     void storeJob( Job job )
 
-    Job updateJob( UUID requestId, Closure updateAction )
+    boolean updateJob( UUID requestId, Closure updateAction )
 
     boolean replaceJob( Job oldValue, Job newValue )
 
@@ -134,10 +135,16 @@ interface DataStore {
      */
     List<TaskEntry> findTasksByRequestId( UUID requestId )
 
+    // ----------------------------- SINK operation ------------------------
+
+    void storeTaskSink( TaskEntry task )
+
+    boolean removeTaskSink( TaskEntry task )
+
+    int countTasksMissing( UUID requestId )
 
 
     // --------------- NODE operations -------------------------------------
-
 
     /**
      * @return A unique identifier for a cluster node instance
@@ -199,23 +206,9 @@ interface DataStore {
 
     // ----------------------------- FILES operations -------------------------------------
 
-    /**
-     * Store a file content in the cluster cache
-     *
-     * @param fileName A fully qualified file name that must be unique across all cluster node
-     * @param fileContent The binary content to be stored
-     */
-    void putFile( String fileName, FileChannel fileContent );
+    File getFile( UUID fileId )
 
-    /**
-     * Get the binary content of a file stored in the cluster cache
-     *
-     * @param fileName The fully qualified file name
-     * @param target The target file that where the content the file data is going to be stored
-     * @return An {@code InputStream} to access the file content ot {@code null} if the file does not exist in the cache
-     */
-    FileChannel getFile( String fileName, FileChannel target )
-
+    void storeFile( UUID fileId, File file )
 
 
 }

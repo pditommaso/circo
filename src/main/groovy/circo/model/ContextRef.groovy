@@ -18,9 +18,7 @@
  */
 
 package circo.model
-
 import circo.data.DataStore
-import circo.util.CircoHelper
 import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.TupleConstructor
@@ -65,14 +63,11 @@ class FileRef implements DataRef {
      */
     final String name
 
-    final UUID cacheKey
+    final UUID fileId
 
-    final File file
+    final String fileName
 
-    /**
-     * A map holding the absolute path where the file is stored on the local file system on each cluster node
-     */
-    final Map<Integer,File> localFile = [:]
+    transient File localFile
 
     /**
      * Create a reference for a file system file
@@ -81,61 +76,55 @@ class FileRef implements DataRef {
      * @param name
      * @return
      */
-    def FileRef( File file, int nodeId, String name ) {
+    def FileRef( File file, String name ) {
         assert name != null
         assert file
 
-        this.file = file
+        // the FileRef 'variable' name
         this.name = name
-        this.localFile[nodeId] = file.absoluteFile
-        this.cacheKey = UUID.randomUUID()
+
+        // the reference to the local version of the file -- not this is a transient variable
+        this.localFile = file
+
+        // unique file it
+        this.fileId = UUID.randomUUID()
+
+        // local file name -- note: it may contains relative path to the current folder
+        this.fileName = file.name.toString()
 
         // save in the cluster storage
         if ( file.exists() ) {
-            def channel = new FileInputStream(file)?.getChannel()
-            dataStore.putFile( cacheKey.toString(), channel )
-            channel.close()
+            dataStore.storeFile( fileId, file )
         }
 
     }
 
-    def FileRef( File file, int nodeId ) {
-        this(file, nodeId, file?.name)
+    def FileRef( File file ) {
+        this(file, file?.name)
     }
 
-    def FileRef( String path, int nodeId ) {
-        this(new File(path), nodeId)
+    def FileRef( String path ) {
+        this(new File(path) )
     }
 
 
     def File getData() {
 
-        // -- check if the file is available on the local file system
-        if ( currentNodeId in localFile ) {
-            return localFile[ currentNodeId ]
+        if ( localFile ) {
+            return localFile
         }
 
-        // -- the file is not available in node local file system
-        //    try to retrieve on the cluster cache
-        def result = new File( CircoHelper.createScratchDir(), name )
-        def target = new FileOutputStream(result).getChannel()
-
-        target = dataStore.getFile(cacheKey.toString(), target)
-        if ( !target ) {
-            result.delete()
-            throw new IllegalStateException("Missing cache store file: ${file.toString()}")
+        localFile = dataStore.getFile(fileId)
+        if ( !localFile ) {
+            throw new IllegalStateException("Missing cache store file: ${localFile.toString()}")
         }
-        target.close()
 
-        // -- keep this file on the local cache
-        localFile[currentNodeId] = result
-
-        return result
+        return localFile
     }
 
 
     @Override
-    String toString() { file?.toString() }
+    String toString() { fileName }
 
 }
 

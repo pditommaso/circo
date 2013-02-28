@@ -54,7 +54,6 @@ class TaskExecutorTest extends Specification {
     def 'test stage' () {
 
         setup:
-        FileRef.currentNodeId = 1
         FileRef.dataStore = new LocalDataStore()
 
         def req = new TaskReq()
@@ -65,7 +64,7 @@ class TaskExecutorTest extends Specification {
         '''
         .stripIndent().trim()
         req.produce = ['file2']
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
 
         when:
         def script = TaskExecutor.stage(req)
@@ -83,7 +82,6 @@ class TaskExecutorTest extends Specification {
     def 'test gather' () {
 
         setup:
-        FileRef.currentNodeId = 1
         FileRef.dataStore = new LocalDataStore()
 
         def script = """
@@ -94,7 +92,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
         def filesToProduce = ['file2.txt','file3.txt']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -105,7 +103,7 @@ class TaskExecutorTest extends Specification {
 
         when:
         req.produce = filesToProduce
-        def ctx = TaskExecutor.gather( req, result, workDir, 1 ).context
+        def ctx = TaskExecutor.gather( req, result, workDir ).context
 
         then:
         !ctx.contains('file1.txt')
@@ -126,7 +124,6 @@ class TaskExecutorTest extends Specification {
     def 'test gather with pattern' () {
 
         setup:
-        FileRef.currentNodeId = 1
         FileRef.dataStore = new LocalDataStore()
 
         def script = """
@@ -137,7 +134,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
         def filesToProduce = ['file1.txt', 'file2.txt','file3.txt', 'fasta.fa']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -148,7 +145,7 @@ class TaskExecutorTest extends Specification {
 
         when:
         req.produce = ['file*','fasta.fa']
-        def ctx = TaskExecutor.gather( req, result, workDir, 1 ).context
+        def ctx = TaskExecutor.gather( req, result, workDir).context
 
         then:
         ctx.contains('file1.txt')
@@ -172,7 +169,6 @@ class TaskExecutorTest extends Specification {
     def 'test gather with variable aggregation' () {
 
         setup:
-        FileRef.currentNodeId = 1
         FileRef.dataStore = new LocalDataStore()
 
         def script = """
@@ -183,7 +179,7 @@ class TaskExecutorTest extends Specification {
         """
 
         def req = new TaskReq(script:script)
-        req.context = new Context().put(new FileRef('/path/on/the/fs/file1', 1))
+        req.context = new Context().put(new FileRef('/path/on/the/fs/file1'))
         def filesToProduce = ['file1.txt', 'file2.txt','file3.txt', 'aln.fa']
 
         def workDir = new File(System.properties['java.io.tmpdir'] as String).absoluteFile
@@ -194,7 +190,7 @@ class TaskExecutorTest extends Specification {
 
         when:
         req.produce = ['step_result=file*','fasta_result=aln.fa']
-        def ctx = TaskExecutor.gather( req, result, workDir, 1 ).context
+        def ctx = TaskExecutor.gather( req, result, workDir ).context
 
         then:
         ctx.contains('step_result')

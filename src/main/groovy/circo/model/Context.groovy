@@ -187,7 +187,7 @@ class Context implements Serializable {
      */
     static String str( def item ) {
         if( item instanceof FileRef ) {
-            return item?.file?.name
+            return item?.localFile?.name
         }
         else {
             return item?.toString()

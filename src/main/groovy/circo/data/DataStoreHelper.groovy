@@ -18,22 +18,21 @@
  */
 
 package circo.data
-
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeoutException
 
 import circo.model.TaskEntry
 import circo.model.TaskId
-import circo.model.TaskStatus
 import groovy.util.logging.Slf4j
 import org.apache.commons.lang.SerializationUtils
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 @Slf4j
 class DataStoreHelper {
+
+    static private rnd = new Random()
 
     static TaskId takeFromQueue(ConcurrentMap<TaskId,Boolean> queue) {
 
@@ -71,7 +70,7 @@ class DataStoreHelper {
      * @param closure The update action
      * @return The updated object stored in the map
      */
-    public static <T extends Serializable> T update( def id, ConcurrentMap<?, T> map, Closure<T> closure ) {
+    public static <T extends Serializable> boolean update( def id, ConcurrentMap<?, T> map, Closure<T> closure ) {
 
         int count=0
         def begin = System.currentTimeMillis()
@@ -80,14 +79,18 @@ class DataStoreHelper {
         while( !done ) {
             // make a copy of the data structure and invoke the closure in it
             T value = map.get(id)
+            if ( !value ) {
+                return false
+            }
             newValue = SerializationUtils.clone(value) as T
             closure.call(newValue)
 
-            // try to replace it in the map
-            if( value == newValue ) {
-                return value
+            // if nothing has changed, return false == nothing has changed
+            if( value.equals( newValue ) ) {
+                return false
             }
 
+            // try to update it
             done = map.replace(id, value, newValue)
             if( !done ) {
                 if ( System.currentTimeMillis()-begin > 10_000 ) {
@@ -95,13 +98,14 @@ class DataStoreHelper {
                 }
                 else {
                     log.debug "Update failed (${++count}), can't replace: ${value} -- with: ${newValue}"
-                    sleep 50
+                    // a 'random' sleep between 5 and 50 ms
+                    sleep 5 * (rnd.nextInt(10)+1)
                 }
             }
 
         }
 
-        return newValue
+        return done
     }
 
 
@@ -123,18 +127,5 @@ class DataStoreHelper {
 
     }
 
-    static public List<TaskEntry> findTasksByStatusString( DataStore store, String status ) {
-        assert status
-
-        if( status?.toLowerCase() in ['s','success'] ) {
-            return store.findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
-        }
-
-        if ( status?.toLowerCase() in ['e','error','f','failed'] ) {
-            return store.findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
-        }
-
-        store.findTasksByStatus(TaskStatus.fromString(status))
-    }
 
 }

@@ -43,11 +43,8 @@ class FileRefTest extends Specification {
 
     def 'test FileRef' () {
 
-        setup:
-        FileRef.currentNodeId = 1
-
         when:
-        def ref1 = new FileRef(new File('/some/path/file-name.txt'), 1)
+        def ref1 = new FileRef(new File('/some/path/file-name.txt'))
 
         then:
         ref1.name == 'file-name.txt'
@@ -59,7 +56,6 @@ class FileRefTest extends Specification {
     def 'test store a file and get from another node' (){
 
         setup:
-        FileRef.currentNodeId = 1
         FileRef.dataStore = new LocalDataStore()
 
         File sourceFile = File.createTempFile('test',null); sourceFile.deleteOnExit()
@@ -74,7 +70,7 @@ class FileRefTest extends Specification {
         /*
          * a reference to a file on the node '1' is create
          */
-        def ref = new FileRef(sourceFile, 1)
+        def ref = new FileRef(sourceFile)
 
 
         /*
@@ -82,14 +78,12 @@ class FileRefTest extends Specification {
          * the file is restore by the configured 'data-store' and re-created on the file system
          */
         when:
-        FileRef.currentNodeId = 3
         def targetFile = ref.getData()
 
         then:
         targetFile.exists()
         targetFile.text == sourceFile.text
         targetFile.name == sourceFile.name
-        targetFile != sourceFile
 
     }
 

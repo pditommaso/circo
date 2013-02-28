@@ -29,6 +29,11 @@ import spock.lang.Specification
 class JdbcDataSourceFactoryTest extends Specification {
 
 
+    def cleanupSpec() {
+        JdbcDataSourceFactory.instance = null
+    }
+
+
     def 'test create' () {
 
         when:

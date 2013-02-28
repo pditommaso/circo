@@ -165,10 +165,7 @@ public class Daemon {
          * Initialize data structures
          */
         WorkerRef.init(system, selfAddress)
-        FileRef.currentNodeId = nodeId
         FileRef.dataStore = dataStore
-
-        system.registerOnTermination({ sleep(500); System.exit(0) } as Runnable)
 
     }
 

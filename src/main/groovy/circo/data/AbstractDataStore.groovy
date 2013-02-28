@@ -19,8 +19,6 @@
 
 package circo.data
 
-import java.nio.ByteBuffer
-import java.nio.channels.FileChannel
 import java.util.concurrent.ConcurrentMap
 import java.util.concurrent.TimeoutException
 
@@ -46,9 +44,10 @@ abstract class AbstractDataStore implements DataStore {
 
     protected ConcurrentMap<Integer, NodeData> nodes
 
+    @Deprecated
     protected ConcurrentMap<TaskId, Boolean> queue
 
-    protected ConcurrentMap<String, byte[]> files
+
 
     // ------------- Task QUEUE (?) --------------------------------
 
@@ -79,7 +78,7 @@ abstract class AbstractDataStore implements DataStore {
         jobs.put(job.requestId, job)
     }
 
-    Job updateJob( UUID requestId, Closure updateMethod ) {
+    boolean updateJob( UUID requestId, Closure updateMethod ) {
         assert requestId
         DataStoreHelper.update(requestId, jobs, updateMethod)
     }
@@ -93,7 +92,7 @@ abstract class AbstractDataStore implements DataStore {
     }
 
     List<Job> listJobs() {
-        new ArrayList<Job>(jobs.values())
+        jobs.values().toList()
     }
 
 
@@ -116,7 +115,12 @@ abstract class AbstractDataStore implements DataStore {
     List<TaskEntry> findTasksByStatus( TaskStatus... status ) {
         assert status
 
-        tasks.values().findAll { TaskEntry task -> task.status in status  }
+        def result = new LinkedList<TaskEntry>()
+        listTasks().each{ TaskEntry task ->
+            if ( task.status in status ) result << task
+        }
+
+        return result
     }
 
 
@@ -124,14 +128,28 @@ abstract class AbstractDataStore implements DataStore {
     List<TaskEntry> findTasksByOwnerId(Integer nodeId) {
         assert nodeId
 
-        return tasks.values().findAll() { TaskEntry it -> it.ownerId == nodeId }
+        def result = new LinkedList<>()
+
+        listTasks().each { TaskEntry it ->
+            if ( it.ownerId == nodeId ) result << it
+        }
+
+        return result
     }
 
 
     @Override
     List<TaskEntry> findTasksByStatusString( String status ) {
 
-        DataStoreHelper.findTasksByStatusString(this, status)
+        if( status?.toLowerCase() in ['s','success'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
+        }
+
+        if ( status?.toLowerCase() in ['e','error','f','failed'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
+        }
+
+        findTasksByStatus(TaskStatus.fromString(status))
 
     }
 
@@ -142,17 +160,40 @@ abstract class AbstractDataStore implements DataStore {
     @Override
     List<TaskEntry> findTasksByRequestId( UUID requestId ) {
 
-        def result = tasks.values().findAll { TaskEntry task ->
-            task?.req?.ticket == requestId
+        def result = new LinkedList<TaskEntry>()
+
+        listTasks().each { TaskEntry task ->
+            if ( task?.req?.ticket == requestId ) result << task
         }
 
-        return new ArrayList<>(result)
+        return result
     }
+
 
     @Override
     List<TaskEntry> listTasks() {
-        new ArrayList<>(tasks.values())
+        tasks.values().toList()
     }
+
+    // ------------------------------- SINK operations --------------------------------------
+
+
+    void storeTaskSink( TaskEntry task ) {
+        assert task
+        assert task?.req?.ticket
+
+        sink.put( task.id, task.req.ticket )
+    }
+
+    boolean removeTaskSink( TaskEntry task ) {
+        assert task
+        assert task?.req?.ticket
+
+        sink.remove(task.id, task.req.ticket )
+    }
+
+
+
 
     // ------------------------------- NODE DATA operations ---------------------------------
 
@@ -203,7 +244,7 @@ abstract class AbstractDataStore implements DataStore {
         nodes.replace(oldValue.id, oldValue, newValue)
     }
 
-    @Override
+    @Deprecated
     NodeData updateNodeData( NodeData node, Closure closure ) {
         assert node
 
@@ -248,43 +289,8 @@ abstract class AbstractDataStore implements DataStore {
 
     @Override
     def List<NodeData> listNodes() {
-        new ArrayList<NodeData>(nodes.values())
+        nodes.values().toList()
     }
 
-
-    // -------------------------------------- FILE operations ------------------------------------------------------
-    /**
-     * Store a file content in the cluster cache
-     *
-     * @param fileName A fully qualified file name that must be unique across all cluster node
-     * @param fileContent The binary content to be stored
-     */
-    void putFile( String fileName, FileChannel source ) {
-        assert fileName
-        assert source
-
-        // TODO ++ look the maximum size of a ByteBuffer is 2G, this is supposed be used only for testing purposes
-        def buffer = ByteBuffer.allocate( source.size() as int )
-        source.read( buffer )
-        files.put( fileName, buffer.array() )
-    }
-
-    /**
-     * Get the binary content of a file stored in the cluster cache
-     *
-     * @param fileName The fully qualified file name
-     * @param target The target file that where the content the file data is going to be stored
-     * @return An {@code InputStream} to access the file content ot {@code null} if the file does not exist in the cache
-     */
-    FileChannel getFile( String fileName, FileChannel target ) {
-        assert fileName
-        assert target
-
-        def buffer = files.get(fileName)
-        if ( !buffer ) return null
-
-        target.write( ByteBuffer.wrap(buffer) )
-        return target
-    }
 
 }

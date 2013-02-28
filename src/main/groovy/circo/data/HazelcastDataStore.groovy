@@ -27,6 +27,8 @@ import circo.model.NodeData
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskStatus
+import com.google.common.cache.Cache
+import com.google.common.cache.CacheBuilder
 import com.hazelcast.config.ClasspathXmlConfig
 import com.hazelcast.config.Config as HzConfig
 import com.hazelcast.config.Join
@@ -34,10 +36,11 @@ import com.hazelcast.config.MapConfig
 import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.config.MapStoreConfig
 import com.hazelcast.core.AtomicNumber
-import com.hazelcast.core.EntryListener
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
 import com.hazelcast.core.IMap
+import com.hazelcast.core.MultiMap
+import com.hazelcast.core.Transaction
 import com.hazelcast.query.SqlPredicate
 import com.jolbox.bonecp.BoneCPDataSource
 import com.typesafe.config.Config as TypesafeConfig
@@ -53,8 +56,6 @@ class HazelcastDataStore extends AbstractDataStore {
 
     private HazelcastInstance hazelcast
 
-    private Map<Closure,EntryListener> listenersMap = [:]
-
     private AtomicNumber taskIdGen
 
     private AtomicNumber nodeIdGen
@@ -65,7 +66,15 @@ class HazelcastDataStore extends AbstractDataStore {
 
     private HzJdbcNodesMapStore nodesMapStore
 
+    private HzJdbcFilesMapStore filesMapStore
+
+    private HzJdbcSinkMapStore sinkMapStore
+
     private DataSource dataSource
+
+    private Cache<UUID, File> localFiles
+
+    private def sink
 
     /**
      * Create an {@code com.hazelcast.core.HazelcastInstance} with configuration
@@ -104,7 +113,6 @@ class HazelcastDataStore extends AbstractDataStore {
         // Set the data-source
         this.dataSource = dataSource
 
-
         // Initialize the data structure
         init()
     }
@@ -135,6 +143,25 @@ class HazelcastDataStore extends AbstractDataStore {
             log.warn e.getMessage()
         }
     }
+
+    /**
+     * Execute the closure block wrapped by a transaction
+     *
+     * @param closure The block to be transaction protected
+     */
+    void withTransaction( Closure closure ) {
+        Transaction txn = hazelcast.getTransaction();
+        txn.begin();
+        try {
+            closure.call()
+            txn.commit();
+        }
+        catch (Throwable failure)  {
+            txn.rollback();
+            throw failure
+        }
+    }
+
 
     /*
      * Parse the configuration settings and create the
@@ -226,7 +253,7 @@ class HazelcastDataStore extends AbstractDataStore {
      * @param cfg
      * @param hasMapStore
      */
-    static protected void configureTasks( HzConfig cfg, boolean hasMapStore ) {
+    static protected void configureTaskPersistence( HzConfig cfg, boolean hasMapStore ) {
 
         // get - or create when missing - the TASKS map configuration
         def mapConfig = cfg.getMapConfig('tasks')
@@ -255,7 +282,7 @@ class HazelcastDataStore extends AbstractDataStore {
     /**
      * Configure the 'jobs' map
      */
-    static protected void configureJobs( HzConfig cfg, boolean hasDataSource ) {
+    static protected void configureJobPersistence( HzConfig cfg, boolean hasDataSource ) {
 
         if( !hasDataSource ) return
 
@@ -276,7 +303,7 @@ class HazelcastDataStore extends AbstractDataStore {
     /**
      * Configure the 'jobs' map
      */
-    static protected void configureNodesMap( HzConfig cfg, boolean hasDataSource ) {
+    static protected void configureNodePersistence( HzConfig cfg, boolean hasDataSource ) {
 
         if( !hasDataSource ) return
 
@@ -294,31 +321,54 @@ class HazelcastDataStore extends AbstractDataStore {
                 .setEnabled(true) )
     }
 
+    static protected void configureSinkPersistence( HzConfig cfg, boolean hasDataSource ) {
+
+        if( !hasDataSource ) return
+
+        // get - or create when missing - the NODES map configuration
+        def mapConfig = cfg.getMapConfig('sink')
+        if( !mapConfig ) {
+            log.warn "Missing 'sink' definition in the 'hazelcast.xml' configuration file -- creating a new map configuration object"
+            mapConfig = new MapConfig('sink')
+            cfg.addMapConfig(mapConfig)
+        }
+
+        // set the jdbc data-store
+        mapConfig.setMapStoreConfig( new MapStoreConfig()
+                .setClassName(HzJdbcSinkMapStore.getName())
+                .setEnabled(true) )
+    }
+
 
     static protected void configureAllMapStores( HzConfig cfg, boolean hasDataSource )  {
 
-        configureJobs(cfg, hasDataSource)
-        configureTasks(cfg, hasDataSource)
-        configureNodesMap(cfg, hasDataSource)
-
+        configureJobPersistence(cfg, hasDataSource)
+        configureTaskPersistence(cfg, hasDataSource)
+        configureNodePersistence(cfg, hasDataSource)
+        configureSinkPersistence(cfg, hasDataSource)
     }
 
 
     protected void init() {
 
+        /*
+         * the external persistence data-source
+         */
         if ( dataSource ) {
-            // set the jdbc data-source
-            HzJdbcTasksMapStore.dataSource = dataSource
-            HzJdbcNodesMapStore.dataSource = dataSource
-            HzJdbcJobsMapStore.dataSource = dataSource
 
             // create a map store instance
-            jobsMapStore = new HzJdbcJobsMapStore()
-            tasksMapStore = new HzJdbcTasksMapStore()
-            nodesMapStore = new HzJdbcNodesMapStore()
+            jobsMapStore = new HzJdbcJobsMapStore(dataSource, true)
+            tasksMapStore = new HzJdbcTasksMapStore(dataSource, true)
+            nodesMapStore = new HzJdbcNodesMapStore(dataSource, true)
+            filesMapStore = new HzJdbcFilesMapStore(dataSource, true)
+
+            sinkMapStore = new HzJdbcSinkMapStore(dataSource, true)
         }
 
 
+        /*
+         * distributed structures
+         */
         taskIdGen = hazelcast.getAtomicNumber('taskIdGen')
         nodeIdGen = hazelcast.getAtomicNumber('nodeIdGen')
 
@@ -326,7 +376,27 @@ class HazelcastDataStore extends AbstractDataStore {
         tasks = hazelcast.getMap('tasks')
         nodes = hazelcast.getMap('nodes')
         queue = hazelcast.getMap('queue')
-        files = hazelcast.getMap('files')
+
+        // since Hazelcast multimap does not support MapStore persistence, when a data-source
+        // connection is provided the structure is allocated as a 'normal' Map<TaskId,UUID>
+        if( dataSource ) {
+            sink = hazelcast.getMap('sink')
+        }
+        // when no persistence connection provided, use a Multimap<UUID, TaskId>
+        else {
+            sink = hazelcast.getMultiMap('sink')
+        }
+
+        /*
+         * local files cache
+         */
+        if( dataSource ) {
+            // when there is an external data-source set a maximum amount of files that the cache can hold
+            localFiles = CacheBuilder .newBuilder() .maximumSize(10_000) .build()
+        }
+        else {
+            localFiles = CacheBuilder .newBuilder() .build()
+        }
 
 
     }
@@ -339,7 +409,7 @@ class HazelcastDataStore extends AbstractDataStore {
             jobsMapStore.loadAll()
         }
         else {
-            super.listJobs()
+            new ArrayList<>(super.listJobs())
         }
     }
 
@@ -395,6 +465,7 @@ class HazelcastDataStore extends AbstractDataStore {
 
     }
 
+
     @Override
     List<TaskEntry> listTasks() {
 
@@ -445,10 +516,83 @@ class HazelcastDataStore extends AbstractDataStore {
             nodesMapStore.loadAll()
         }
         else {
-            super.listNodes()
+            new ArrayList<NodeData>(nodes.values())
         }
     }
 
+    // ------------------------------------ FILES -------------------------------------------
+
+
+    File getFile( UUID fileId ) {
+        assert fileId
+
+        File result = localFiles.getIfPresent(fileId)
+        if ( !result && filesMapStore ) {
+            result = filesMapStore.load(fileId)
+        }
+
+        return result
+    }
+
+
+    void storeFile( UUID fileId, File file ) {
+        assert fileId
+        assert file
+
+        if ( filesMapStore ) {
+            filesMapStore.store(fileId, file)
+        }
+
+        localFiles.put(fileId, file)
+
+    }
+
+    // ----------------------------- SINK --------------------------------------------
+
+    void storeTaskSink( TaskEntry task ) {
+        assert task
+        assert task?.req?.ticket
+
+
+        if( sink instanceof MultiMap<UUID, TaskId> ) {
+            sink.put(task.req.ticket, task.id)
+        }
+        else if( sink instanceof IMap<TaskId,UUID> ) {
+            sink.put( task.id, task.req.ticket)
+        }
+        else {
+            throw new IllegalStateException("Missing or wrong 'sink' data structure")
+        }
+
+    }
+
+    boolean removeTaskSink( TaskEntry task ) {
+        assert task
+        assert task?.req?.ticket
+
+        if( sink instanceof MultiMap<UUID, TaskId> ) {
+            sink.remove(task.req.ticket, task.id)
+        }
+        else if( sink instanceof IMap<TaskId, UUID> ) {
+            sink.remove(task.id, task.req.ticket)
+        }
+        else {
+            throw new IllegalStateException("Missing or wrong 'sink' data structure")
+        }
+
+    }
+
+    int countTasksMissing( UUID requestId ) {
+        assert requestId
+
+        if( dataSource ) {
+            sinkMapStore.countByRequestId(requestId)
+        }
+        else if ( sink instanceof MultiMap<UUID, TaskId>  ) {
+            sink.get(requestId).size()
+        }
+
+    }
 
 
 }

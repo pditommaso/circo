@@ -72,9 +72,28 @@ class CircoHelperTest extends Specification {
     def 'test randomString' () {
 
         expect:
-        CircoHelper.randomString(3, 'A'..'A') == 'AAA'
-        CircoHelper.randomString(2, '0'..'9').isNumber()
+        CircoHelper.randomString(3, 'A'..'A' as char[]) == 'AAA'
+        CircoHelper.randomString(2, '0'..'9' as char[]).isNumber()
 
+    }
+
+    def 'test randomString numeric' () {
+
+        expect:
+        100.times { assert CircoHelper.randomString(3,CircoHelper.NUMERIC) =~ /\d{3}/ }
+
+    }
+
+    def 'test randomString alpha default' () {
+
+        expect:
+        100.times { assert CircoHelper.randomString(3) =~ /[a-z]{3}/  }
+
+    }
+
+    def 'test random alphanum' () {
+        expect:
+        100.times { assert CircoHelper.randomString(3,CircoHelper.ALPHANUM) =~ /[a-z0-9]{3}/  }
     }
 
 
