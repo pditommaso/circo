@@ -52,8 +52,8 @@ class HzJdbcJobsMapStoreTest extends Specification {
     def 'test store' () {
         setup:
         def jobStore = new HzJdbcJobsMapStore(sql: sql)
-        def job1 = new Job(UUID.randomUUID()); job1.status = JobStatus.SUBMITTED; job1.numOfTasks=3
-        def job2 = new Job(UUID.randomUUID()); job2.status = JobStatus.SUBMITTED; job2.numOfTasks=99
+        def job1 = new Job(UUID.randomUUID()); job1.status = JobStatus.PENDING; job1.numOfTasks=3
+        def job2 = new Job(UUID.randomUUID()); job2.status = JobStatus.PENDING; job2.numOfTasks=99
 
         when:
         jobStore.store( job1.requestId, job1 )

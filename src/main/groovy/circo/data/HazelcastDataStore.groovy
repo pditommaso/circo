@@ -35,6 +35,7 @@ import com.hazelcast.config.Join
 import com.hazelcast.config.MapConfig
 import com.hazelcast.config.MapIndexConfig
 import com.hazelcast.config.MapStoreConfig
+import com.hazelcast.config.MultiMapConfig
 import com.hazelcast.core.AtomicNumber
 import com.hazelcast.core.Hazelcast
 import com.hazelcast.core.HazelcastInstance
@@ -321,22 +322,39 @@ class HazelcastDataStore extends AbstractDataStore {
                 .setEnabled(true) )
     }
 
+    /**
+     * Configure the 'sink' data-structure. This is model dependently if a data-source is provided or not
+     * <li>In the case the Hazelcast store is backed to a persistence storage, the 'sink' is mapped to Map<TaskId,RequestId> data structure,
+     * <li>When the persistence is not provided the 'sink' uses a MultiMap<RequestId,TaskId> data structure
+     *
+     * @param cfg
+     * @param hasDataSource
+     */
     static protected void configureSinkPersistence( HzConfig cfg, boolean hasDataSource ) {
 
-        if( !hasDataSource ) return
+        if( hasDataSource ) {
+            // set the jdbc data-store
+            // get - or create when missing - the NODES map configuration
+            def mapConfig = cfg.getMapConfig('sink')
+            if( !mapConfig ) {
+                log.warn "Missing 'sink' definition in the 'hazelcast.xml' configuration file -- creating a new map configuration object"
+                mapConfig = new MapConfig('sink')
+                cfg.addMapConfig(mapConfig)
+            }
 
-        // get - or create when missing - the NODES map configuration
-        def mapConfig = cfg.getMapConfig('sink')
-        if( !mapConfig ) {
-            log.warn "Missing 'sink' definition in the 'hazelcast.xml' configuration file -- creating a new map configuration object"
-            mapConfig = new MapConfig('sink')
-            cfg.addMapConfig(mapConfig)
+            mapConfig.setMapStoreConfig( new MapStoreConfig()
+                    .setClassName(HzJdbcSinkMapStore.getName())
+                    .setEnabled(true) )
+        }
+        else {
+            def mapConfig = cfg.getMultiMapConfig('sink')
+            if( !mapConfig ) {
+                log.warn "Missing 'sink' definition in the 'hazelcast.xml' configuration file -- creating a new map configuration object"
+                cfg.addMultiMapConfig( new MultiMapConfig().setName('sink') )
+            }
+            mapConfig.setValueCollectionType(MultiMapConfig.ValueCollectionType.SET)
         }
 
-        // set the jdbc data-store
-        mapConfig.setMapStoreConfig( new MapStoreConfig()
-                .setClassName(HzJdbcSinkMapStore.getName())
-                .setEnabled(true) )
     }
 
 
@@ -413,6 +431,31 @@ class HazelcastDataStore extends AbstractDataStore {
         }
     }
 
+//    List<Job> findJobsByRequestId( String requestId ) {
+//
+//        if( jobsMapStore ) {
+//            return jobsMapStore.findByRequestId( requestId )
+//        }
+//
+//        else {
+//
+//            if ( requestId.size() < 36 ) {
+//                // replace wildcards with SQL wildcards
+//                requestId = requestId.replace("?", "%").replace("*", "%")
+//
+//                // if not wildcard are provided, append by default
+//                if ( !requestId.contains('%') ) {
+//                    requestId += '%'
+//                }
+//            }
+//
+//            def result = (jobs as IMap) .values(new SqlPredicate("requestId.toString() like '${requestId}'"))
+//            return new ArrayList<TaskEntry>(result as Collection<Job>)
+//
+//        }
+//
+//    }
+
 
     // -------------------------------- TASKS operation ------------------------------------
 
@@ -464,6 +507,21 @@ class HazelcastDataStore extends AbstractDataStore {
         }
 
     }
+
+    @Override
+    List<TaskEntry> findTasksByRequestId( String requestId ) {
+        assert requestId
+
+        if ( tasksMapStore ) {
+            tasksMapStore.findByRequestId(requestId)
+        }
+        else {
+            // TODO ++ implements using criteria API and using an Hazelcast index
+            super.findTasksByRequestId(requestId)
+        }
+
+    }
+
 
 
     @Override
@@ -551,14 +609,14 @@ class HazelcastDataStore extends AbstractDataStore {
 
     void storeTaskSink( TaskEntry task ) {
         assert task
-        assert task?.req?.ticket
+        assert task?.req?.requestId
 
 
         if( sink instanceof MultiMap<UUID, TaskId> ) {
-            sink.put(task.req.ticket, task.id)
+            sink.put(task.req.requestId, task.id)
         }
         else if( sink instanceof IMap<TaskId,UUID> ) {
-            sink.put( task.id, task.req.ticket)
+            sink.put( task.id, task.req.requestId)
         }
         else {
             throw new IllegalStateException("Missing or wrong 'sink' data structure")
@@ -568,13 +626,13 @@ class HazelcastDataStore extends AbstractDataStore {
 
     boolean removeTaskSink( TaskEntry task ) {
         assert task
-        assert task?.req?.ticket
+        assert task?.req?.requestId
 
         if( sink instanceof MultiMap<UUID, TaskId> ) {
-            sink.remove(task.req.ticket, task.id)
+            sink.remove(task.req.requestId, task.id)
         }
         else if( sink instanceof IMap<TaskId, UUID> ) {
-            sink.remove(task.id, task.req.ticket)
+            sink.remove(task.id, task.req.requestId)
         }
         else {
             throw new IllegalStateException("Missing or wrong 'sink' data structure")

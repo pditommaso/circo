@@ -33,7 +33,9 @@ class TaskReq implements Serializable {
     /**
      * The unique request identifier
      */
-    def UUID ticket
+    def UUID requestId
+
+    String getShortReqId() { requestId?.toString()?.substring(0,8) }
 
     /** The script to be executed */
     def String script

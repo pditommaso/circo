@@ -405,29 +405,32 @@ class NodeMasterTest extends ActorSpecification {
         final master1 = newTestActor(system, NodeMasterMock)
         final master2 = newTestActor(system, NodeMasterMock)
         final senderProbe = new JavaTestKit(system)
-        def requestId = UUID.randomUUID()
+        def reqId1 = UUID.randomUUID()
+        def reqId2 = UUID.randomUUID()
+        def reqId3 = UUID.randomUUID()
+        def reqId4 = UUID.randomUUID()
 
         /*
          * the following tasks are assigned to 'master1'
          */
 
         // this is SUCCESS, it must be notified to the sender
-        def task1 = new TaskEntry( TaskId.of('1'), new TaskReq(ticket: requestId, script: '1') )
+        def task1 = new TaskEntry( TaskId.of('1'), new TaskReq(requestId: reqId1, script: '1') )
         task1.setSender(senderProbe.getRef())
         task1.result =  new TaskResult(taskId: task1.id, exitCode: 0)
         task1.ownerId = master1.actor.nodeId
         task1.req.notifyResult = true
-        def result1 = new ResultReply(requestId, task1.result)
+        def result1 = new ResultReply(reqId1, task1.result)
 
         // this is FAILED, it must be rescheduled
-        def task2 = new TaskEntry( TaskId.of('2'), new TaskReq(script: '2') )
+        def task2 = new TaskEntry( TaskId.of('2'), new TaskReq(requestId: reqId2, script: '2') )
         task2.setSender(senderProbe.getRef())
         task2.ownerId = master1.actor.nodeId
         task2.result == new TaskResult(taskId: task2.id, exitCode: 127) // <-- the error condition
 
         // this is FAILED, BUT the number of attempts exceeded the maxAttempts,
         // so it must be notified to the sender
-        def task3 = new TaskEntry( TaskId.of('3'), new TaskReq(script: '3', maxAttempts: 2) )
+        def task3 = new TaskEntry( TaskId.of('3'), new TaskReq(requestId: reqId3, script: '3', maxAttempts: 2) )
         task3.status = TaskStatus.NEW
         task3.setSender(senderProbe.getRef())
         task3.ownerId = master1.actor.nodeId
@@ -436,7 +439,7 @@ class NodeMasterTest extends ActorSpecification {
         /*
          * this task belongs to 'master2'
          */
-        def task4 = new TaskEntry( TaskId.of('4'), new TaskReq(script: '4') )
+        def task4 = new TaskEntry( TaskId.of('4'), new TaskReq(requestId: reqId4, script: '4') )
         task4.status = TaskStatus.NEW
         task4.setSender(senderProbe.getRef())
         task4.ownerId = master2.actor.nodeId
@@ -446,8 +449,13 @@ class NodeMasterTest extends ActorSpecification {
         dataStore.storeTask(task3)
         dataStore.storeTask(task4)
 
-        def job = new Job( requestId )
-        job.status = JobStatus.SUBMITTED
+        dataStore.storeTaskSink(task1)
+        dataStore.storeTaskSink(task2)
+        dataStore.storeTaskSink(task3)
+        dataStore.storeTaskSink(task4)
+
+        def job = new Job( reqId1 )
+        job.status = JobStatus.PENDING
         dataStore.storeJob( job )
 
         master2.actor.node.queue << task4.id

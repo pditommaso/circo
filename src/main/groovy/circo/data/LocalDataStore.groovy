@@ -65,16 +65,18 @@ class LocalDataStore extends AbstractDataStore {
 
     void storeTaskSink( TaskEntry task ) {
         assert task
-        assert task?.req?.ticket
+        assert task?.req?.requestId
 
-        sink.put(task.req.ticket,task.id)
+        if( !sink.containsEntry(task.req.requestId, task.id)) {
+            sink.put(task.req.requestId, task.id)
+        }
     }
 
     boolean removeTaskSink( TaskEntry task ) {
         assert task
-        assert task?.req?.ticket
+        assert task?.req?.requestId
 
-        sink.remove(task.req.ticket, task.id)
+        sink.remove(task.req.requestId, task.id)
     }
 
     int countTasksMissing( UUID requestId ) {

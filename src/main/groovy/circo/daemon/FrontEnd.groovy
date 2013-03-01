@@ -27,7 +27,6 @@ import circo.client.AbstractCommand
 import circo.client.CmdGet
 import circo.client.CmdList
 import circo.client.CmdNode
-import circo.client.CmdStat
 import circo.client.CmdSub
 import circo.data.DataStore
 import circo.messages.PauseWorker
@@ -46,7 +45,6 @@ import circo.model.WorkerRef
 import circo.reply.ListReply
 import circo.reply.NodeReply
 import circo.reply.ResultReply
-import circo.reply.StatReply
 import circo.reply.SubReply
 import circo.util.CircoHelper
 import groovy.util.logging.Slf4j
@@ -94,10 +92,8 @@ class FrontEnd extends UntypedActor {
 
     {
         dispatchTable[ CmdSub ] = this.&handleCmdSub
-        dispatchTable[ CmdStat ] = this.&handleCmdStat
         dispatchTable[ CmdNode ] = this.&handleCmdNode
         dispatchTable[ CmdList ] = this.&handleCmdList
-        //dispatchTable[ CmdGet ] = this.&handleCmdGet
     }
 
 
@@ -163,102 +159,123 @@ class FrontEnd extends UntypedActor {
     void handleCmdList( CmdList command ) {
         assert command
 
-        /*
-         *  Look for all the jobs
-         */
-        def jobs = dataStore.listJobs().collect { new ListReply.JobInfo(it) }
-        jobs.each {  ListReply.JobInfo it ->
-
-            def allTasks = dataStore.findTasksByRequestId(it.requestId)
-            // set the command
-            // TODO ++ this must change - the TaskReq have to become JobReq
-            it.command = allTasks.find()?.req?.script
-
-            // find all failed tasks
-            it.pendingTasks = []
-            it.failedTasks = []
-
-            allTasks.each{ TaskEntry entry ->
-                if ( entry.failed ) it.failedTasks << entry
-                if ( !entry.terminated ) it.pendingTasks << entry
-            }
-
-        }
 
         /*
          * create the reply object
          */
-
-        def reply = new ListReply(command.ticket)
-        reply.jobs = jobs
+        def reply = command.tasks ? processListTasks(command) : processListJobs(command)
 
         sender().tell(reply, self())
 
     }
 
+    ListReply processListJobs(CmdList command) {
 
-    void handleCmdStat(CmdStat command) {
-        assert command
+        def reply = new ListReply(command.ticket)
+        def list = new LinkedList<Job>()
 
-        def result = new StatReply(command.ticket)
-        List<TaskEntry> list = null
+        // filter all jobs by the provided IDs
+        if( command.jobsId ) {
+            command.jobsId.each { String it ->
+                list.addAll( dataStore.findJobsByRequestId(it) )
+            }
+        }
+        // filter ALL jobs
+        else if ( command.all ) {
+            list.addAll( dataStore.listJobs() )
+        }
+        // filter the jobs by the specified 'status'
+        else {
 
-        /*
-         * Return all TaskEntry which IDs have been specified by teh command
-         */
-        if( command.jobs ) {
-
-            list = new LinkedList<>()
-            log.debug "Get job info for ${command.jobs}"
-
-            command.jobs.each { String it ->
-                try {
-                    def found = dataStore.getTask( TaskId.of(it) )
-                    if( found ) {
-                        list.addAll( found )
+            List<JobStatus> status = []
+            if( command.status ) {
+                command.status.each {
+                    try {
+                        status << JobStatus.fromString(it)
                     }
-                    else {
-                        result.warn "Cannot find any job for id: '${it}'"
+                    catch( Exception e ) {
+                        reply.warn << e.toString()
                     }
                 }
-                catch( Exception e ) {
-                    log.error "Unable to find info for job with id: '${it}'"
-                    result.error( e.getMessage() )
-                }
+            }
+            else {
+                status = [JobStatus.RUNNING]
             }
 
-        }
 
-        /*
-         * find by status
-         */
-        else if ( command.status ) {
-            try {
-                list = dataStore.findTasksByStatusString( command.status )
-            }
-            catch( Exception e ) {
-                log.error "Unable to retrieve tasks for status: '${command.status}'", e
-                result.error << e.getMessage()
-            }
-        }
-
-        /*
-         * The list of all the jobs (!)
-         */
-        else if( command.all ) {
-            list = dataStore.listTasks()
+            list.addAll(  dataStore.findJobsByStatus( status as JobStatus[] ) )
         }
 
 
+
         /*
-         * reply back to the sender
+         *  Look for all the jobs
          */
-        result.tasks = list
 
-        log.debug "-> ${result} TO sender: ${sender}"
-        getSender().tell( result, getSelf() )
+        reply.jobs = new LinkedList<ListReply.JobInfo>()
+        list.each {
+            def info = new ListReply.JobInfo(it)
+            reply.jobs << info
 
+            def allTasks = dataStore.findTasksByRequestId(it.requestId)
+            // set the command
+
+            // TODO ++ this must change - the TaskReq have to become JobReq
+            info.command = allTasks.find()?.req?.script
+
+            allTasks.each{ TaskEntry task ->
+                info.numOfFailedTasks += (task.failedCount)
+                if ( !task.terminated ) info.numOfPendingTasks++
+            }
+        }
+
+
+        return reply
     }
+
+    ListReply processListTasks(CmdList command) {
+        def reply = new ListReply(command.ticket)
+        def list = new LinkedList<TaskEntry>()
+
+        if ( command.jobsId ) {
+            command.jobsId.each { String reqId ->
+                list.addAll( dataStore.findTasksByRequestId( reqId ) )
+            }
+        }
+
+        // filter by task status
+        reply.tasks = new LinkedList<TaskEntry>()
+        if( command.status ) {
+
+            // decode the request status from a strings list to an array of TaskStatus
+            command.status.each { String str ->
+                try {
+                    reply.tasks.addAll(dataStore.findTasksByStatusString( str ))
+                }
+                catch ( Exception e ) {
+                    reply.warn << e.getMessage()
+                }
+            }
+
+        }
+        else {
+
+            if ( list ) {
+                reply.tasks = list
+            }
+            else if ( command.all ){
+                reply.tasks = dataStore.listTasks()
+            }
+            else {
+                reply.warn << 'provide at least a filtering criteria'
+            }
+
+        }
+
+        return reply
+    }
+
+
 
     /*
      * The client send a 'TaskReq' to the coordinator in order to submit a new job request
@@ -333,7 +350,7 @@ class FrontEnd extends UntypedActor {
          * that some jobs terminate (and the termination notification is sent) before the SubReply
          * is sent to teh client, which will cause a 'dead-lock'
          */
-        job.status = JobStatus.SUBMITTED
+        job.status = JobStatus.PENDING
         job.input = command.context ? Context.copy(command.context) : new Context()
         job.sender = new WorkerRef(getSender())
         job.numOfTasks = listOfTasks.size()
@@ -355,7 +372,7 @@ class FrontEnd extends UntypedActor {
         assert sub.command
 
         def request = new TaskReq()
-        request.ticket = sub.ticket
+        request.requestId = sub.ticket
         request.environment = new HashMap<>(sub.env)
         request.script = sub.command.join(' ')
         request.maxAttempts = sub.maxAttempts

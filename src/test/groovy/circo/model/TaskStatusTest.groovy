@@ -38,7 +38,7 @@ class TaskStatusTest extends Specification {
     def "test toFmtString" () {
 
         expect:
-        str == status.toFmtString()
+        str == status.toShortString()
 
         where:
         str   | status

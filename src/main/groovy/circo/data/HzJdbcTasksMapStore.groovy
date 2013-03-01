@@ -75,7 +75,7 @@ class HzJdbcTasksMapStore extends AbstractHzJdbcMapStore<TaskId, TaskEntry> {
                 blob,
                 value.ownerId,
                 value.status?.toString(),
-                value?.req?.ticket?.toString()
+                value?.req?.requestId?.toString()
         ])
 
     }
@@ -93,7 +93,7 @@ class HzJdbcTasksMapStore extends AbstractHzJdbcMapStore<TaskId, TaskEntry> {
                 def blob = value ? SerializationUtils.serialize(value) : null
                 Integer ownerId = value?.ownerId
                 String status = value?.status?.toString()
-                String requestId = value?.req?.ticket?.toString()
+                String requestId = value?.req?.requestId?.toString()
                 stm.addBatch( keyToObj(key), blob as byte[], ownerId, status, requestId )
             }
 
@@ -149,6 +149,28 @@ class HzJdbcTasksMapStore extends AbstractHzJdbcMapStore<TaskId, TaskEntry> {
 
     }
 
+    List<TaskEntry> findByRequestId( String requestId ) {
+        assert requestId
+
+        if ( requestId.size() < 36 ) {
+            // replace wildcards with SQL wildcards
+            requestId = requestId.replace("?", "%").replace("*", "%")
+            // if not wildcard are provided, append by default
+            if ( !requestId.contains('%') ) {
+                requestId += '%'
+            }
+        }
+
+        def result = new LinkedList<TaskEntry>()
+        def statement = "select OBJ from ${tableName} where REQUEST_ID like ?".toString()
+        sql.eachRow(statement, [requestId.toString()]) { row ->
+            final task = row[0] ? SerializationUtils.deserialize(row[0] as byte[]) : null
+            result.add( task as TaskEntry )
+        }
+
+        return result
+
+    }
 
 
 }

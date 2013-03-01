@@ -38,6 +38,9 @@ public abstract class AbstractCommand<R> implements Serializable {
     @Parameter(names=['-h','--help'], description = 'Show this help', help= true)
     boolean help
 
+    @Parameter(names=['--dump'], hidden = true)
+    boolean dumpFlag
+
     /**
      * Request identifier, each request submitted to teh server has a Unique Universal identifier
      */
@@ -165,7 +168,6 @@ class AppCommandsFactory {
         def cmdParser = new JCommander(appOptions)
         cmdParser.addCommand( new CmdSub() )
         cmdParser.addCommand( new CmdNode() )
-        cmdParser.addCommand( new CmdStat() )
         cmdParser.addCommand( new CmdClear() )
         //cmdParser.addCommand( new CmdGet() )
         cmdParser.addCommand( new CmdContext() )

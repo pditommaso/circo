@@ -89,16 +89,28 @@ class Job implements Serializable {
         this.requestId = id
     }
 
+    def static Job create( UUID requestId, Closure closure = null ) {
 
-    boolean isSubmitted() {  status == JobStatus.SUBMITTED  }
+        def result = new Job(requestId)
+        if ( closure ) closure.call(result)
+        return result
+
+    }
+
+    def static Job create( Closure callback = null ) {
+        create(UUID.randomUUID(),callback)
+    }
+
+
+    boolean isSubmitted() {  status == JobStatus.PENDING  }
 
     boolean isSuccess() { status == JobStatus.SUCCESS }
 
-    boolean isFailed() { status == JobStatus.FAILED  }
+    boolean isFailed() { status == JobStatus.ERROR  }
 
     boolean isRunning() { status == JobStatus.RUNNING }
 
-    static final private TERMINATED = [JobStatus.FAILED, JobStatus.SUCCESS ]
+    static final private TERMINATED = [JobStatus.ERROR, JobStatus.SUCCESS ]
 
     void setStatus( JobStatus status ) {
 

@@ -29,6 +29,7 @@ import org.apache.commons.lang.exception.ExceptionUtils
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+@Deprecated
 @Slf4j
 @ToString(includePackage = false)
 @Parameters(commandNames='stat', commandDescription = 'Display jobs information')
@@ -139,7 +140,7 @@ class CmdStat extends AbstractCommand {
         tasks?.sort { it.creationTime } ?.each { TaskEntry it ->
 
             final String id = it.id.toFmtString()
-            final state = it.status.toFmtString() + ( it.terminatedReason?.substring(0,1) ?: '' )
+            final state = it.status.toShortString() + ( it.terminatedReason?.substring(0,1) ?: '' )
             final String timestamp = it.getStatusTimeFmt()
             final String worker = (!it.terminated && it.worker) ? it.worker.toFmtString() : '-'
 

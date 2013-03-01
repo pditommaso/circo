@@ -23,11 +23,14 @@ import circo.exception.MissingInputFileException
 import circo.util.CircoHelper
 import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
+import groovy.util.logging.Slf4j
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
 
+@Slf4j
 @SerializeId
 @EqualsAndHashCode(includes = 'id')
 class TaskEntry implements Serializable, Comparable<TaskEntry> {
@@ -244,6 +247,28 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
 
     }
 
+    def String getStatusString() {
+        if( status == TaskStatus.TERMINATED ) {
+            def result
+            if ( isCancelled() ) {
+                result = 'CANCELLED'
+            }
+            else if ( isFailed() ) {
+                result = 'ERROR'
+            }
+            else if ( isSuccess() ) {
+               result = 'SUCCESS'
+            }
+            else {
+                log.debug "Unknown task status: ${status} -- ${this.dump()}"
+                result = null
+            }
+            return result
+        }
+
+        return status.toString()
+    }
+
     /**
      * Note, when a result object is specified, some job properties are modified accordingly the
      * provided result
@@ -262,6 +287,10 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
             }
 
         }
+    }
+
+    def int getFailedCount() {
+        attempts - cancelled -1
     }
 
 

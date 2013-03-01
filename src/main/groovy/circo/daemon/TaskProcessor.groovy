@@ -200,9 +200,9 @@ class TaskProcessor extends UntypedActor {
         store.storeTask(task)
 
         // -- set the job to 'running' status
-        final job = store.getJob( task.req.ticket )
-        if( job && job.status == JobStatus.SUBMITTED ) {
-            store.updateJob(task.req.ticket) { Job thisJob ->
+        final job = store.getJob( task.req.requestId )
+        if( job && job.status == JobStatus.PENDING ) {
+            store.updateJob(task.req.requestId) { Job thisJob ->
                 // change the status to RUNNING
                 thisJob.status = JobStatus.RUNNING
             }

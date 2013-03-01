@@ -24,6 +24,7 @@ import java.util.concurrent.TimeoutException
 
 import akka.actor.Address
 import circo.model.Job
+import circo.model.JobStatus
 import circo.model.NodeData
 import circo.model.NodeStatus
 import circo.model.TaskEntry
@@ -71,6 +72,27 @@ abstract class AbstractDataStore implements DataStore {
         jobs.get(id)
     }
 
+    Job getJob( String requestId ) {
+        assert requestId
+
+        if ( requestId.size() == 36 ) {
+            return getJob( UUID.fromString(requestId) )
+        }
+
+        List result = findJobsByRequestId(requestId)
+        if ( result?.size() == 0 ) {
+            return null
+        }
+        else if ( result.find() == 1 ) {
+            return result.find()
+        }
+        else {
+            throw new IllegalArgumentException('')
+        }
+
+        return null
+    }
+
     void storeJob( Job job ) {
         assert job
         assert job.requestId
@@ -93,6 +115,26 @@ abstract class AbstractDataStore implements DataStore {
 
     List<Job> listJobs() {
         jobs.values().toList()
+    }
+
+    List<Job> findJobsByRequestId( String requestId ) {
+        assert requestId
+
+        requestId = requestId.replace("?", ".?").replace("*", ".*?")
+
+        listJobs().findAll { Job it -> it.requestId.toString() =~~ /^$requestId/ }
+
+    }
+
+    List<Job> findJobsByStatus( JobStatus... status ) {
+
+        def result = new LinkedList<Job>()
+        listJobs().each{ Job job ->
+            if ( job.status in status ) result << job
+        }
+
+        return result
+
     }
 
 
@@ -141,11 +183,15 @@ abstract class AbstractDataStore implements DataStore {
     @Override
     List<TaskEntry> findTasksByStatusString( String status ) {
 
-        if( status?.toLowerCase() in ['s','success'] ) {
+        if( status?.toUpperCase() in ['S','SUCCESS','SUCCESSFUL'] ) {
             return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
         }
 
-        if ( status?.toLowerCase() in ['e','error','f','failed'] ) {
+        if ( status?.toUpperCase() in ['E','ERROR','FAIL','FAILURE'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
+        }
+
+        if ( status?.toUpperCase() in ['C','CANCEL','CANCELLED'] ) {
             return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
         }
 
@@ -163,36 +209,30 @@ abstract class AbstractDataStore implements DataStore {
         def result = new LinkedList<TaskEntry>()
 
         listTasks().each { TaskEntry task ->
-            if ( task?.req?.ticket == requestId ) result << task
+            if ( task?.req?.requestId == requestId ) result << task
+        }
+
+        return result
+    }
+
+    List<TaskEntry> findTasksByRequestId( String requestId ) {
+
+        final result = new LinkedList<TaskEntry>()
+        final filter = requestId.replace("?", ".?").replace("*", ".*?")
+
+        listTasks().each { TaskEntry task ->
+            if ( task?.req?.requestId?.toString() =~~ /^$filter/ ) result << task
         }
 
         return result
     }
 
 
+
     @Override
     List<TaskEntry> listTasks() {
         tasks.values().toList()
     }
-
-    // ------------------------------- SINK operations --------------------------------------
-
-
-    void storeTaskSink( TaskEntry task ) {
-        assert task
-        assert task?.req?.ticket
-
-        sink.put( task.id, task.req.ticket )
-    }
-
-    boolean removeTaskSink( TaskEntry task ) {
-        assert task
-        assert task?.req?.ticket
-
-        sink.remove(task.id, task.req.ticket )
-    }
-
-
 
 
     // ------------------------------- NODE DATA operations ---------------------------------

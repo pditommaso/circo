@@ -21,6 +21,7 @@ package circo.data
 
 import akka.actor.Address
 import circo.model.Job
+import circo.model.JobStatus
 import circo.model.NodeData
 import circo.model.NodeStatus
 import circo.model.TaskEntry
@@ -58,6 +59,8 @@ interface DataStore {
      */
     Job getJob( UUID id )
 
+    Job getJob( String id )
+
     /**
      * Save a {@code Job} instance
      *
@@ -69,6 +72,10 @@ interface DataStore {
     boolean updateJob( UUID requestId, Closure updateAction )
 
     boolean replaceJob( Job oldValue, Job newValue )
+
+    List<Job> findJobsByRequestId( String requestId )
+
+    List<Job> findJobsByStatus( JobStatus... status )
 
     List<Job> listJobs()
 
@@ -134,6 +141,8 @@ interface DataStore {
      * @return The list of tasks or an empty list if not task exist for the specified ID
      */
     List<TaskEntry> findTasksByRequestId( UUID requestId )
+
+    List<TaskEntry> findTasksByRequestId( String requestId )
 
     // ----------------------------- SINK operation ------------------------
 

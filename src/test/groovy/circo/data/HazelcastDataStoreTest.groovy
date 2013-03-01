@@ -25,7 +25,7 @@ import com.hazelcast.core.Hazelcast
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class HazelcastDataStoreTest extends DataStoreTest {
+class HazelcastDataStoreTest extends AbstractDataStoreTest {
 
     def void setup() {
         store = new HazelcastDataStore()

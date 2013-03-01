@@ -99,10 +99,14 @@ class NodeMaster extends UntypedActor  {
      */
     Cluster cluster
 
-    /** The address of the current cluster leader node */
+    /**
+     * The address of the current cluster leader node
+     */
     Address leaderAddress
 
-    /** The address of this node */
+    /**
+     * The address of this node
+     */
     Address selfAddress
 
     private Map<Address,ActorRef> allMasters = new HashMap<>()
@@ -487,16 +491,16 @@ class NodeMaster extends UntypedActor  {
             return
         }
 
+
         def removed = store.removeTaskSink(task)
         if ( !removed ) {
-            log.debug "Oops. Unable to remove sink flag for task id: ${task.id}-- ${task.dump()}"
-            return
+            log.warn "Oops. Unable to remove sink flag for task id: ${task.id} -- ${task.dump()}"
         }
 
         // -- notify the client for the available result
-        if( task.sender && task.req.notifyResult ) {
+        if( removed && task.sender && task.req.notifyResult ) {
             log.debug "Reply job result to sender -- ${task.id}"
-            final reply = new ResultReply( task.req.ticket, task.result )
+            final reply = new ResultReply( task.req.requestId, task.result )
             task.sender.tell ( reply, self() )
         }
 
@@ -510,22 +514,22 @@ class NodeMaster extends UntypedActor  {
         final task = message.task
 
         try {
-            boolean done = store.updateJob( task.req.ticket ) { Job thisJob ->
+            boolean done = store.updateJob( task.req.requestId ) { Job thisJob ->
                 checkIfJobCompletes(thisJob, task)
                 job = thisJob
             }
 
             if ( done && job ) {
-                log.debug "*Job Complete*: ${job.dump()}"
+                log.debug "** Job ${job.shortReqId} COMPLETE -- ${job.dump()}"
                 notifyJobComplete(job)
             }
             else {
-                log.debug "Job was not updated: ${job.dump()} "
+                log.debug "Job ${job.shortReqId} updated not required -- ${job.dump()}"
             }
 
         }
         catch( Exception e ) {
-            log.error "Cannot update job request: ${task.req.ticket} while processing task id: ${task.id}", e
+            log.error "Cannot update job request: ${task.req.requestId} while processing task id: ${task.id}", e
             // TODO Notify error
             // TODO stop current execution ?
         }
@@ -538,12 +542,12 @@ class NodeMaster extends UntypedActor  {
         // 'submitted' -> 'failed'
 
         if( !job.running ) {
-            log.debug "Oops. Job '${job.shortReqId}..' not in RUNNING status -- ${job.dump()}"
+            log.warn "Oops. Job '${job.shortReqId}..' not in RUNNING status -- ${job.dump()}"
             return
         }
 
         if( !task.isSuccess()  ) {
-            job.status = JobStatus.FAILED
+            job.status = JobStatus.ERROR
             // TODO ++ stop all pending tasks execution ?
         }
 
@@ -552,7 +556,7 @@ class NodeMaster extends UntypedActor  {
 
             final missingTasks = store.countTasksMissing(job.requestId)
             if ( missingTasks ) {
-                log.trace "Job '${job.shortReqId}..' missing tasks: ${missingTasks} of ${job.numOfTasks}"
+                log.debug "Job '${job.shortReqId}..' missing tasks: ${missingTasks} of ${job.numOfTasks}"
                 return
             }
 

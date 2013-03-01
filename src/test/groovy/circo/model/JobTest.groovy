@@ -32,7 +32,7 @@ class JobTest extends Specification{
 
         when:
         def collector1 = new Job(UUID.randomUUID())
-        collector1.status = JobStatus.SUBMITTED
+        collector1.status = JobStatus.PENDING
         collector1.input = new Context().put('y','a')
         collector1.output = new Context()
         collector1.completionTime = System.currentTimeMillis()
@@ -62,9 +62,9 @@ class JobTest extends Specification{
         def job4 = new Job(UUID.randomUUID())
 
         when:
-        job2.status = JobStatus.SUBMITTED
+        job2.status = JobStatus.PENDING
         job3.status = JobStatus.SUCCESS
-        job4.status = JobStatus.FAILED
+        job4.status = JobStatus.ERROR
 
         then:
         !job1.isSuccess()

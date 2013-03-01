@@ -29,7 +29,7 @@ import com.hazelcast.core.HazelcastInstance
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class HazelcastOverJdbcDataStoreTest extends DataStoreTest {
+class HazelcastOverJdbcDataStoreTest extends AbstractDataStoreTest {
 
 
     def void setup() {

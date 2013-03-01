@@ -20,9 +20,9 @@
 
 
 
+
 import circo.client.AppOptions
 import circo.client.CmdNode
-import circo.client.CmdStat
 import circo.client.CmdSub
 import com.beust.jcommander.JCommander
 /**
@@ -39,7 +39,6 @@ class JCommanderTest  {
         def jcommander = new JCommander(cli)
         jcommander.addCommand( new CmdSub() )
         jcommander.addCommand( new CmdNode() )
-        jcommander.addCommand( new CmdStat() )
 
         when:
         jcommander.parse('stat', '1', '2', '3', 'list')

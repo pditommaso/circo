@@ -18,13 +18,11 @@
  */
 
 package circo.daemon
-
 import static test.TestHelper.newProbe
 import static test.TestHelper.newTestActor
 
 import circo.client.CmdList
 import circo.client.CmdNode
-import circo.client.CmdStat
 import circo.client.CmdSub
 import circo.model.Context
 import circo.model.Job
@@ -36,11 +34,9 @@ import circo.model.TaskResult
 import circo.model.TaskStatus
 import circo.reply.ListReply
 import circo.reply.NodeReply
-import circo.reply.StatReply
 import circo.reply.SubReply
 import scala.concurrent.duration.Duration
 import test.ActorSpecification
-
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -155,43 +151,22 @@ class FrontEndTest extends ActorSpecification {
     }
 
 
-    def 'test cmd job with some id' () {
-
-        setup:
-        final task1 = new TaskEntry('1','echo 1')
-        final task2 = new TaskEntry('2','echo 2')
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-
-        def sender = newProbe(test.ActorSpecification.system)
-        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
-        def cmd = new CmdStat(jobs: ['1','2', '3'])
-
-        when:
-        frontend.tell( cmd, sender.getRef() )
-        def result = sender.expectMsgClass(StatReply)
-
-        then:
-        result.tasks == [ task1, task2 ]
-        result.warn == ["Cannot find any job for id: '3'"]
-        result.error.size() == 0
-        result.info.size() == 0
-
-    }
 
 
-    def 'text cmd list' () {
+    def 'text cmd list jobs' () {
 
         setup:
         final requestId1 = UUID.randomUUID()
         final requestId2 = UUID.randomUUID()
 
-        final task1 = TaskEntry.create(1)  { TaskEntry it -> it.req.ticket = requestId1; it.req.script = 'Hello' }
-        final task2 = TaskEntry.create(2)  { TaskEntry it -> it.req.ticket = requestId1; it.req.script = 'Hello'; it.status = TaskStatus.TERMINATED }
+        // first request
+        final task1 = TaskEntry.create(1)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello'; it.attempts=1; }
+        final task2 = TaskEntry.create(2)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello'; it.attempts=1; it.status = TaskStatus.TERMINATED }
 
-        final task3 = TaskEntry.create(3)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao' }
-        final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao'; it.status = TaskStatus.TERMINATED }
-        final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.ticket = requestId2; it.req.script = 'Ciao'; it.result = new TaskResult(exitCode: 1) }
+        // second request
+        final task3 = TaskEntry.create(3)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attempts=1; }
+        final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attempts=1; it.status = TaskStatus.TERMINATED }
+        final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attempts=2; it.result = new TaskResult(exitCode: 1) }
 
         dataStore.storeTask(task1)
         dataStore.storeTask(task2)
@@ -203,9 +178,8 @@ class FrontEndTest extends ActorSpecification {
         /*
          * the jobs
          */
-        final job1 = new Job(requestId1)
-        final job2 = new Job(requestId2)
-        job2.status = JobStatus.FAILED
+        final job1 = Job.create(requestId1)
+        final job2 = Job.create(requestId2) { Job it -> it.status = JobStatus.ERROR }
 
         dataStore.storeJob(job1)
         dataStore.storeJob(job2)
@@ -217,62 +191,104 @@ class FrontEndTest extends ActorSpecification {
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
 
-        def cmd = new CmdList()
-
-        /*
-         * WHEN
-         */
+        // -- first command - LIST ALL
+        frontend.tell( new CmdList(all: true), sender.getRef() )
         when:
-        frontend.tell( cmd, sender.getRef() )
-        def result = sender.expectMsgClass(ListReply)
+        def result1 = sender.expectMsgClass(ListReply)
 
-        /*
-         * THEN
-         */
         then:
-        result.jobs.size() == 2
-        result.jobs.find { it.requestId == requestId1 }.command == 'Hello'
-        result.jobs.find { it.requestId == requestId2 }.command == 'Ciao'
+        result1.jobs.size() == 2
+        result1.jobs.find { it.requestId == requestId1 }.command == 'Hello'
+        result1.jobs.find { it.requestId == requestId2 }.command == 'Ciao'
 
-        result.jobs.find { it.requestId == requestId1 }.failedTasks == []
-        result.jobs.find { it.requestId == requestId1 }.pendingTasks == [task1]
+        result1.jobs.find { it.requestId == requestId1 }.numOfFailedTasks == 0
+        result1.jobs.find { it.requestId == requestId1 }.numOfPendingTasks == 1
 
-        result.jobs.find { it.requestId == requestId2 }.failedTasks == [task5]
-        result.jobs.find { it.requestId == requestId2 }.pendingTasks == [task3, task5]
+        result1.jobs.find { it.requestId == requestId2 }.numOfFailedTasks == 1
+        result1.jobs.find { it.requestId == requestId2 }.numOfPendingTasks == 1
 
+        // -- second command - LIST PENDING
+        when:
+        frontend.tell( new CmdList(status: ['error']), sender.getRef() )
+        def result2 = sender.expectMsgClass(ListReply)
 
+        then:
+        result2.jobs.size() == 1
+        result2.jobs.find().command == 'Ciao'
+
+        // -- third command - LIST by UUID
+        when:
+        frontend.tell( new CmdList(jobsId: [ requestId1.toString()[0..8] ]), sender.getRef() )
+        def result3 = sender.expectMsgClass(ListReply)
+        then:
+        result3.jobs.size() == 1
+        result3.jobs.find().command == 'Hello'
 
     }
 
-    def 'test cmd stat' () {
+    def 'text cmd list tasks' () {
 
         setup:
-        final task1 = new TaskEntry(1,'echo 1')
-        final task2 = TaskEntry.create('2')  { it.status = TaskStatus.TERMINATED }
-        final task3 = new TaskEntry(3,'echo 3')
-        final task4 = TaskEntry.create('4')  { it.status = TaskStatus.TERMINATED }
+        final requestId1 = UUID.randomUUID()
+        final requestId2 = UUID.randomUUID()
 
-        test.ActorSpecification.dataStore.storeTask(task1)
-        test.ActorSpecification.dataStore.storeTask(task2)
-        test.ActorSpecification.dataStore.storeTask(task3)
-        test.ActorSpecification.dataStore.storeTask(task4)
+        final task1 = TaskEntry.create(1)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello' }
+        final task2 = TaskEntry.create(2)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello'; it.status = TaskStatus.TERMINATED }
 
+        final task3 = TaskEntry.create(3)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao' }
+        final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.status = TaskStatus.TERMINATED }
+        final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.result = new TaskResult(exitCode: 1) }
+
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
+        dataStore.storeTask(task3)
+        dataStore.storeTask(task4)
+        dataStore.storeTask(task5)
+
+
+        /*
+         * the jobs
+         */
+        final job1 = Job.create(requestId1)
+        final job2 = Job.create(requestId2) { Job it -> it.status = JobStatus.ERROR }
+
+        dataStore.storeJob(job1)
+        dataStore.storeJob(job2)
+
+
+        /*
+         * prepare the command
+         */
         def sender = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
-        def cmd = new CmdStat()
-        cmd.status = TaskStatus.TERMINATED.toString()
 
+        // -- first command - LIST ALL
         when:
-        frontend.tell( cmd, sender.getRef() )
-        def result = sender.expectMsgClass(StatReply)
+        frontend.tell( new CmdList(tasks: true, all: true), sender.getRef() )
+        def result = sender.expectMsgClass(ListReply)
 
         then:
-        result.tasks.sort() == [ task2, task4 ]
-        result.error.size() == 0
-        result.warn.size() == 0
-        result.info.size() == 0
+        result.tasks.size() == 5
+
+        // -- list tasks given the job id
+        when:
+        frontend.tell( new CmdList(tasks: true, jobsId: [requestId2.toString()]), sender.getRef() )
+        def result2 = sender.expectMsgClass(ListReply)
+
+        then:
+        result2.tasks.size() == 3
+
+        // list all terminated
+        when:
+        frontend.tell( new CmdList(tasks: true, status: ['terminated']), sender.getRef() )
+        def result3 = sender.expectMsgClass(ListReply)
+
+        then:
+        result3.tasks.size() == 2
 
     }
+
+
 
 
     def 'test cmd node' () {

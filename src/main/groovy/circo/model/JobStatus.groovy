@@ -26,9 +26,27 @@ package circo.model
  */
 enum JobStatus {
 
-    SUBMITTED,
+    PENDING,
     RUNNING,
     SUCCESS,
-    FAILED
+    ERROR
 
+
+    static JobStatus fromString(String value) {
+
+        def result = JobStatus.values().find { value.equalsIgnoreCase(it.toString()) }
+        if ( result ) {
+            return result
+        }
+
+        switch(value.toUpperCase()) {
+            case 'P': return PENDING
+            case 'R': return RUNNING
+            case 'S': return SUCCESS
+            case 'E': return ERROR
+            default:
+                throw new IllegalArgumentException("String '$value' is not a valid ${JobStatus.simpleName} value")
+        }
+
+    }
 }

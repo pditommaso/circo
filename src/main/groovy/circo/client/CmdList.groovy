@@ -19,6 +19,7 @@
 
 package circo.client
 
+import circo.model.TaskEntry
 import circo.reply.ListReply
 import circo.ui.TableBuilder
 import com.beust.jcommander.Parameter
@@ -34,8 +35,23 @@ import groovy.util.logging.Slf4j
 @Parameters(commandNames = 'list', commandDescription = 'List the current jobs in the grid')
 class CmdList extends AbstractCommand {
 
-    @Parameter(names='dump', hidden = true)
-    boolean dump
+    @Parameter
+    List<String> jobsId
+
+    @Parameter(names=['-t','--task'], description = 'Show detailed information about the specified task(s)')
+    boolean tasks
+
+    @Parameter(names=['-s','--status'], description = 'Comma separated list of job status (Pending|Running|Terminated|Success|Failed)' )
+    List<String> status
+
+    /**
+     * returns all jobs
+     */
+    @Parameter(names=['-a','--all'], hidden = true)
+    boolean all
+
+    @Parameter(names=['-l'], description = 'Use long notation for job id(s)')
+    boolean longId
 
     @Override
     void execute(ClientApp client) throws IllegalArgumentException {
@@ -50,22 +66,36 @@ class CmdList extends AbstractCommand {
         /*
          * dump the result
          */
-        if( dump ) {
+        if( dumpFlag ) {
             log.info reply.dump()
             return
         }
 
 
-        if( !reply.jobs )  {
-            log.debug "No jobs to list"
-            return
+        if( reply.jobs )  {
+            printJobs( reply.jobs )
         }
+
+        else if ( reply.tasks ) {
+            printTasks(reply.tasks)
+        }
+
+        else {
+            log.debug "(empty)"
+        }
+
+
+    }
+
+
+    void printJobs(List<ListReply.JobInfo> jobs ) {
+
 
         /*
          * render the table
          */
         def table = new TableBuilder()
-                .head('id',9)
+                .head('id')
                 .head('command', 25)
                 .head('status')
                 .head('creat')
@@ -74,15 +104,15 @@ class CmdList extends AbstractCommand {
                 .head('F')
                 .head('T')
 
-        reply.jobs?.sort { ListReply.JobInfo it -> it.completionTime }?.each {
+        jobs?.sort { ListReply.JobInfo it -> it.completionTime }?.each {
 
-            table << it.requestId
+            table << (longId ? it.requestId?.toString() : it.shortReqId)
             table << it.command
             table << it.status?.toString() ?: '-'
             table << it.creationTimeFmt
             table << it.completionTimeFmt
-            table << ( it.numOfTasks - it.pendingTasks?.size() )
-            table << ( it.failedTasks?.size())
+            table << ( it.numOfTasks - it.numOfPendingTasks )
+            table << ( it.numOfFailedTasks )
             table << ( it.numOfTasks )
 
             table.closeRow()
@@ -92,7 +122,38 @@ class CmdList extends AbstractCommand {
 
         println table.toString()
 
+    }
 
+
+    void printTasks( List<TaskEntry> tasks ) {
+
+        def table = new TableBuilder()
+            .head('job')
+            .head('task')
+            .head('status')
+            .head('time')
+            .head('node')
+            .head('pid')
+            .head('exit')
+            .head('fail', 25)
+
+
+        tasks.sort().each { TaskEntry task ->
+
+            table << (longId ? task.req?.requestId?.toString() : task.req?.shortReqId)
+            table << task.id.toFmtString()
+            table << task.statusString
+            table << task.statusTimeFmt
+            table << task.ownerId
+            table << task.pid
+            table << task.result?.exitCode
+            table << task.result?.failure?.toString()
+            table.closeRow()
+
+        }
+
+
+        println table.toString()
     }
 
 

@@ -101,11 +101,6 @@ class WorkerRef implements Serializable {
         AddressFromURIString.parse(path)
     }
 
-    def boolean isLocal( Address address ) {
-        log.trace "Worker is local [${this.address()} == ${address}]? ${this.address() == address ? 'YES' : 'NO'} "
-        this.address() == address
-    }
-
     def String toFmtString() {
 
         def host = opt( address().host() )

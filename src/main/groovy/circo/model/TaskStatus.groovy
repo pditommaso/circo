@@ -39,7 +39,7 @@ enum TaskStatus {
         this.shortNotation = val
     }
 
-    def String toFmtString() { shortNotation }
+    def String toShortString() { shortNotation }
 
     static def TaskStatus fromString(String value) {
         assert value

@@ -285,12 +285,12 @@ class HzJdbcTasksMapStoreTest extends Specification {
         def req3 = UUID.randomUUID()
         def req4 = UUID.randomUUID()
 
-        def job1 = new TaskEntry( new TaskId(111), new TaskReq(ticket: req1))
-        def job2 = new TaskEntry( new TaskId(222), new TaskReq(ticket: req2))
-        def job3 = new TaskEntry( new TaskId(333), new TaskReq(ticket: req2))
-        def job4 = new TaskEntry( new TaskId(444), new TaskReq(ticket: req3))
-        def job5 = new TaskEntry( new TaskId(555), new TaskReq(ticket: req3))
-        def job6 = new TaskEntry( new TaskId(666), new TaskReq(ticket: req3))
+        def job1 = new TaskEntry( new TaskId(111), new TaskReq(requestId: req1))
+        def job2 = new TaskEntry( new TaskId(222), new TaskReq(requestId: req2))
+        def job3 = new TaskEntry( new TaskId(333), new TaskReq(requestId: req2))
+        def job4 = new TaskEntry( new TaskId(444), new TaskReq(requestId: req3))
+        def job5 = new TaskEntry( new TaskId(555), new TaskReq(requestId: req3))
+        def job6 = new TaskEntry( new TaskId(666), new TaskReq(requestId: req3))
 
         when:
         store.store( job1.id, job1 )

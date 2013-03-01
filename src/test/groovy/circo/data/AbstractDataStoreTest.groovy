@@ -17,7 +17,7 @@ import test.TestHelper
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-abstract class DataStoreTest extends Specification {
+abstract class AbstractDataStoreTest extends Specification {
 
     @Shared
     DataStore store
@@ -30,7 +30,7 @@ abstract class DataStoreTest extends Specification {
         setup:
         final id = UUID.randomUUID()
         def job = new Job(id)
-        job.status = JobStatus.SUBMITTED
+        job.status = JobStatus.PENDING
 
         when:
         store.storeJob(job)
@@ -49,13 +49,13 @@ abstract class DataStoreTest extends Specification {
         store.storeJob(job1)
 
         def job2 = new Job(UUID.randomUUID())
-        job2.status = JobStatus.FAILED
+        job2.status = JobStatus.ERROR
         store.storeJob(job2)
 
         when:
-        boolean done1 = store.updateJob( job1.requestId ) { Job it -> it.status = JobStatus.SUBMITTED }
-        boolean done2 = store.updateJob( job2.requestId ) { Job it -> it.status = JobStatus.FAILED }
-        boolean done3 = store.updateJob( UUID.randomUUID() ) { Job it -> it.status = JobStatus.FAILED }
+        boolean done1 = store.updateJob( job1.requestId ) { Job it -> it.status = JobStatus.PENDING }
+        boolean done2 = store.updateJob( job2.requestId ) { Job it -> it.status = JobStatus.ERROR }
+        boolean done3 = store.updateJob( UUID.randomUUID() ) { Job it -> it.status = JobStatus.ERROR }
 
         then:
         done1  // this must be TRUE
@@ -82,6 +82,62 @@ abstract class DataStoreTest extends Specification {
         list.size() == 4
 
     }
+
+
+    def 'test findJobsByStatus' () {
+
+        setup:
+        def job1 = Job.create { Job it -> it.status = JobStatus.PENDING }
+        def job2 = Job.create { Job it -> it.status = JobStatus.RUNNING }
+        def job3 = Job.create { Job it -> it.status = JobStatus.RUNNING }
+        def job4 = Job.create { Job it -> it.status = JobStatus.RUNNING }
+
+        store.storeJob(job1)
+        store.storeJob(job2)
+        store.storeJob(job3)
+        store.storeJob(job4)
+
+        expect:
+        store.findJobsByStatus( JobStatus.PENDING ) == [job1]
+        store.findJobsByStatus( JobStatus.RUNNING ) as Set == [job2,job3,job4] as Set
+        store.findJobsByStatus( JobStatus.ERROR ) == []
+        store.findJobsByStatus( JobStatus.PENDING, JobStatus.RUNNING) as Set == [job1,job2,job3,job4] as Set
+
+    }
+
+
+    def 'test findJobsByRequestId' () {
+
+        setup:
+        def id1 = UUID.fromString('550e8400-e29b-41d4-a716-446655440000')
+        def id2 = UUID.fromString('550e8400-e29b-41d4-a716-446655440009')
+        def id3 = UUID.randomUUID()
+        def id4 = UUID.randomUUID()
+
+
+        def job1 = Job.create(id1)
+        def job2 = Job.create(id2)
+        def job3 = Job.create(id3)
+        def job4 = Job.create(id4)
+
+        store.storeJob(job1)
+        store.storeJob(job2)
+        store.storeJob(job3)
+        store.storeJob(job4)
+
+        expect:
+        store.findJobsByRequestId( id1.toString() ) == [job1]
+        store.findJobsByRequestId( '550e8400' ) as Set == [job1,job2] as Set
+        store.findJobsByRequestId( '550e8400-*' ) as Set == [job1,job2] as Set
+        store.findJobsByRequestId( '550e8400-e29b-41d4-a716-44665544000?' ) as Set == [job1,job2] as Set
+        store.findJobsByRequestId( '450e8400-e29b-41d4-a716-44665544000?' ) == []
+        store.findJobsByRequestId( '*446655440000' ) == [job1]
+
+
+    }
+
+
+
 
 
     // ------------------------ TASK operations tests ---------------------------------------
@@ -214,7 +270,6 @@ abstract class DataStoreTest extends Specification {
         store.findTasksByStatusString('pending').toSet() == [task2,task3] as Set
         store.findTasksByStatusString( 'success' ).toSet() == [task6] as Set
         store.findTasksByStatusString( 'error' ).toSet() == [task4,task5] as Set
-        store.findTasksByStatusString( 'failed' ).toSet() == [task4,task5] as Set
     }
 
     def 'test findTasksByRequestId' () {
@@ -222,11 +277,11 @@ abstract class DataStoreTest extends Specification {
         def req1 = UUID.randomUUID()
         def req2 = UUID.randomUUID()
 
-        def task1 = TaskEntry.create('1') { TaskEntry it -> it.status = TaskStatus.NEW; it.req.ticket = req1 }
-        def task2 = TaskEntry.create('2') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req1  }
-        def task3 = TaskEntry.create('3') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.ticket = req2  }
-        def task4 = TaskEntry.create('4') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
-        def task5 = TaskEntry.create('5') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.ticket = req2   }
+        def task1 = TaskEntry.create('1') { TaskEntry it -> it.status = TaskStatus.NEW; it.req.requestId = req1 }
+        def task2 = TaskEntry.create('2') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.requestId = req1  }
+        def task3 = TaskEntry.create('3') { TaskEntry it -> it.status = TaskStatus.PENDING; it.req.requestId = req2  }
+        def task4 = TaskEntry.create('4') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.requestId = req2   }
+        def task5 = TaskEntry.create('5') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.requestId = req2   }
         def task6 = TaskEntry.create('6') { TaskEntry it -> it.status = TaskStatus.TERMINATED  }
 
         store.storeTask(task1)
@@ -504,13 +559,16 @@ abstract class DataStoreTest extends Specification {
         setup:
         def req1 = UUID.randomUUID()
         def req2 = UUID.randomUUID()
-        def task1 = TaskEntry.create(1) { TaskEntry it -> it.req.ticket = req1 }
-        def task2 = TaskEntry.create(2) { TaskEntry it -> it.req.ticket = req2 }
-        def task3 = TaskEntry.create(3) { TaskEntry it -> it.req.ticket = req2 }
+        def task1 = TaskEntry.create(1) { TaskEntry it -> it.req.requestId = req1 }
+        def task2 = TaskEntry.create(2) { TaskEntry it -> it.req.requestId = req2 }
+        def task3 = TaskEntry.create(3) { TaskEntry it -> it.req.requestId = req2 }
 
         when:
         store.storeTaskSink( task1 )
         store.storeTaskSink( task2 )
+        store.storeTaskSink( task3 )
+        // note: when the element is already store, following stores are skipped
+        store.storeTaskSink( task3 )
         store.storeTaskSink( task3 )
 
         then:

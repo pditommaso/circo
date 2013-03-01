@@ -46,9 +46,6 @@ class CmdNode extends AbstractCommand {
     @Parameter(names='--resume', description="Resume the computation in the listed nodes, use 'ALL' to resume all cluster nodes")
     List<String> resume
 
-    @Parameter(names='--dump', description="Dump the current nodes status", hidden = true)
-    boolean dumpFlag
-
 
     @Override
     void execute(ClientApp client) {

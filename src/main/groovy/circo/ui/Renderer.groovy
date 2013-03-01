@@ -315,7 +315,7 @@ class TextLabel {
      */
     def String toString() {
 
-        String result = value ? value.toString() : '-'
+        String result = value != null ? value.toString() : '-'
 
         if( width && align == Align.LEFT ) {
             result = result.padRight(width)

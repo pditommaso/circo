@@ -23,7 +23,6 @@ import circo.model.TaskEntry
 import circo.util.SerializeId
 import groovy.transform.InheritConstructors
 import groovy.transform.ToString
-
 /**
  * Holds the reply data for the {@code CmdList} command
  *
@@ -35,6 +34,8 @@ import groovy.transform.ToString
 class ListReply extends AbstractReply {
 
     List<JobInfo> jobs
+
+    List<TaskEntry> tasks
 
 
     @SerializeId
@@ -49,10 +50,9 @@ class ListReply extends AbstractReply {
 
         String command
 
-        List<TaskEntry> failedTasks
+        int numOfPendingTasks
 
-        List<TaskEntry> pendingTasks
-
+        int numOfFailedTasks
 
     }
 

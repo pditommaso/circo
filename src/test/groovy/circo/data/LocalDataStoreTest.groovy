@@ -23,7 +23,7 @@ package circo.data
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-class LocalDataStoreTest extends DataStoreTest {
+class LocalDataStoreTest extends AbstractDataStoreTest {
 
     def void setup() {
         store = new LocalDataStore()
