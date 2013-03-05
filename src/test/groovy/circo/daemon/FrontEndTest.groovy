@@ -21,9 +21,11 @@ package circo.daemon
 import static test.TestHelper.newProbe
 import static test.TestHelper.newTestActor
 
+import circo.client.CmdKill
 import circo.client.CmdList
 import circo.client.CmdNode
 import circo.client.CmdSub
+import circo.messages.ProcessKill
 import circo.model.Context
 import circo.model.Job
 import circo.model.JobStatus
@@ -32,6 +34,8 @@ import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskResult
 import circo.model.TaskStatus
+import circo.model.WorkerRef
+import circo.reply.AckReply
 import circo.reply.ListReply
 import circo.reply.NodeReply
 import circo.reply.SubReply
@@ -88,7 +92,7 @@ class FrontEndTest extends ActorSpecification {
         entry.req.maxDuration == sub.maxDuration.toMillis()
         entry.req.environment.each{ k, v -> sub.env.get(k) == v }
         entry.req.environment['JOB_ID'] == ticket.toString()
-        entry.req.environment['TASK_ID'] == ID.toFmtString()
+        entry.req.environment['TASK_ID'] == ID.toString()
         //entry.req.environment == sub.env
         entry.req.script == sub.command.join(' ')
 
@@ -132,19 +136,19 @@ class FrontEndTest extends ActorSpecification {
         then:
         result.taskIds.size() == 4
         result.taskIds[0] == TaskId.of(1)
-        entry0.req.environment['TASK_ID'] == entry0.id.toFmtString()
+        entry0.req.environment['TASK_ID'] == entry0.id.toString()
         entry0.req.context.getData('X') == '1'
         entry0.req.context.getData('Y') == 'alpha'
 
-        entry1.req.environment['TASK_ID'] == entry1.id.toFmtString()
+        entry1.req.environment['TASK_ID'] == entry1.id.toString()
         entry1.req.context.getData('X') == '2'
         entry1.req.context.getData('Y') == 'alpha'
 
-        entry2.req.environment['TASK_ID'] == entry2.id.toFmtString()
+        entry2.req.environment['TASK_ID'] == entry2.id.toString()
         entry2.req.context.getData('X') == '1'
         entry2.req.context.getData('Y') == 'beta'
 
-        entry3.req.environment['TASK_ID'] == entry3.id.toFmtString()
+        entry3.req.environment['TASK_ID'] == entry3.id.toString()
         entry3.req.context.getData('X') == '2'
         entry3.req.context.getData('Y') == 'beta'
 
@@ -289,8 +293,6 @@ class FrontEndTest extends ActorSpecification {
     }
 
 
-
-
     def 'test cmd node' () {
 
         setup:
@@ -300,7 +302,7 @@ class FrontEndTest extends ActorSpecification {
         dataStore.storeNode(node1)
         dataStore.storeNode(node2)
 
-        def sender = newProbe(test.ActorSpecification.system)
+        def sender = newProbe(ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
         def cmd = new CmdNode(ticket: UUID.randomUUID())
 
@@ -316,6 +318,232 @@ class FrontEndTest extends ActorSpecification {
     }
 
 
+    def 'test populateKillList' () {
+
+        setup:
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
+
+        final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
+        final job2 = Job.create()
+        dataStore.storeJob(job1)
+        dataStore.storeJob(job2)
+
+        // job1 has two tasks
+        final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId }
+        final task2 = TaskEntry.create(2) { TaskEntry task -> task.req.requestId = job1.requestId }
+
+        // job2 has one task
+        final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING }
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
+        dataStore.storeTask(task3)
+
+
+        // given the job ID to kill
+        // return the set of 'job' and 'tasks' to kill
+        when:
+        def jobs = new LinkedHashSet<Job>()
+        def tasks = new LinkedHashSet<TaskEntry>()
+        def id = job1.requestId.toString().substring(0,8)
+        def reply = frontend.actor.populateKillList( new CmdKill(itemsToKill: [id]), jobs, tasks )
+
+        then:
+        jobs == [ job1 ] as Set
+        tasks == [ task1, task2 ] as Set
+        !reply.hasMessages()
+
+        // given a missing job id
+        // return empty sets and an error message as reply
+        when:
+        jobs = new LinkedHashSet<Job>()
+        tasks = new LinkedHashSet<TaskEntry>()
+        reply = frontend.actor.populateKillList( new CmdKill(itemsToKill: ['xxx']), jobs, tasks )
+
+        then:
+        jobs == [] as Set
+        tasks == [] as Set
+        reply.hasMessages()
+
+
+        // given the ID of a running tasks
+        // return only that
+        when:
+        jobs = new LinkedHashSet<Job>()
+        tasks = new LinkedHashSet<TaskEntry>()
+        reply = frontend.actor.populateKillList( new CmdKill(itemsToKill: ['3'], tasks: true), jobs, tasks )
+
+        then:
+        jobs == [] as Set
+        tasks == [task3] as Set
+        !reply.hasMessages()
+
+        //
+        // given ALL
+        // return all the tasks and jobs (in RUNNING or PENDING) status
+        when:
+        jobs = new LinkedHashSet<Job>()
+        tasks = new LinkedHashSet<TaskEntry>()
+        reply = frontend.actor.populateKillList( new CmdKill(all: true), jobs, tasks )
+
+        then:
+        jobs == [job1] as Set
+        tasks == [task1,task2] as Set
+        !reply.hasMessages()
+
+        //
+        // given an empty command
+        //
+        when:
+        jobs = new LinkedHashSet<Job>()
+        tasks = new LinkedHashSet<TaskEntry>()
+        reply = frontend.actor.populateKillList( new CmdKill(), jobs, tasks )
+
+        then:
+        jobs == [] as Set
+        tasks == [] as Set
+        reply.hasMessages()
+
+    }
+
+    def 'test kill job by id' () {
+
+        setup:
+        def sender = newProbe(ActorSpecification.system)
+        def worker1 = newProbe(ActorSpecification.system)
+        def worker2 = newProbe(ActorSpecification.system)
+        def worker3 = newProbe(ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
+
+        final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
+        final job2 = Job.create()
+        dataStore.storeJob(job1)
+        dataStore.storeJob(job2)
+
+        // job1 has two tasks
+        final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker1.getRef()) }
+        final task2 = TaskEntry.create(2) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker2.getRef()) }
+
+        // job2 has one task
+        final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING; ; task.worker = new WorkerRef(worker3.getRef())}
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
+        dataStore.storeTask(task3)
+
+        // given the job ID to kill
+        // return the set of 'job' and 'tasks' to kill
+        when:
+        def id = job1.requestId.toString().substring(0,8)
+        frontend.tell( new CmdKill(itemsToKill: [id]), sender.getRef() )
+        def reply = sender.expectMsgClass(AckReply)
+
+        then:
+        dataStore.removeFromKillList( task1.id )
+        dataStore.removeFromKillList( task2.id )
+        !dataStore.removeFromKillList( task3.id )
+        dataStore.getJob( job1.requestId ).status == JobStatus.KILLED
+        dataStore.getJob( job2.requestId ).status != JobStatus.KILLED
+        !reply.hasMessages()
+
+        // given a missing job id
+        // return empty sets and an error message as reply
+        when:
+        frontend.tell( new CmdKill(itemsToKill: ['xxx']), sender.getRef() )
+        reply = sender.expectMsgClass(AckReply)
+
+        then:
+        !dataStore.removeFromKillList( task1.id )
+        !dataStore.removeFromKillList( task2.id )
+        !dataStore.removeFromKillList( task3.id )
+        reply.hasMessages()
+
+    }
+
+    def 'test kill task by id' () {
+
+        setup:
+        def sender = newProbe(ActorSpecification.system)
+        def worker1 = newProbe(ActorSpecification.system)
+        def worker2 = newProbe(ActorSpecification.system)
+        def worker3 = newProbe(ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
+
+        final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
+        final job2 = Job.create()
+        dataStore.storeJob(job1)
+        dataStore.storeJob(job2)
+
+        // job1 has two tasks
+        final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker1.getRef()) }
+        final task2 = TaskEntry.create(2) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker2.getRef()) }
+
+        // job2 has one task
+        final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING; ; task.worker = new WorkerRef(worker3.getRef())}
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
+        dataStore.storeTask(task3)
+
+
+        // given the ID of a running tasks
+        // return only that
+        when:
+        frontend.tell( new CmdKill(itemsToKill: ['3'], tasks: true), sender.getRef() )
+        def reply = sender.expectMsgClass(AckReply)
+
+        then:
+        !dataStore.removeFromKillList( task1.id )
+        !dataStore.removeFromKillList( task2.id )
+        !dataStore.removeFromKillList( task3.id )
+        !reply.hasMessages()
+        worker3.expectMsgEquals(new ProcessKill(taskId: task3.id, cancel: true) )
+
+    }
+
+
+    def 'test kill ALL' () {
+
+        setup:
+        def sender = newProbe(ActorSpecification.system)
+        def worker1 = newProbe(ActorSpecification.system)
+        def worker2 = newProbe(ActorSpecification.system)
+        def worker3 = newProbe(ActorSpecification.system)
+        def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
+
+        final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
+        final job2 = Job.create()
+        dataStore.storeJob(job1)
+        dataStore.storeJob(job2)
+
+        // job1 has two tasks
+        final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker1.getRef()) }
+        final task2 = TaskEntry.create(2) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker2.getRef()) }
+
+        // job2 has one task
+        final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING; ; task.worker = new WorkerRef(worker3.getRef())}
+        dataStore.storeTask(task1)
+        dataStore.storeTask(task2)
+        dataStore.storeTask(task3)
+
+
+        //
+        // given ALL
+        // return all the tasks and jobs (in RUNNING or PENDING) status
+        when:
+        frontend.tell( new CmdKill(all: true), sender.getRef() )
+        def reply = sender.expectMsgClass(AckReply)
+
+        then:
+        dataStore.removeFromKillList( task1.id )
+        dataStore.removeFromKillList( task2.id )
+        !dataStore.removeFromKillList( task3.id )
+        dataStore.getJob( job1.requestId ).status == JobStatus.KILLED
+        dataStore.getJob( job2.requestId ).status != JobStatus.KILLED
+
+        worker1.expectMsgEquals(new ProcessKill(taskId: task1.id) )
+
+        !reply.hasMessages()
+
+
+    }
 
 
 }

@@ -20,6 +20,7 @@
 package circo.data
 
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
 
 import circo.model.TaskEntry
@@ -47,6 +48,7 @@ class LocalDataStore extends AbstractDataStore {
         tasks = new ConcurrentHashMap<>()
         nodes = new ConcurrentHashMap<>()
         queue = new ConcurrentHashMap<>()
+        killList = new ConcurrentSkipListSet<TaskId>()
     }
 
     def void shutdown() { }
@@ -63,7 +65,7 @@ class LocalDataStore extends AbstractDataStore {
 
     // ----------------------------- SINK --------------------------------------------
 
-    void storeTaskSink( TaskEntry task ) {
+    void addToSink( TaskEntry task ) {
         assert task
         assert task?.req?.requestId
 
@@ -72,7 +74,7 @@ class LocalDataStore extends AbstractDataStore {
         }
     }
 
-    boolean removeTaskSink( TaskEntry task ) {
+    boolean removeFromSink( TaskEntry task ) {
         assert task
         assert task?.req?.requestId
 

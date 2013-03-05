@@ -32,12 +32,16 @@ class TaskIdTest extends Specification {
         def job1 = new TaskId(1)
         def job2 = new TaskId(15)
         def job3 = new TaskId('1')
-        def job4 = new TaskId('f')
+        def job4 = new TaskId('10')
 
         then:
         job1 == job3
-        job2 == job4
         job1 != job2
+        job1.value == 1
+        job2.value == 15
+        job3.value == 1
+        job4.value == 10
+
     }
 
     def 'test copy' () {
@@ -58,8 +62,8 @@ class TaskIdTest extends Specification {
 
         expect:
         new TaskId(9) == TaskId.of(9)
-        new TaskId(10) == TaskId.of('a')
-        new TaskId(10) != TaskId.of('b')
+        new TaskId(10) == TaskId.of('10')
+        new TaskId(10) != TaskId.of('11')
         new TaskId('1234') == TaskId.of('1234')
         new TaskId('1234') != TaskId.of('1235')
 
@@ -74,32 +78,21 @@ class TaskIdTest extends Specification {
         TaskId.of('100') < TaskId.of('101')
         TaskId.of('200') > TaskId.of('101')
         TaskId.of(8) > TaskId.of(5)
-        TaskId.of(256) > TaskId.of('ff')
-        TaskId.of('fe') < TaskId.of('ff')
+        TaskId.of(256) > TaskId.of('255')
+        TaskId.of('254') < TaskId.of('255')
     }
 
     def 'test toString' () {
 
         when:
         def id1 = new TaskId(1)
-        def id2 = new TaskId('f')
+        def id2 = new TaskId('10')
 
         then:
         id1.toString() == '1'
-        id2.toString() == 'f'
+        id2.toString() == '10'
 
     }
 
-    def 'test toFmtString' () {
-
-        when:
-        def id1 = new TaskId(1)
-        def id2 = new TaskId(255)
-
-        then:
-        id1.toFmtString() == '1'
-        id2.toFmtString() == '0ff'
-
-    }
 
 }

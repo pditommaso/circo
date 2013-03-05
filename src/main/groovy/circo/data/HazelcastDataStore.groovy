@@ -379,7 +379,6 @@ class HazelcastDataStore extends AbstractDataStore {
             tasksMapStore = new HzJdbcTasksMapStore(dataSource, true)
             nodesMapStore = new HzJdbcNodesMapStore(dataSource, true)
             filesMapStore = new HzJdbcFilesMapStore(dataSource, true)
-
             sinkMapStore = new HzJdbcSinkMapStore(dataSource, true)
         }
 
@@ -394,6 +393,7 @@ class HazelcastDataStore extends AbstractDataStore {
         tasks = hazelcast.getMap('tasks')
         nodes = hazelcast.getMap('nodes')
         queue = hazelcast.getMap('queue')
+        killList = hazelcast.getSet('killList')
 
         // since Hazelcast multimap does not support MapStore persistence, when a data-source
         // connection is provided the structure is allocated as a 'normal' Map<TaskId,UUID>
@@ -607,7 +607,7 @@ class HazelcastDataStore extends AbstractDataStore {
 
     // ----------------------------- SINK --------------------------------------------
 
-    void storeTaskSink( TaskEntry task ) {
+    void addToSink( TaskEntry task ) {
         assert task
         assert task?.req?.requestId
 
@@ -624,7 +624,7 @@ class HazelcastDataStore extends AbstractDataStore {
 
     }
 
-    boolean removeTaskSink( TaskEntry task ) {
+    boolean removeFromSink( TaskEntry task ) {
         assert task
         assert task?.req?.requestId
 

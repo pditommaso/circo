@@ -143,21 +143,6 @@ class TaskEntryTest extends Specification {
         def job1 = TaskEntry.create(1)
         job1.result = new TaskResult(exitCode: 0)
 
-        def job2 = TaskEntry.create(2)
-        job2.result = new TaskResult(exitCode: 1)
-
-        def job3 = TaskEntry.create(3)
-        job3.result = new TaskResult(exitCode: 1, cancelled: true)
-
-        def job4 = TaskEntry.create(4) { TaskEntry it -> it.req.maxAttempts = 5; it.attempts = 5 }
-        job4.result = new TaskResult( exitCode: 1 )
-
-        def job5 = TaskEntry.create(5) { TaskEntry it -> it.req.maxAttempts = 5; it.attempts = 5 }
-        job5.result = new TaskResult( exitCode: 1, cancelled: true )
-
-        def job6 = TaskEntry.create(2)
-        job6.result = new TaskResult(exitCode: 0, failure: new Exception('Error'))
-
         then:
         // this is OK
         job1.status == TaskStatus.TERMINATED
@@ -165,43 +150,88 @@ class TaskEntryTest extends Specification {
         !job1.isFailed()
         !job1.cancelled
         !job1.isRetryRequired()
+        !job1.killed
 
         // unsuccessful - BUT - not terminated because it can be resubmitted
+        when:
+        def job2 = TaskEntry.create(2)
+        job2.result = new TaskResult(exitCode: 1)
+
+        then:
         !job2.terminated
         !job2.isSuccess()
         job2.isFailed()
         !job2.cancelled
         job2.isRetryRequired()
+        !job2.killed
 
         // cancelled, so NOT completed, NOT failed, it can be retried
-        !job2.terminated
+        when:
+        def job3 = TaskEntry.create(3)
+        job3.result = new TaskResult(exitCode: 1, cancelled: true)
+
+        then:
+        !job3.terminated
         !job3.isSuccess()
         !job3.isFailed()
         job3.isCancelled()
         job3.isRetryRequired()
+        !job3.killed
 
         // error result - and - max number of attempts met,
         // job FAILED
+        when:
+        def job4 = TaskEntry.create(4) { TaskEntry it -> it.req.maxAttempts = 5; it.attempts = 5 }
+        job4.result = new TaskResult( exitCode: 1 )
+
+        then:
         job4.terminated
         !job4.isSuccess()
         job4.isFailed()
         !job4.isCancelled()
         !job4.isRetryRequired()
+        !job4.killed
 
         // job at last attempt - BUT CANCELLED
         // so it can re retried
+        when:
+        def job5 = TaskEntry.create(5) { TaskEntry it -> it.req.maxAttempts = 5; it.attempts = 5 }
+        job5.result = new TaskResult( exitCode: 1, cancelled: true )
+
+        then:
         !job5.terminated
         !job5.isSuccess()
         !job5.isFailed()
         job5.isCancelled()
         job5.isRetryRequired()
+        !job5.killed
 
         // job with exit code == 0 BUT failure not null
+        when:
+        def job6 = TaskEntry.create(6)
+        job6.result = new TaskResult(exitCode: 0, failure: new Exception('Error'))
+
+        then:
         !job6.terminated
         !job6.isSuccess()
         job6.isFailed()
         !job6.isCancelled()
         job6.isRetryRequired()
+        !job6.killed
+
+
+        // KILL a job
+        when:
+        def job7 = TaskEntry.create(7) { TaskEntry task -> task.killed = true; task.result = new TaskResult() }
+
+        then:
+        job7.killed
+        job7.terminated
+        !job7.cancelled
+        !job7.retryRequired
+        !job7.isRunning()
+        !job7.isSuccess()
+        !job7.isFailed()
 
     }
 

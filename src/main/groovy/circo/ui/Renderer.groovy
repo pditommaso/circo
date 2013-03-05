@@ -110,7 +110,7 @@ class WorkerRenderer extends DataHolder {
         assert data
 
         this.worker = TextLabel.of(data.worker.path().name()).width(15)
-        this.jobId = TextLabel.of(data.currentTaskId?.toFmtString()).width(5).right()
+        this.jobId = TextLabel.of(data.currentTaskId?.toString()).width(5).right()
         this.processed = TextLabel.of(data.processed).number().width(5)
         this.failed = TextLabel.of(data.failed).width(3).number()
         this.jobAttempts = TextLabel.of(jobEntry?.attempts).number().width(5) << AnsiStyle.error()

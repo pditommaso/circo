@@ -29,7 +29,8 @@ enum JobStatus {
     PENDING,
     RUNNING,
     SUCCESS,
-    ERROR
+    ERROR,
+    KILLED
 
 
     static JobStatus fromString(String value) {

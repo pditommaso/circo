@@ -38,7 +38,7 @@ class TaskId implements java.io.Serializable, Comparable<TaskId> {
 
     def TaskId( def value ) {
         assert value != null
-        this.value = value instanceof Number ? value.intValue() : Integer.parseInt(value.toString(), 16)
+        this.value = value instanceof Number ? value.intValue() : Integer.parseInt(value.toString())
     }
 
     def TaskId( TaskId that ) {
@@ -51,22 +51,15 @@ class TaskId implements java.io.Serializable, Comparable<TaskId> {
         new TaskId( that.value )
     }
 
-    def String toString() { Integer.toHexString(value) }
-
-    def String toFmtString() {
-        def result = Integer.toHexString(value)
-        return result.charAt(0).isLetter() ? '0'+result : result
-    }
-
-    def String toFmtString(Closure closure) {
-        closure.call(Integer.toHexString(value))
+    def String toString() {
+        value.toString()
     }
 
     /**
      * TaskId constructor factory helper method
      */
     static def TaskId of( def value ) {
-        new TaskId(value)
+        new TaskId(value as Object)
     }
 
     static def TaskId fromString( String value ) {
@@ -75,7 +68,7 @@ class TaskId implements java.io.Serializable, Comparable<TaskId> {
 
     @Override
     int compareTo(TaskId that) {
-        def result = this.value <=> that.value
+        this.value <=> that.value
     }
 
 

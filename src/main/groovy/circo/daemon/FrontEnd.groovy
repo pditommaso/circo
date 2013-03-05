@@ -25,11 +25,13 @@ import akka.actor.Address
 import akka.actor.UntypedActor
 import circo.client.AbstractCommand
 import circo.client.CmdGet
+import circo.client.CmdKill
 import circo.client.CmdList
 import circo.client.CmdNode
 import circo.client.CmdSub
 import circo.data.DataStore
 import circo.messages.PauseWorker
+import circo.messages.ProcessKill
 import circo.messages.ResumeWorker
 import circo.messages.WorkToSpool
 import circo.model.Context
@@ -42,6 +44,7 @@ import circo.model.TaskId
 import circo.model.TaskReq
 import circo.model.TaskStatus
 import circo.model.WorkerRef
+import circo.reply.AckReply
 import circo.reply.ListReply
 import circo.reply.NodeReply
 import circo.reply.ResultReply
@@ -94,6 +97,8 @@ class FrontEnd extends UntypedActor {
         dispatchTable[ CmdSub ] = this.&handleCmdSub
         dispatchTable[ CmdNode ] = this.&handleCmdNode
         dispatchTable[ CmdList ] = this.&handleCmdList
+        dispatchTable[ CmdKill ] = this.&handleCmdKill
+
     }
 
 
@@ -364,6 +369,153 @@ class FrontEnd extends UntypedActor {
 
     }
 
+
+    protected void handleCmdKill( CmdKill command ) {
+        assert command
+
+        def listOfJobs = new LinkedHashSet<Job>()
+        def listOfTasks = new LinkedHashSet<TaskEntry>()
+
+        def reply = populateKillList(command, listOfJobs, listOfTasks )
+
+        /*
+         * Stop on any message
+         */
+        if( reply.hasMessages() ) {
+            sender.tell(reply, self())
+            return
+        }
+
+
+        /*
+         * Kill HARD Jobs & Tasks
+         */
+        if ( listOfJobs && listOfTasks ) {
+
+            /*
+             * OK proceed with the kill operation
+             */
+            dataStore.withTransaction {
+
+                listOfJobs.each { Job job ->
+                    def done=dataStore.updateJob(job.requestId) { Job thisJob -> thisJob.status = JobStatus.KILLED }
+                    log.debug "Killing job ${job.shortReqId} -- done: ${done}"
+                }
+
+                listOfTasks.each { TaskEntry task ->
+                    //flag the tasks to be killed
+                    dataStore.addToKillList( task.id )
+                    // the ones still running are killed immediately
+                    if ( !task.isTerminated() && task.worker ) {
+                        task.worker.tell( new ProcessKill(taskId: task.id) )
+                    }
+                }
+
+            }
+        }
+
+        /*
+         * Kill SOFT only the tasks are cancelled, they may be re-submitted
+         */
+        else if ( listOfTasks ){
+
+            listOfTasks.each { TaskEntry task ->
+
+                if ( !task.isTerminated() && task.worker ) {
+                    task.worker.tell( new ProcessKill(taskId: task.id, cancel: true) )
+                }
+
+            }
+        }
+        else {
+            log.debug "Nothing to kill -- ${command.dump()}"
+        }
+
+
+        sender.tell(reply, self())
+    }
+
+
+    protected AckReply populateKillList( CmdKill command, Set<Job> listOfJobs, Set<TaskEntry> listOfTasks ) {
+        assert command
+
+        def reply = new AckReply(command.ticket)
+
+        // -- give the list of ids
+        if( command.itemsToKill ) {
+
+            /*
+             * When it is a list of TaskIds, kill only the specified task
+             * - the task may be re-executed if attempts remains
+             * - the job will not be killed
+             */
+            if( command.tasks ) {
+                command.itemsToKill.each { str ->
+                    try {
+                        def task = dataStore.getTask(TaskId.of(str))
+                        if ( !task ) {
+                            reply.info << "No such task: ${str}"
+                        }
+                        else if ( !task.isRunning() ) {
+                            reply.warn "Can't kill task: ${str} -- only running task can be killed"
+                        }
+                        else {
+                            listOfTasks << task
+                        }
+                    }
+                    catch( Exception e ) {
+                        reply.warn << "Cannot kill task: ${str} -- ${e.getMessage()}"
+                        log.debug "Unable to load task: ${str}", e
+                    }
+                }
+            }
+
+            /*
+             * Load as Job IDs
+             */
+            else {
+
+                command.itemsToKill.each { String str ->
+                    def jobsFound = dataStore.findJobsByRequestId( str )
+                    if( jobsFound.size() == 0 ) {
+                        reply.warn << "No such job '${str}'"
+                    }
+                    else {
+                        listOfJobs.addAll( jobsFound )
+                    }
+
+                    // look for the associated tasks
+                    jobsFound.each { Job job ->
+                        listOfTasks.addAll( dataStore.findTasksByRequestId(job.requestId) )
+                    }
+                }
+
+            }
+        }
+
+        /*
+         * Kill ALL pending and running jobs
+         */
+        else if ( command.all ) {
+            // load all pending and running jobs
+            listOfJobs.addAll( dataStore.findJobsByStatus( JobStatus.PENDING, JobStatus.RUNNING )  )
+
+            // for each job find the associated tasks
+            listOfJobs.each { Job job ->
+                listOfTasks.addAll(  dataStore.findTasksByRequestId(job.requestId) )
+            }
+        }
+
+        /*
+         * Something wrong
+         */
+        else {
+            reply.info << 'Nothing to kill'
+        }
+
+        return reply
+    }
+
     /**
      * @return Convert this job submit command to a valid {@code TaskReq} instance
      */
@@ -401,7 +553,7 @@ class FrontEnd extends UntypedActor {
 
         // -- define some context environment variables
         request.environment['JOB_ID'] = command.ticket.toString()
-        request.environment['TASK_ID'] = id.toFmtString()
+        request.environment['TASK_ID'] = id.toString()
 
         // -- update the context
         if ( variables ) {
@@ -524,6 +676,8 @@ class FrontEnd extends UntypedActor {
     private List<Address> allNodesAddresses() {
         dataStore.listNodes()?.collect { NodeData node -> node.address } ?: []
     }
+
+
 
 
 }

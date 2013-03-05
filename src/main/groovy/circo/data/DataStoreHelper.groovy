@@ -120,10 +120,7 @@ class DataStoreHelper {
             value = taskId
         }
 
-        // remove '0' prefix
-        while( value.size()>1 && value.startsWith('0') ) { value = value.substring(1) }
-
-        collection.findAll { TaskEntry task -> task.id.toFmtString() ==~ /$value/ }
+        collection.findAll { TaskEntry task -> task.id.toString() ==~ /$value/ }
 
     }
 

@@ -19,11 +19,6 @@
 
 package circo.client
 
-import circo.client.AppOptions
-import circo.client.CmdNode
-import circo.client.CmdStat
-import circo.client.CmdSub
-import circo.client.CommandParser
 import com.beust.jcommander.JCommander
 import spock.lang.Specification
 /**
@@ -38,7 +33,6 @@ class CommandParserTest extends Specification {
         def opt = new AppOptions()
         def comm = new JCommander(opt)
         comm.addCommand( new CmdSub() )
-        comm.addCommand( new CmdStat() )
         comm.addCommand( new CmdNode() )
 
         when:

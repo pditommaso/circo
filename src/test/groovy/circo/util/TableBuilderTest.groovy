@@ -20,6 +20,7 @@
 package circo.util
 
 import circo.ui.TableBuilder
+import circo.ui.TextLabel
 import spock.lang.Specification
 
 /**
@@ -63,7 +64,7 @@ class TableBuilderTest extends Specification {
     def 'test table builder with header' () {
 
         when:
-        def table = new TableBuilder().setHeader('alpha', 'beta', 'delta')
+        def table = new TableBuilder().setHeaders('alpha', 'beta', 'delta')
         table.append([ 1, 2, 3 ] )
         table.append([ 4, 5, 6 ] )
 
@@ -81,7 +82,7 @@ class TableBuilderTest extends Specification {
     def 'test table build with long string' () {
 
         when:
-        def table = new TableBuilder().setHeader('alpha', 'beta', 'delta__')
+        def table = new TableBuilder().setHeaders('alpha', 'beta', 'delta__')
         table.append( 'hola', '1', 'some long string' )
         table.append( 'ciao', '2', 'short string' )
         table.append( 'hello', '3', 'more text' )
@@ -134,6 +135,28 @@ class TableBuilderTest extends Specification {
         a   ..111
         bb  ..222
         ccc ..333
+        """
+                .stripIndent().trim()
+
+    }
+
+    def 'test table head with align' () {
+
+        when:
+        def table = new TableBuilder()
+                    .head('x__',TextLabel.Align.RIGHT)
+                    .head('y__', TextLabel.Align.LEFT)
+
+        table << 'a'  << '1' << table.closeRow()
+        table << 'bb' << '22' << table.closeRow()
+        table << '9'  << '333' << table.closeRow()
+
+        then:
+        table.toString() == """
+        x__ y__
+          a 1  \n\
+         bb 22 \n\
+          9 333
         """
                 .stripIndent().trim()
 

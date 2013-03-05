@@ -59,7 +59,6 @@ interface DataStore {
      */
     Job getJob( UUID id )
 
-    Job getJob( String id )
 
     /**
      * Save a {@code Job} instance
@@ -104,6 +103,8 @@ interface DataStore {
     TaskEntry getTask( TaskId taskId )
 
 
+    boolean updateTask( TaskId taskId, Closure callback )
+
     /**
      * @return The list of all defined jobs
      */
@@ -144,13 +145,17 @@ interface DataStore {
 
     List<TaskEntry> findTasksByRequestId( String requestId )
 
-    // ----------------------------- SINK operation ------------------------
+    // ----------------------------- TASKS support operations ------------------------
 
-    void storeTaskSink( TaskEntry task )
+    void addToSink( TaskEntry task )
 
-    boolean removeTaskSink( TaskEntry task )
+    boolean removeFromSink( TaskEntry task )
 
     int countTasksMissing( UUID requestId )
+
+    void addToKillList( TaskId task )
+
+    boolean removeFromKillList( TaskId task )
 
 
     // --------------- NODE operations -------------------------------------

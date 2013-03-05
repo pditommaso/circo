@@ -175,7 +175,7 @@ abstract class AbstractDataStoreTest extends Specification {
 
         setup:
         def id0 = TaskId.of('123')
-        def id1 = TaskId.of('abc')
+        def id1 = TaskId.of('111')
         def id2 = TaskId.of(222)
 
         store.storeTask( TaskEntry.create(id1) { it.req.script = 'script1' } )
@@ -183,7 +183,7 @@ abstract class AbstractDataStoreTest extends Specification {
 
         expect:
         store.getTask(id0) == null
-        store.getTask(TaskId.of('abc')).req.script == 'script1'
+        store.getTask(TaskId.of('111')).req.script == 'script1'
         store.getTask(TaskId.of(222)).req.script == 'script2'
 
     }
@@ -257,6 +257,8 @@ abstract class AbstractDataStoreTest extends Specification {
         def task4 = TaskEntry.create('4') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult() }
         def task5 = TaskEntry.create('5') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult() }
         def task6 = TaskEntry.create('6') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult(exitCode: 0) }
+        def task7 = TaskEntry.create('7') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult(cancelled: true) }
+        def task8 = TaskEntry.create('8') { TaskEntry it-> it.killed = true }
 
         store.storeTask(task1)
         store.storeTask(task2)
@@ -264,12 +266,16 @@ abstract class AbstractDataStoreTest extends Specification {
         store.storeTask(task4)
         store.storeTask(task5)
         store.storeTask(task6)
+        store.storeTask(task7)
+        store.storeTask(task8)
 
         expect:
         store.findTasksByStatusString('new').toSet() == [task1] as Set
         store.findTasksByStatusString('pending').toSet() == [task2,task3] as Set
         store.findTasksByStatusString( 'success' ).toSet() == [task6] as Set
         store.findTasksByStatusString( 'error' ).toSet() == [task4,task5] as Set
+        store.findTasksByStatusString( 'cancelled' ).toSet() == [task7] as Set
+        store.findTasksByStatusString( 'killed' ).toSet() == [task8] as Set
     }
 
     def 'test findTasksByRequestId' () {
@@ -564,12 +570,12 @@ abstract class AbstractDataStoreTest extends Specification {
         def task3 = TaskEntry.create(3) { TaskEntry it -> it.req.requestId = req2 }
 
         when:
-        store.storeTaskSink( task1 )
-        store.storeTaskSink( task2 )
-        store.storeTaskSink( task3 )
+        store.addToSink( task1 )
+        store.addToSink( task2 )
+        store.addToSink( task3 )
         // note: when the element is already store, following stores are skipped
-        store.storeTaskSink( task3 )
-        store.storeTaskSink( task3 )
+        store.addToSink( task3 )
+        store.addToSink( task3 )
 
         then:
         store.countTasksMissing(req1) == 1

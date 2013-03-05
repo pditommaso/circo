@@ -48,6 +48,8 @@ abstract class AbstractDataStore implements DataStore {
     @Deprecated
     protected ConcurrentMap<TaskId, Boolean> queue
 
+    protected Set<TaskId> killList
+
 
 
     // ------------- Task QUEUE (?) --------------------------------
@@ -152,6 +154,10 @@ abstract class AbstractDataStore implements DataStore {
         tasks.get(taskId)
     }
 
+    boolean updateTask( TaskId taskId, Closure closure ) {
+        DataStoreHelper.update(taskId, tasks, closure)
+    }
+
 
     @Override
     List<TaskEntry> findTasksByStatus( TaskStatus... status ) {
@@ -191,8 +197,12 @@ abstract class AbstractDataStore implements DataStore {
             return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
         }
 
+        if ( status?.toUpperCase() in ['K','KILL','KILLED'] ) {
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.killed }
+        }
+
         if ( status?.toUpperCase() in ['C','CANCEL','CANCELLED'] ) {
-            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.cancelled }
         }
 
         findTasksByStatus(TaskStatus.fromString(status))
@@ -232,6 +242,19 @@ abstract class AbstractDataStore implements DataStore {
     @Override
     List<TaskEntry> listTasks() {
         tasks.values().toList()
+    }
+
+
+    // ------------------------------- tasks support operation ------------------------------
+
+    void addToKillList( TaskId taskId ) {
+        assert taskId
+        killList.add(taskId)
+    }
+
+    boolean removeFromKillList( TaskId taskId ) {
+        assert taskId
+        killList.remove(taskId)
     }
 
 

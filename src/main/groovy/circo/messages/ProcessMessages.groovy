@@ -18,8 +18,8 @@
  */
 
 package circo.messages
-
 import circo.model.TaskEntry
+import circo.model.TaskId
 import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
@@ -40,11 +40,19 @@ class ProcessStarted implements Serializable {
 
 
 @SerializeId
+@EqualsAndHashCode
 @ToString(includePackage = false, includeNames = true)
 class ProcessKill implements Serializable {
 
-    /** Whenever the job is killed by a user requested 'pause' operation */
+    /**
+     * Whenever the job is killed by a user requested 'pause' operation
+     */
     boolean cancel
+
+    /**
+     * The ID of the task to kill
+     */
+    TaskId taskId
 
 }
 

@@ -22,6 +22,7 @@ package circo.client
 import circo.model.TaskEntry
 import circo.reply.ListReply
 import circo.ui.TableBuilder
+import circo.ui.TextLabel
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString
@@ -132,19 +133,21 @@ class CmdList extends AbstractCommand {
             .head('task')
             .head('status')
             .head('time')
-            .head('node')
-            .head('pid')
-            .head('exit')
+            .head('node', TextLabel.Align.LEFT)
+            .head('attps', TextLabel.Align.LEFT)
+            .head('pid', TextLabel.Align.LEFT)
+            .head('exit', TextLabel.Align.LEFT)
             .head('fail', 25)
 
 
         tasks.sort().each { TaskEntry task ->
 
             table << (longId ? task.req?.requestId?.toString() : task.req?.shortReqId)
-            table << task.id.toFmtString()
+            table << task.id.toString()
             table << task.statusString
             table << task.statusTimeFmt
             table << task.ownerId
+            table << task.attempts
             table << task.pid
             table << task.result?.exitCode
             table << task.result?.failure?.toString()

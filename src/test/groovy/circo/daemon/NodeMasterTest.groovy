@@ -449,10 +449,10 @@ class NodeMasterTest extends ActorSpecification {
         dataStore.storeTask(task3)
         dataStore.storeTask(task4)
 
-        dataStore.storeTaskSink(task1)
-        dataStore.storeTaskSink(task2)
-        dataStore.storeTaskSink(task3)
-        dataStore.storeTaskSink(task4)
+        dataStore.addToSink(task1)
+        dataStore.addToSink(task2)
+        dataStore.addToSink(task3)
+        dataStore.addToSink(task4)
 
         def job = new Job( reqId1 )
         job.status = JobStatus.PENDING

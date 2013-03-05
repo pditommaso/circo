@@ -55,6 +55,7 @@ import circo.model.JobStatus
 import circo.model.NodeData
 import circo.model.NodeStatus
 import circo.model.TaskEntry
+import circo.model.TaskId
 import circo.model.TaskStatus
 import circo.model.WorkerData
 import circo.model.WorkerRef
@@ -286,6 +287,36 @@ class NodeMaster extends UntypedActor  {
 
     }
 
+
+    protected TaskId poolNextTaskId() {
+        TaskId result
+        while( true ) {
+            result = node.queue.poll()
+
+            // queue empty -- just return null
+            if( !result ) return null
+
+            // check if this task id is marked as killed,
+            // when so flag it as kill and pool another item
+            if ( store.removeFromKillList(result) ) {
+                log.debug "Task ${result} killed -- skipping it"
+                def saved = store.updateTask(result) { TaskEntry task -> task.killed = true }
+                if ( !saved ) {
+                    log.warn "Cannot udpate task: ${result}"
+                }
+                else {
+                    log.debug "Updated task: {$result} -- ${ store.getTask(result).dump() }"
+                }
+            }
+
+            // it is a valid task id, return it
+            else {
+                return result
+            }
+
+        }
+    }
+
     /**
      * A worker died. If he was doing anything then we need
      * to give it to someone else so we just add it back to the
@@ -346,7 +377,7 @@ class NodeMaster extends UntypedActor  {
             store.storeTask(task)
 
             // mark the task to which it is required to collect a result
-            store.storeTaskSink(task)
+            store.addToSink(task)
 
         }
     }
@@ -415,7 +446,7 @@ class NodeMaster extends UntypedActor  {
                 return
             }
 
-            final taskId = node.queue.poll()
+            final taskId = poolNextTaskId()
             log.debug "Poll task id: ${taskId?:'-'} -- still in queue: ${node.queue.size()}"
 
             if( taskId ) {
@@ -435,9 +466,9 @@ class NodeMaster extends UntypedActor  {
         }
 
         /*
-         * extract a task if from the queue
+         * extract a task from the queue
          */
-        final taskId = node.queue.poll()
+        final taskId = poolNextTaskId()
         log.debug "Poll task id: ${taskId?:'-'} -- still in queue: ${node.queue.size()}"
 
         if ( !taskId ) {
@@ -492,13 +523,13 @@ class NodeMaster extends UntypedActor  {
         }
 
 
-        def removed = store.removeTaskSink(task)
+        def removed = store.removeFromSink(task)
         if ( !removed ) {
             log.warn "Oops. Unable to remove sink flag for task id: ${task.id} -- ${task.dump()}"
         }
 
         // -- notify the client for the available result
-        if( removed && task.sender && task.req.notifyResult ) {
+        if( removed && task.sender && task.req.notifyResult && !task.aborted ) {
             log.debug "Reply job result to sender -- ${task.id}"
             final reply = new ResultReply( task.req.requestId, task.result )
             task.sender.tell ( reply, self() )
@@ -541,8 +572,12 @@ class NodeMaster extends UntypedActor  {
         // 'submitted' -> 'success'
         // 'submitted' -> 'failed'
 
-        if( !job.running ) {
-            log.warn "Oops. Job '${job.shortReqId}..' not in RUNNING status -- ${job.dump()}"
+        if ( job.killed ) {
+            log.debug "Job '${job.shortReqId}..' KILLED -- nothing to do"
+            return
+        }
+        else if( !job.running ) {
+            log.debug "Oops. Job '${job.shortReqId}..' not in RUNNING status -- ${job.dump()} -- skipping operation"
             return
         }
 

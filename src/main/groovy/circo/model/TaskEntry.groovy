@@ -32,7 +32,7 @@ import groovy.util.logging.Slf4j
 
 @Slf4j
 @SerializeId
-@EqualsAndHashCode(includes = 'id')
+@EqualsAndHashCode
 class TaskEntry implements Serializable, Comparable<TaskEntry> {
 
     /**
@@ -64,7 +64,6 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
      * The path where the job is executed
      */
     def File workDir
-
 
     /**
      * The number of time this jobs has tried to be executed
@@ -107,8 +106,27 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
 
     def String getCompletionTimeFmt() { completionTime ? CircoHelper.getSmartTimeFormat(completionTime) : '-' }
 
-    /** The node to which this task belongs */
+    /**
+     * The node to which this task belongs
+     */
     def Integer ownerId
+
+    /**
+     * Whenever the job execution has been killed
+     */
+    def boolean killed
+
+
+    def boolean getAborted() {
+        killed || cancelled
+    }
+
+    def void setKilled( boolean value ) {
+        this.killed = value
+        if ( killed ) {
+            setStatus(TaskStatus.TERMINATED)
+        }
+    }
 
 
     def TaskEntry( TaskId id, TaskReq req ) {
@@ -167,6 +185,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         if ( !result ) return false
         if ( result.cancelled ) return false
         if ( result.failure ) return false
+        if ( killed ) return false
         isValidExitCode(result.exitCode)
     }
 
@@ -174,6 +193,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         if ( result == null ) return false
         if ( result.cancelled ) return false
         if ( result.failure ) return true
+        if ( killed ) return false
 
         !isValidExitCode(result.exitCode)
     }
@@ -186,6 +206,11 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
        status == TaskStatus.TERMINATED
     }
 
+    def boolean isRunning() {
+        status == TaskStatus.RUNNING
+    }
+
+    @Deprecated
     def String getTerminatedReason() {
         if( !terminated ) return null
         if( success ) return 'success'
@@ -205,18 +230,27 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
             return false
         }
 
+        // -- when then task has been kill, no retry any more
+        if( killed ) {
+            return false
+        }
+
         attempts - cancelled < req.maxAttempts || req.maxAttempts <= 0
     }
 
     @Override
     int compareTo(TaskEntry that) {
-        return this.id <=> that.id
+        this.id <=> that.id
     }
 
 
     def void setStatus( TaskStatus status ) {
 
         this.status = status
+
+        if( status == TaskStatus.TERMINATED )  {
+            ownerId = null
+        }
 
         if( !launchTime && status == TaskStatus.RUNNING  ) {
             launchTime = System.currentTimeMillis()
@@ -250,7 +284,10 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
     def String getStatusString() {
         if( status == TaskStatus.TERMINATED ) {
             def result
-            if ( isCancelled() ) {
+            if ( isKilled() ) {
+                result = 'KILLED'
+            }
+            else if ( isCancelled() ) {
                 result = 'CANCELLED'
             }
             else if ( isFailed() ) {
@@ -277,20 +314,20 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
      */
     def void setResult( TaskResult result ) {
         this.result = result
-        if( result ) {
+        if( result && status != TaskStatus.TERMINATED ) {
+
             // increment the number of times this job has been cancelled
             if ( result.cancelled ) this.cancelled++
 
             if( isSuccess() || !isRetryRequired() ) {
                 setStatus(TaskStatus.TERMINATED)
-                ownerId = null
             }
 
         }
     }
 
     def int getFailedCount() {
-        attempts - cancelled -1
+        attempts>0 ? (attempts - cancelled -1) : 0
     }
 
 

@@ -173,6 +173,7 @@ class AppCommandsFactory {
         cmdParser.addCommand( new CmdContext() )
         cmdParser.addCommand( new CmdHistory() )
         cmdParser.addCommand( new CmdList() )
+        cmdParser.addCommand( new CmdKill() )
 
         return cmdParser
     }

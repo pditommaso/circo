@@ -88,6 +88,7 @@ class TaskProcessor extends UntypedActor {
 
         runningDispatcher[WorkComplete] = this.&handleWorkComplete
         runningDispatcher[PauseWorker] = this.&handlePauseWorker
+        runningDispatcher[ProcessKill] = this.&handleProcessKill
 
     }
 
@@ -196,7 +197,7 @@ class TaskProcessor extends UntypedActor {
         // -- increment the 'attempts' counter and save it
         task.attempts ++
         task.status = TaskStatus.READY
-        task.worker = new WorkerRef(getSelf())
+        task.worker = new WorkerRef(self())
         store.storeTask(task)
 
         // -- set the job to 'running' status
@@ -231,8 +232,12 @@ class TaskProcessor extends UntypedActor {
         final taskId = result.taskId
         final task = store.getTask(taskId)
 
+        // -- check was requested to kill this job
+        task.killed = store.removeFromKillList(task.id)
+
         // -- setting the job result update the job flags as well
         task.result = result
+
         store.storeTask(task)
 
         // -- notify the master of the failure
@@ -263,6 +268,17 @@ class TaskProcessor extends UntypedActor {
     }
 
 
+    protected void handleProcessKill( ProcessKill message ) {
+        assert message
+
+        if ( currentTaskId == message.taskId ) {
+            monitor.forward( message, context() )
+        }
+        else {
+            log.warn "Oops. Requested to kill task ${message.taskId} but I'm currently processing: ${currentTaskId}"
+        }
+
+    }
 
 
 }

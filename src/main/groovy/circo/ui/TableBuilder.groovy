@@ -38,7 +38,9 @@ class TableBuilder {
     /**
      * The list defining the table header
      */
-    List<TextLabel> header = []
+    List<TextLabel> headers = []
+
+    List<TextLabel.Align> colsAlign = []
 
     /**
      * All the rows
@@ -69,11 +71,20 @@ class TableBuilder {
     TableBuilder head( String name, int maxWidth = 0 ) {
         def label = new TextLabel(name)
 
-        header << label
+        headers << label
         maxColsWidth << maxWidth
+        colsAlign << null
 
-        def widths = header .collect { it?.toString()?.size() }
+        def widths = headers .collect { it?.toString()?.size() }
         trackWidths(widths)
+        return this
+    }
+
+    TableBuilder head( String name, TextLabel.Align align ) {
+        assert align
+        head(name)
+        colsAlign[-1] = align
+
         return this
     }
 
@@ -82,15 +93,15 @@ class TableBuilder {
      * @param cols
      * @return
      */
-    TableBuilder setHeader( String... cols ) {
+    TableBuilder setHeaders( String... cols ) {
         assert cols != null
-        setHeader( cols.collect { new TextLabel(it) } as TextLabel[] )
+        setHeaders( cols.collect { new TextLabel(it) } as TextLabel[] )
     }
 
-    TableBuilder setHeader( TextLabel... cols ) {
+    TableBuilder setHeaders( TextLabel... cols ) {
         assert cols != null
         // copy the header
-        this.header = new ArrayList<>(cols as List<TextLabel>)
+        this.headers = new ArrayList<>(cols as List<TextLabel>)
         // keep track of the columns width
         def widths = cols .collect { it?.toString()?.size() }
         trackWidths(widths)
@@ -124,7 +135,7 @@ class TableBuilder {
         def row = new ArrayList<TextLabel>(values.size())
         def len = new ArrayList<Integer>(values.size())
         values.each{  it ->
-            row << new TextLabel(it)
+            row << ( it instanceof TextLabel ? it : new TextLabel(it) )
             len << it?.toString()?.size()
         }
 
@@ -205,9 +216,9 @@ class TableBuilder {
         /*
          * render the header
          */
-        if( header ) {
+        if( headers ) {
             count++
-            header.eachWithIndex { TextLabel cell, int index ->
+            headers.eachWithIndex { TextLabel cell, int index ->
                 renderCell( result, cell, index )
             }
         }
@@ -247,6 +258,10 @@ class TableBuilder {
 
         // set the max
         cell.width( dim[index] )
+
+        if( colsAlign[index] ) {
+            cell.setAlign( colsAlign[index] )
+        }
 
         // render the cell
         result.append( cell.toString() )

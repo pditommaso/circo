@@ -110,6 +110,8 @@ class Job implements Serializable {
 
     boolean isRunning() { status == JobStatus.RUNNING }
 
+    boolean isKilled() { status == JobStatus.KILLED }
+
     static final private TERMINATED = [JobStatus.ERROR, JobStatus.SUCCESS ]
 
     void setStatus( JobStatus status ) {
