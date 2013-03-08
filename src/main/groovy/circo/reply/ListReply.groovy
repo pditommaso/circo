@@ -54,8 +54,6 @@ class ListReply extends AbstractReply {
 
         int numOfFailedTasks
 
-        String message
-
     }
 
 }

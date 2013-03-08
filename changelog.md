@@ -1,5 +1,14 @@
 CIRCO change-log
 ================
+0.3.3 - Fri, 8 Mar 2013
+- Added kill command
+- Enhanced tasks partitioning
+- Disabled Hazelcast loadAllKeys on start
+- Refactored store methods to save
+- Fixed list tasks sort issue
+- Fixed client print result issue
+- Refactored Job finalization logic
+
 0.3.2 - Tue, 26 Feb 2013
 - Using BoneCP connection pool instead of CP30
 - Refactored Hazelcast MapStore with enhanced JDBC support
