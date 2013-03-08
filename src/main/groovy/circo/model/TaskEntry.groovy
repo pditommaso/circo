@@ -23,6 +23,7 @@ import circo.exception.MissingInputFileException
 import circo.util.CircoHelper
 import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
+import groovy.transform.ToString
 import groovy.util.logging.Slf4j
 
 /**
@@ -33,7 +34,8 @@ import groovy.util.logging.Slf4j
 @Slf4j
 @SerializeId
 @EqualsAndHashCode
-class TaskEntry implements Serializable, Comparable<TaskEntry> {
+@ToString(includePackage = false, includeNames = true)
+class TaskEntry implements Serializable {
 
     /**
      * The unique ID for this job
@@ -68,12 +70,12 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
     /**
      * The number of time this jobs has tried to be executed
      */
-    def int attempts
+    def int attemptsCount
 
     /**
      * Number of times this jobs has been cancelled by the user
      */
-    def int cancelled
+    def int cancelCount
 
     /**
      * The worker that raised a failure processing the job
@@ -116,9 +118,8 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
      */
     def boolean killed
 
-
-    def boolean getAborted() {
-        killed || cancelled
+    def boolean isAborted() {
+        killed || isCancelled()
     }
 
     def void setKilled( boolean value ) {
@@ -210,12 +211,8 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         status == TaskStatus.RUNNING
     }
 
-    @Deprecated
-    def String getTerminatedReason() {
-        if( !terminated ) return null
-        if( success ) return 'success'
-        if( failed ) return 'fail'
-        if ( cancelled ) return cancelled
+    def boolean isNew() {
+        status == TaskStatus.NEW
     }
 
 
@@ -235,12 +232,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
             return false
         }
 
-        attempts - cancelled < req.maxAttempts || req.maxAttempts <= 0
-    }
-
-    @Override
-    int compareTo(TaskEntry that) {
-        this.id <=> that.id
+        attemptsCount - cancelCount < req.maxAttempts || req.maxAttempts <= 0
     }
 
 
@@ -317,7 +309,7 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
         if( result && status != TaskStatus.TERMINATED ) {
 
             // increment the number of times this job has been cancelled
-            if ( result.cancelled ) this.cancelled++
+            if ( result.cancelled ) this.cancelCount++
 
             if( isSuccess() || !isRetryRequired() ) {
                 setStatus(TaskStatus.TERMINATED)
@@ -327,21 +319,9 @@ class TaskEntry implements Serializable, Comparable<TaskEntry> {
     }
 
     def int getFailedCount() {
-        attempts>0 ? (attempts - cancelled -1) : 0
+        attemptsCount>0 ? (attemptsCount - cancelCount -1) : 0
     }
 
 
-    String toString() {
-
-"TaskEntry(id=$id,\
- status=$status,\
- hasResult=${result!=null},\
- exitCode=${result?.exitCode?:'-'},\
- failure=${result?.failure?.getMessage()?:'-'},\
- cancelled=${result?.cancelled?:'-'},\
- attemptTimes=$attempts,\
- cancelledTimes=$cancelled )"
-
-    }
 
 }

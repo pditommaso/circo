@@ -116,10 +116,9 @@ class ClientApp {
         }
 
         def void handleResultReply( ResultReply reply, ReplySink sink ) {
-            def clazz = sink.command?.class
 
             def cmd = sink.command as CmdSub
-            if ( cmd.printOutput && reply.result?.output && ReplySink.currentSink ) {
+            if ( cmd.printOutput && reply.result?.output && ReplySink.current && ReplySink.current.command?.ticket == reply.ticket ) {
                 print reply.result.output
             }
         }
@@ -144,7 +143,7 @@ class ClientApp {
      */
     static class ReplySink {
 
-        static ReplySink currentSink
+        static ReplySink current
 
         AbstractCommand command
 
@@ -159,12 +158,12 @@ class ClientApp {
         }
 
         def void await() {
-            currentSink = this
+            current = this
             try {
                 barrier.await()
             }
             finally {
-                currentSink = null
+                current = null
             }
         }
 
@@ -460,8 +459,8 @@ class ClientApp {
         try {
             Signal.handle(new Signal("INT"), {
                 log.debug("Interrupting current thread .. ")
-                if ( ReplySink.currentSink ) {
-                    ReplySink.currentSink.cancel()
+                if ( ReplySink.current ) {
+                    ReplySink.current.cancel()
                     // TODO +++ propagate cancel to the target job
                 }
 

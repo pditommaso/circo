@@ -226,7 +226,7 @@ class TaskExecutor extends UntypedActor {
             process = builder.start()
             task.pid = ProcessHelper.getPid(process)
             task.status = TaskStatus.RUNNING
-            store.storeTask(task);
+            store.saveTask(task);
 
             def message = new ProcessStarted(task)
             log.debug "-> ${message}"

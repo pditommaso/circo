@@ -33,7 +33,7 @@ abstract class AbstractDataStoreTest extends Specification {
         job.status = JobStatus.PENDING
 
         when:
-        store.storeJob(job)
+        store.saveJob(job)
 
         then:
         store.getJob(id) == job
@@ -46,11 +46,11 @@ abstract class AbstractDataStoreTest extends Specification {
         setup:
         def job1 = new Job(UUID.randomUUID())
         job1.status = JobStatus.RUNNING
-        store.storeJob(job1)
+        store.saveJob(job1)
 
         def job2 = new Job(UUID.randomUUID())
         job2.status = JobStatus.ERROR
-        store.storeJob(job2)
+        store.saveJob(job2)
 
         when:
         boolean done1 = store.updateJob( job1.requestId ) { Job it -> it.status = JobStatus.PENDING }
@@ -70,10 +70,10 @@ abstract class AbstractDataStoreTest extends Specification {
     def 'test listJobs' () {
 
         setup:
-        store.storeJob( new Job( UUID.randomUUID() ) )
-        store.storeJob( new Job( UUID.randomUUID() ) )
-        store.storeJob( new Job( UUID.randomUUID() ) )
-        store.storeJob( new Job( UUID.randomUUID() ) )
+        store.saveJob( new Job( UUID.randomUUID() ) )
+        store.saveJob( new Job( UUID.randomUUID() ) )
+        store.saveJob( new Job( UUID.randomUUID() ) )
+        store.saveJob( new Job( UUID.randomUUID() ) )
 
         when:
         def list = store.listJobs()
@@ -92,10 +92,10 @@ abstract class AbstractDataStoreTest extends Specification {
         def job3 = Job.create { Job it -> it.status = JobStatus.RUNNING }
         def job4 = Job.create { Job it -> it.status = JobStatus.RUNNING }
 
-        store.storeJob(job1)
-        store.storeJob(job2)
-        store.storeJob(job3)
-        store.storeJob(job4)
+        store.saveJob(job1)
+        store.saveJob(job2)
+        store.saveJob(job3)
+        store.saveJob(job4)
 
         expect:
         store.findJobsByStatus( JobStatus.PENDING ) == [job1]
@@ -120,10 +120,10 @@ abstract class AbstractDataStoreTest extends Specification {
         def job3 = Job.create(id3)
         def job4 = Job.create(id4)
 
-        store.storeJob(job1)
-        store.storeJob(job2)
-        store.storeJob(job3)
-        store.storeJob(job4)
+        store.saveJob(job1)
+        store.saveJob(job2)
+        store.saveJob(job3)
+        store.saveJob(job4)
 
         expect:
         store.findJobsByRequestId( id1.toString() ) == [job1]
@@ -162,7 +162,7 @@ abstract class AbstractDataStoreTest extends Specification {
         when:
         def id = TaskId.of(1)
         def entry = new TaskEntry( id, new TaskReq(script: 'Hola') )
-        store.storeTask(entry)
+        store.saveTask(entry)
 
         then:
         entry == store.getTask(id)
@@ -178,8 +178,8 @@ abstract class AbstractDataStoreTest extends Specification {
         def id1 = TaskId.of('111')
         def id2 = TaskId.of(222)
 
-        store.storeTask( TaskEntry.create(id1) { it.req.script = 'script1' } )
-        store.storeTask( TaskEntry.create(id2) { it.req.script = 'script2' } )
+        store.saveTask( TaskEntry.create(id1) { it.req.script = 'script1' } )
+        store.saveTask( TaskEntry.create(id2) { it.req.script = 'script2' } )
 
         expect:
         store.getTask(id0) == null
@@ -198,12 +198,12 @@ abstract class AbstractDataStoreTest extends Specification {
         def task5 = TaskEntry.create('5') { it.status = TaskStatus.TERMINATED }
         def task6 = TaskEntry.create('6') { it.status = TaskStatus.TERMINATED }
 
-        store.storeTask(task1)
-        store.storeTask(task2)
-        store.storeTask(task3)
-        store.storeTask(task4)
-        store.storeTask(task5)
-        store.storeTask(task6)
+        store.saveTask(task1)
+        store.saveTask(task2)
+        store.saveTask(task3)
+        store.saveTask(task4)
+        store.saveTask(task5)
+        store.saveTask(task6)
 
         def task7 = TaskEntry.create('7') { it.status = TaskStatus.TERMINATED }
 
@@ -233,12 +233,12 @@ abstract class AbstractDataStoreTest extends Specification {
         def task5 = TaskEntry.create('5') { TaskEntry it-> it.status = TaskStatus.TERMINATED }
         def task6 = TaskEntry.create('6') { TaskEntry it-> it.status = TaskStatus.TERMINATED }
 
-        store.storeTask(task1)
-        store.storeTask(task2)
-        store.storeTask(task3)
-        store.storeTask(task4)
-        store.storeTask(task5)
-        store.storeTask(task6)
+        store.saveTask(task1)
+        store.saveTask(task2)
+        store.saveTask(task3)
+        store.saveTask(task4)
+        store.saveTask(task5)
+        store.saveTask(task6)
 
         expect:
         store.findTasksByStatus(TaskStatus.NEW).toSet() == [task1] as Set
@@ -260,14 +260,14 @@ abstract class AbstractDataStoreTest extends Specification {
         def task7 = TaskEntry.create('7') { TaskEntry it-> it.status = TaskStatus.TERMINATED; it.result = new TaskResult(cancelled: true) }
         def task8 = TaskEntry.create('8') { TaskEntry it-> it.killed = true }
 
-        store.storeTask(task1)
-        store.storeTask(task2)
-        store.storeTask(task3)
-        store.storeTask(task4)
-        store.storeTask(task5)
-        store.storeTask(task6)
-        store.storeTask(task7)
-        store.storeTask(task8)
+        store.saveTask(task1)
+        store.saveTask(task2)
+        store.saveTask(task3)
+        store.saveTask(task4)
+        store.saveTask(task5)
+        store.saveTask(task6)
+        store.saveTask(task7)
+        store.saveTask(task8)
 
         expect:
         store.findTasksByStatusString('new').toSet() == [task1] as Set
@@ -290,12 +290,12 @@ abstract class AbstractDataStoreTest extends Specification {
         def task5 = TaskEntry.create('5') { TaskEntry it -> it.status = TaskStatus.TERMINATED; it.req.requestId = req2   }
         def task6 = TaskEntry.create('6') { TaskEntry it -> it.status = TaskStatus.TERMINATED  }
 
-        store.storeTask(task1)
-        store.storeTask(task2)
-        store.storeTask(task3)
-        store.storeTask(task4)
-        store.storeTask(task5)
-        store.storeTask(task6)
+        store.saveTask(task1)
+        store.saveTask(task2)
+        store.saveTask(task3)
+        store.saveTask(task4)
+        store.saveTask(task5)
+        store.saveTask(task6)
 
         expect:
         store.findTasksByRequestId( req1 ).toSet() == [task1,task2] as Set
@@ -314,11 +314,11 @@ abstract class AbstractDataStoreTest extends Specification {
         def task3 = TaskEntry.create(3) { TaskEntry it -> it.ownerId = 2 }
         def task4 = TaskEntry.create(4) { TaskEntry it -> it.ownerId = 2 }
         def task5 = TaskEntry.create(5)
-        store.storeTask(task1)
-        store.storeTask(task2)
-        store.storeTask(task3)
-        store.storeTask(task4)
-        store.storeTask(task5)
+        store.saveTask(task1)
+        store.saveTask(task2)
+        store.saveTask(task3)
+        store.saveTask(task4)
+        store.saveTask(task5)
 
         expect:
         store.findTasksByOwnerId(1).toSet() == [task1] as Set
@@ -353,7 +353,7 @@ abstract class AbstractDataStoreTest extends Specification {
         nodeInfo.createWorkerData( new WorkerRefMock('worker2') )
 
         when:
-        store.storeNode(nodeInfo)
+        store.saveNode(nodeInfo)
 
 
         then:
@@ -362,37 +362,6 @@ abstract class AbstractDataStoreTest extends Specification {
 
     }
 
-    def "test replaceNodeData" () {
-
-        setup:
-        def node1 = new NodeData( id: 1, processed: 7843 )
-        node1.createWorkerData( new WorkerRefMock('worker1') )
-        node1.createWorkerData( new WorkerRefMock('worker2') )
-
-        def node2 = new NodeData( id: 2, processed: 343 )
-
-        store.storeNode(node1)
-        store.storeNode(node2)
-
-        when:
-        def copy1 = new NodeData(node1)
-        def copy2 = new NodeData(node2)
-
-        def newNode1 = new NodeData( id: 1, processed: 8888 )
-        def newNode2 = new NodeData( id: 2, processed: 4444 )
-
-        newNode1.processed++
-        copy2.processed++
-
-        then:
-        // copy1 is a clone of node1 -- it does not change so, it can be replaced with a new value
-        store.replaceNode(copy1, newNode1)
-
-        // node2 is changed after it was copied -- the replace will fail
-        !store.replaceNode(copy2, newNode2)
-
-
-    }
 
 
     def 'test removeNodeData' () {
@@ -402,8 +371,8 @@ abstract class AbstractDataStoreTest extends Specification {
         def node1 = new NodeData( id: 1, processed: 7843 )
         def node2 = new NodeData( id: 2, processed: 343 )
 
-        store.storeNode(node1)
-        store.storeNode(node2)
+        store.saveNode(node1)
+        store.saveNode(node2)
 
         def node3 = new NodeData( id: 3, processed: 8593 )
 
@@ -426,9 +395,9 @@ abstract class AbstractDataStoreTest extends Specification {
         def node2 = new NodeData( id: 2, processed: 343 )
         def node3 = new NodeData( id: 3, processed: 8593 )
 
-        store.storeNode(node1)
-        store.storeNode(node2)
-        store.storeNode(node3)
+        store.saveNode(node1)
+        store.saveNode(node2)
+        store.saveNode(node3)
 
         when:
         def list = store.listNodes()
@@ -451,10 +420,10 @@ abstract class AbstractDataStoreTest extends Specification {
        def node3 = new NodeData( id: 3, processed: 8593, address: addr3 )
        def node4 = new NodeData( id: 4, processed: 59054, address: addr3 )
 
-       store.storeNode( node1 )
-       store.storeNode( node2 )
-       store.storeNode( node3 )
-       store.storeNode( node4 )
+       store.saveNode( node1 )
+       store.saveNode( node2 )
+       store.saveNode( node3 )
+       store.saveNode( node4 )
 
        expect:
        store.findNodesByAddress( addr1 ) == [node1]
@@ -476,10 +445,10 @@ abstract class AbstractDataStoreTest extends Specification {
         def node3 = new NodeData( id: 3, processed: 8593, address: addr3, status: NodeStatus.DEAD )
         def node4 = new NodeData( id: 4, processed: 8593, address: addr3, status: NodeStatus.ALIVE )
 
-        store.storeNode( node1 )
-        store.storeNode( node2 )
-        store.storeNode( node3 )
-        store.storeNode( node4 )
+        store.saveNode( node1 )
+        store.saveNode( node2 )
+        store.saveNode( node3 )
+        store.saveNode( node4 )
 
         expect:
         store.findNodesByAddressAndStatus( addr1, NodeStatus.ALIVE ) == []
@@ -489,32 +458,32 @@ abstract class AbstractDataStoreTest extends Specification {
     }
 
 
-    // ---------------- tasks queue operations
-
-    def 'test appendToQueue and takeFromQueue and isEmptyQueue' () {
-
-        setup:
-        def wasEmpty = store.isEmptyQueue()
-        store.appendToQueue( TaskId.of(1) )
-        store.appendToQueue( TaskId.of(2) )
-        store.appendToQueue( TaskId.of(3) )
-
-        when:
-
-        Set<TaskId> set = []
-        def count = 0
-        while( !store.isEmptyQueue() ) {
-            set << store.takeFromQueue()
-            count++
-        }
-
-        then:
-        wasEmpty
-        set.size() == 3
-        set == [ TaskId.of(1),  TaskId.of(2),  TaskId.of(3) ] as Set
-        count == 3
-
-    }
+//    // ---------------- tasks queue operations
+//
+//    def 'test appendToQueue and takeFromQueue and isEmptyQueue' () {
+//
+//        setup:
+//        def wasEmpty = store.isEmptyQueue()
+//        store.appendToQueue( TaskId.of(1) )
+//        store.appendToQueue( TaskId.of(2) )
+//        store.appendToQueue( TaskId.of(3) )
+//
+//        when:
+//
+//        Set<TaskId> set = []
+//        def count = 0
+//        while( !store.isEmptyQueue() ) {
+//            set << store.takeFromQueue()
+//            count++
+//        }
+//
+//        then:
+//        wasEmpty
+//        set.size() == 3
+//        set == [ TaskId.of(1),  TaskId.of(2),  TaskId.of(3) ] as Set
+//        count == 3
+//
+//    }
 
 
     def 'test get and put file' () {
@@ -543,7 +512,7 @@ abstract class AbstractDataStoreTest extends Specification {
         //
         when:
         def fileId = UUID.randomUUID()
-        store.storeFile(fileId, sourceFile)
+        store.saveFile(fileId, sourceFile)
 
         then:
         store.getFile(fileId) == sourceFile

@@ -33,6 +33,7 @@ import circo.messages.WorkToSpool
 import circo.messages.WorkerCreated
 import circo.messages.WorkerFailure
 import circo.messages.WorkerRequestsWork
+import circo.model.AddressRef
 import circo.model.Job
 import circo.model.JobStatus
 import circo.model.NodeData
@@ -66,7 +67,9 @@ class NodeMasterTest extends ActorSpecification {
             selfAddress = address ? addr(address) : TestHelper.randomAddress()
             this.node = new NodeData( id: nodeId, address: selfAddress );
             this.node.status = NodeStatus.ALIVE
-            this.store.storeNode(node)
+            this.node.storeMemberId = new AddressRef( InetAddress.localHost, 7501 )
+            this.node.master = new WorkerRef( self() )
+            this.store.saveNode(node)
 
         }
 
@@ -90,7 +93,7 @@ class NodeMasterTest extends ActorSpecification {
         setup:
         final theJobId = TaskId.of('2')
         final entry = new TaskEntry ( theJobId, new TaskReq(script: 'Hello') )
-        dataStore.storeTask(entry)
+        dataStore.saveTask(entry)
 
         final master = newTestActor(system, NodeMasterMock)
         final JavaTestKit probe = new JavaTestKit(system);
@@ -157,7 +160,7 @@ class NodeMasterTest extends ActorSpecification {
         def theJobId = TaskId.of('2')
         def entry = new TaskEntry ( theJobId, new TaskReq(script: 'Hello') )
         entry.worker = workerRef1
-        dataStore.storeTask(entry)
+        dataStore.saveTask(entry)
 
         // setup the workers map --> two are free and the last is busy
         // only the free workers will be notified
@@ -216,8 +219,8 @@ class NodeMasterTest extends ActorSpecification {
     def "test WorkerRequestsWork" () {
 
         setup:
-        dataStore.storeTask(new TaskEntry( TaskId.of('3'), new TaskReq(script:'Hello') ))
-        dataStore.storeTask(new TaskEntry( TaskId.of('4'), new TaskReq(script:'Hello') ))
+        dataStore.saveTask(new TaskEntry( TaskId.of('3'), new TaskReq(script:'Hello') ))
+        dataStore.saveTask(new TaskEntry( TaskId.of('4'), new TaskReq(script:'Hello') ))
 
         final master = newTestActor(system, NodeMasterMock )
         final def probe = new JavaTestKit(system)
@@ -265,16 +268,16 @@ class NodeMasterTest extends ActorSpecification {
         def job1 = new TaskEntry(TaskId.of(1), new TaskReq())
         def job2 = new TaskEntry(TaskId.of(2), new TaskReq())
         def job3 = new TaskEntry(TaskId.of(3), new TaskReq())
-        dataStore.storeTask(job1)
-        dataStore.storeTask(job2)
-        dataStore.storeTask(job3)
+        dataStore.saveTask(job1)
+        dataStore.saveTask(job2)
+        dataStore.saveTask(job3)
 
         // this is a node with some work pending
         final masterWithWork = newTestActor(system, NodeMasterMock)
         masterWithWork.actor.node.queue.add(job1.id)
         masterWithWork.actor.node.queue.add(job2.id)
         masterWithWork.actor.node.queue.add(job3.id)
-        dataStore.storeNode(masterWithWork.actor.node)
+        dataStore.saveNode(masterWithWork.actor.node)
 
         // this Master HAS NO work, but receive a message from a worker
         final master = newTestActor(system, NodeMasterMock)
@@ -302,9 +305,9 @@ class NodeMasterTest extends ActorSpecification {
         def job1 = new TaskEntry(TaskId.of(1), new TaskReq())
         def job2 = new TaskEntry(TaskId.of(2), new TaskReq())
         def job3 = new TaskEntry(TaskId.of(3), new TaskReq())
-        dataStore.storeTask(job1)
-        dataStore.storeTask(job2)
-        dataStore.storeTask(job3)
+        dataStore.saveTask(job1)
+        dataStore.saveTask(job2)
+        dataStore.saveTask(job3)
 
         // this is a node with some work pending
         final master1 = newTestActor(system, NodeMasterMock) { new NodeMasterMock(1, '1.1.1.1') }
@@ -320,7 +323,7 @@ class NodeMasterTest extends ActorSpecification {
         master2.actor.node.queue.add(job1.id)
         master2.actor.node.queue.add(job2.id)
         master2.actor.node.queue.add(job3.id)
-        dataStore.storeNode(master2.actor.node)
+        dataStore.saveNode(master2.actor.node)
 
 
         when:
@@ -347,8 +350,8 @@ class NodeMasterTest extends ActorSpecification {
     def "test WorkIsDone" () {
 
         setup:
-        final jobId = TaskId.of( '123' )
-        final entry = new TaskEntry( jobId, new TaskReq() )
+        final taskId = TaskId.of( '123' )
+        final entry = new TaskEntry( taskId, new TaskReq() )
         entry.result = new TaskResult()
 
         final master = newTestActor(system, NodeMasterMock)
@@ -357,10 +360,10 @@ class NodeMasterTest extends ActorSpecification {
         final worker = new WorkerRef(probe.getRef())
 
         master.actor.node.createWorkerData(worker)
-        master.actor.node.assignTaskId(worker, jobId)
+        master.actor.node.assignTaskId(worker, taskId)
 
         when:
-        master.tell ( new WorkIsDone(worker, jobId) )
+        master.tell ( new WorkIsDone(taskId,worker) )
 
         then:
         master.actor.node.getWorkerData(worker).currentTaskId == null
@@ -396,7 +399,7 @@ class NodeMasterTest extends ActorSpecification {
      * to be rescheduled
      */
 
-    def void "test resumeJobs" () {
+    def void "test manageMemberDowned" () {
 
         setup:
         /*
@@ -444,10 +447,10 @@ class NodeMasterTest extends ActorSpecification {
         task4.setSender(senderProbe.getRef())
         task4.ownerId = master2.actor.nodeId
 
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-        dataStore.storeTask(task3)
-        dataStore.storeTask(task4)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
+        dataStore.saveTask(task4)
 
         dataStore.addToSink(task1)
         dataStore.addToSink(task2)
@@ -456,15 +459,16 @@ class NodeMasterTest extends ActorSpecification {
 
         def job = new Job( reqId1 )
         job.status = JobStatus.PENDING
-        dataStore.storeJob( job )
+        dataStore.saveJob( job )
 
         master2.actor.node.queue << task4.id
 
-        when:
+
         /*
          * master1 dies the other node (master2) will handle the situation
          */
-        master2.underlyingActor().manageMemberDowned( master1.actor.selfAddress )
+        when:
+        master2.actor.manageMemberDowned( master1.actor.selfAddress )
 
 
         then:
@@ -546,7 +550,7 @@ class NodeMasterTest extends ActorSpecification {
         node1.createWorkerData(probe1.getRef())
         node1.queue.add(job1.id)
         node1.queue.add(job2.id)
-        dataStore.storeNode(node1)
+        dataStore.saveNode(node1)
 
         // Node2 has THREE jobs in queue
         final probe2 = newProbe(system)
@@ -556,7 +560,7 @@ class NodeMasterTest extends ActorSpecification {
         node2.queue.add(job3.id)
         node2.queue.add(job4.id)
         node2.queue.add(job5.id)
-        dataStore.storeNode(node2)
+        dataStore.saveNode(node2)
 
         final master = newActor(system, NodeMasterMock)
         master.allMasters.put( addr('1.1.1.1'), probe1.getRef() )

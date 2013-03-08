@@ -82,16 +82,33 @@ class NodeData implements Serializable {
      */
     Map<WorkerRef, WorkerData> workers = new HashMap<>( Runtime.getRuntime().availableProcessors())
 
+    /**
+     * The storage provided unique id to identify the node in the cluster
+     */
+    def storeMemberId
+
+    /**
+     * Default constructor -- create an empty instance
+     */
     def NodeData () { }
 
+    /**
+     * Copy constructor
+     *
+     * @param that
+     * @return
+     */
     def NodeData( NodeData that ) {
         assert that
 
         this.id = that.id
+        this.status = that.status
         this.address = that.address
+        this.master = that.master
         this.startTimestamp = that.startTimestamp
         this.processed = that.processed
         this.failed = that.failed
+        this.storeMemberId = that.storeMemberId
 
         // make a copy of the queue
         this.queue.addAll( that.queue?: [] )
@@ -203,12 +220,6 @@ class NodeData implements Serializable {
 
     def String getStartTimeFmt()  {  CircoHelper.getSmartTimeFormat(startTimestamp) }
 
-    def String toFmtString() {
-
-
-
-    }
-
     def int numOfWorkers() {
         workers?.size() ?: 0
     }
@@ -246,5 +257,10 @@ class NodeData implements Serializable {
         workers?.values()?.findAll { WorkerData wrk -> wrk.currentTaskId == null }
     }
 
+    boolean isAlive() { status == NodeStatus.ALIVE }
+
+    boolean isDead() { status == NodeStatus.DEAD }
+
+    boolean isPaused() { status == NodeStatus.PAUSED }
 
 }

@@ -26,7 +26,7 @@ import groovy.transform.ToString
  */
 
 @EqualsAndHashCode
-@ToString(includes=['taskId','exitCode'], includePackage = false, includeNames = true)
+@ToString(includes=['taskId','exitCode','cancelled','context'], includePackage = false, includeNames = true)
 class TaskResult implements Serializable {
 
     /** The Job of this job */

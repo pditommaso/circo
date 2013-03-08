@@ -26,8 +26,8 @@ import java.util.concurrent.TimeUnit
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
-@ToString(includePackage = false)
 @EqualsAndHashCode
+@ToString(includePackage = false, includeNames = true, includes = 'requestId,maxInactive,maxDuration,maxAttempts,user,notifyResult,produce')
 class TaskReq implements Serializable {
 
     /**
@@ -82,5 +82,6 @@ class TaskReq implements Serializable {
      * The expected files to be produced
      */
     def List<String> produce
+
 
 }

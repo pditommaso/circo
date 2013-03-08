@@ -41,7 +41,7 @@ import akka.cluster.Member
 import circo.data.DataStore
 import circo.messages.NodeShutdown
 import circo.messages.PauseWorker
-import circo.messages.ProcessJobComplete
+import circo.messages.JobFinalize
 import circo.messages.ResumeWorker
 import circo.messages.WorkIsDone
 import circo.messages.WorkToBeDone
@@ -146,7 +146,7 @@ class NodeMaster extends UntypedActor  {
         tasksDispatcher[WorkerFailure] = this.&handleWorkerFailure
         tasksDispatcher[PauseWorker] = this.&handlePauseWorker
         tasksDispatcher[ResumeWorker] = this.&handleResumeWorker
-        tasksDispatcher[ProcessJobComplete] = this.&handleJobComplete
+        tasksDispatcher[JobFinalize] = this.&handleJobFinalize
 
         tasksDispatcher[Terminated] = this.&handleTerminated
         tasksDispatcher[NodeShutdown] = this.&handleShutdown
@@ -194,7 +194,8 @@ class NodeMaster extends UntypedActor  {
             node.address = cluster.selfAddress()
             node.status = NodeStatus.ALIVE
             node.startTimestamp = System.currentTimeMillis()
-            store.storeNode(node)
+            node.storeMemberId = store.localMemberId()
+            store.saveNode(node)
         }
         else {
             log.debug "** Re-using node data: ${node.dump()}"
@@ -224,7 +225,7 @@ class NodeMaster extends UntypedActor  {
         setMDCVariables()
 
         log.debug "~~ Stopping actor ${getSelf().path()}"
-        store.storeNode(node)
+        store.saveNode(node)
 
         if ( shuttingDown ) {
             log.debug "Shutting down Hazelcast"
@@ -278,7 +279,7 @@ class NodeMaster extends UntypedActor  {
         else if ( tasksDispatcher.containsKey(type) ) {
             log.debug "<- $message"
             tasksDispatcher[type].call(message)
-            store.storeNode(node)
+            store.saveNode(node)
         }
 
         else {
@@ -288,7 +289,7 @@ class NodeMaster extends UntypedActor  {
     }
 
 
-    protected TaskId poolNextTaskId() {
+    protected TaskId pollNextTaskId() {
         TaskId result
         while( true ) {
             result = node.queue.poll()
@@ -348,37 +349,46 @@ class NodeMaster extends UntypedActor  {
      */
 
     protected void handleWorkToSpool(WorkToSpool message) {
-        final taskId = message.taskId
+        assert message
 
-        // -- verify than an entry exists in the db
-        final task = store.getTask(taskId)
-        if( !task ) {
-            // TODO improve this error condition handling
-            log.warn "Cannot find any task entry with id: '${taskId}' -- message discarded"
-            return
+        message.taskId.each { TaskId taskId ->
+
+            // -- verify than an entry exists in the db
+            final task = store.getTask(taskId)
+            if( !task ) {
+                // TODO improve this error condition handling
+                log.warn "Cannot find any task entry with id: '${taskId}' -- message discarded"
+                return
+            }
+
+            handleWorkToSpool0(task)
         }
+
+    }
+
+    protected void handleWorkToSpool0( TaskEntry task ) {
 
         // --
         // when the task has already been executed by this node
         // try to forward it to another node
         if( task.worker && node.hasWorkerData(task.worker) && allMasters.size()>1 ) {
             def target = someoneElse()
-            log.debug "=> fwd: ${message} TO someoneElse: ${someoneElse()}"
-            target.forward(message,getContext())
+            log.debug "=> fwd ${WorkToSpool.simpleName} TO someoneElse: ${someoneElse()}"
+            target.forward(new WorkToSpool(task.id), getContext())
         }
+
         // -- add the jobId to the queue - and - notify workers
         else {
-            log.debug("Adding task with id: ${taskId} to queue")
-            node.queue.add(taskId)
+            log.debug("Adding task with id: ${task.id} to queue")
+            node.queue.add(task.id)
 
             // update the job status
             task.status = TaskStatus.PENDING
             task.ownerId = nodeId
-            store.storeTask(task)
+            store.saveTask(task)
 
             // mark the task to which it is required to collect a result
             store.addToSink(task)
-
         }
     }
 
@@ -446,7 +456,7 @@ class NodeMaster extends UntypedActor  {
                 return
             }
 
-            final taskId = poolNextTaskId()
+            final taskId = pollNextTaskId()
             log.debug "Poll task id: ${taskId?:'-'} -- still in queue: ${node.queue.size()}"
 
             if( taskId ) {
@@ -468,7 +478,7 @@ class NodeMaster extends UntypedActor  {
         /*
          * extract a task from the queue
          */
-        final taskId = poolNextTaskId()
+        final taskId = pollNextTaskId()
         log.debug "Poll task id: ${taskId?:'-'} -- still in queue: ${node.queue.size()}"
 
         if ( !taskId ) {
@@ -490,16 +500,18 @@ class NodeMaster extends UntypedActor  {
     /**
      * When a task completes, remove the current tasks assignment for it
      */
-    def void handleWorkIsDone(WorkIsDone message) {
+    protected void handleWorkIsDone( WorkIsDone message ) {
 
         // -- free the worker
-        if( !node.removeTaskId(message.worker) ) {
+        //    note: worker field can be null when the message is sent during a 'task' recovering operation
+        //    see method 'recoverDeadTasks'
+        if( message.worker && !node.removeTaskId(message.worker) ) {
             log.error("Blurgh! ${message.worker} said it's done work but we didn't know about him")
         }
 
         def task = store.getTask( message.taskId )
         if ( task ) {
-            manageWorkDone( task )
+            handleWorkIsDone0( task )
         }
         else {
             log.error("Blurgh! ${message.worker} said it's done work but cannot find task with id: ${message.taskId}")
@@ -512,17 +524,19 @@ class NodeMaster extends UntypedActor  {
 
     }
 
-    protected void manageWorkDone( TaskEntry task ) {
+    private void handleWorkIsDone0( TaskEntry task ) {
         assert task
 
-        // -- still some work pending, re-schedule to the master
+        // -- check if the task  i terminated successfully
+        //    or if it failed it may be re-executed
         if( task.isRetryRequired() ) {
-            log.debug "Job ${task.id} failed -- retry submitting"
-            self().tell( WorkToSpool.of(task.id), null )
+            log.debug "Task ${task.id} not successfully terminated. Retry to re-execute it -- ${task.dump()}"
+            handleWorkToSpool0( task )
             return
         }
 
 
+        // -- remove the 'sink' flag to signal that the task is terminated (whatever with success or error)
         def removed = store.removeFromSink(task)
         if ( !removed ) {
             log.warn "Oops. Unable to remove sink flag for task id: ${task.id} -- ${task.dump()}"
@@ -535,73 +549,81 @@ class NodeMaster extends UntypedActor  {
             task.sender.tell ( reply, self() )
         }
 
-        self().tell ( new ProcessJobComplete(task), null )
+        // -- send the JobComplete message to verify if the Job is terminated
+        self().tell ( new JobFinalize(task), null )
 
     }
 
-    protected void handleJobComplete( ProcessJobComplete message )  {
+    /**
+     * The job execution may be composed by several tasks.
+     * When a task terminates the message {@code JobFinalize} is sent to verify
+     * if the all tasks have been executed or still some are pending.
+     * <p>
+     * When all tasks are terminated the {@code Job} instance it terminated as well
+     *
+     * @param message
+     */
+    protected void handleJobFinalize( JobFinalize message )  {
 
-        Job job = null
         final task = message.task
 
         try {
-            boolean done = store.updateJob( task.req.requestId ) { Job thisJob ->
-                checkIfJobCompletes(thisJob, task)
-                job = thisJob
+            boolean done = store.updateJob( task.req.requestId ) { Job job ->
+                // update the job status based the passed task
+                jobComplete0(job, task)
             }
 
-            if ( done && job ) {
-                log.debug "** Job ${job.shortReqId} COMPLETE -- ${job.dump()}"
+            if ( done ) {
+                Job job = store.getJob(task.req.requestId)
+                log.debug "** Job ${job.shortReqId} completed by task: ${task.id} -- ${job.dump()}"
                 notifyJobComplete(job)
             }
             else {
-                log.debug "Job ${job.shortReqId} updated not required -- ${job.dump()}"
+                log.debug "Job ${task?.req?.shortReqId} updated not required by task: ${task.id} "
             }
 
         }
         catch( Exception e ) {
-            log.error "Cannot update job request: ${task.req.requestId} while processing task id: ${task.id}", e
-            // TODO Notify error
+            log.error "Cannot update job request: ${task.req?.shortReqId} while processing task id: ${task.id} -- ${task.dump()}", e
+            // TODO Notify error ?
             // TODO stop current execution ?
         }
 
     }
 
-    protected void checkIfJobCompletes( Job job, TaskEntry task ) {
+    private void jobComplete0( Job job, TaskEntry task ) {
 
         // 'submitted' -> 'success'
         // 'submitted' -> 'failed'
 
-        if ( job.killed ) {
+        if ( job.isKilled() ) {
             log.debug "Job '${job.shortReqId}..' KILLED -- nothing to do"
             return
         }
-        else if( !job.running ) {
+        else if( !job.isRunning() ) {
             log.debug "Oops. Job '${job.shortReqId}..' not in RUNNING status -- ${job.dump()} -- skipping operation"
             return
         }
 
-        if( !task.isSuccess()  ) {
-            job.status = JobStatus.ERROR
-            // TODO ++ stop all pending tasks execution ?
+        final missingTasks = store.countTasksMissing(job.requestId)
+        if ( missingTasks ) {
+            log.debug "Job '${job.shortReqId}..' missing tasks: ${missingTasks} out ${job.numOfTasks}"
+            return
         }
 
-        // -- try to finalize
-        else {
+        // -- get all the tasks for this job
+        // -- check when all tasks are successfully terminated - or - any of them is failed
+        def allTasks = store.findTasksByRequestId(job.requestId)
+        boolean onError = allTasks.any { TaskEntry it -> it.isFailed() }
 
-            final missingTasks = store.countTasksMissing(job.requestId)
-            if ( missingTasks ) {
-                log.debug "Job '${job.shortReqId}..' missing tasks: ${missingTasks} of ${job.numOfTasks}"
-                return
-            }
+        /*
+         * set the final Job 'status' this will be saved on terminate
+         */
+        job.status = onError ? JobStatus.ERROR : JobStatus.SUCCESS
 
-            /*
-             * if here, the job has completed since there are not more pending tasks
-             */
-            job.status = JobStatus.SUCCESS
-
-            // -- create the resulting job context
-            def allResultContext = store.findTasksByRequestId(job.requestId).collect { TaskEntry it -> it.result?.context }
+        // -- create the resulting job context when the job is terminating with success
+        if ( job.isSuccess() ) {
+            def allResultContext = allTasks.collect { TaskEntry it -> it.result?.context }
 
             def newContext = job.input ? Context.copy(job.input) : new Context()
             allResultContext.each { Context delta ->
@@ -610,13 +632,13 @@ class NodeMaster extends UntypedActor  {
 
             // assign it to the job
             job.output = newContext
-
         }
+
 
 
     }
 
-    protected void notifyJobComplete( Job job )  {
+    private void notifyJobComplete( Job job )  {
 
         if ( !job.sender ) {
             // nobody to notify
@@ -810,54 +832,45 @@ class NodeMaster extends UntypedActor  {
         assert nodeAddress
 
         List<NodeData> nodes = store.findNodesByAddress(nodeAddress)
-        if( nodes == null ) {
+        if( !nodes ) {
             log.debug "No NodeData for address: ${nodeAddress} -- ignore it"
             return
         }
 
-        if( !nodes ) {
-            log.debug "NodeData for address: ${nodeAddress} already managed -- ignore it"
-            return
-        }
 
-        NodeData nodeFound
+        // -- make sure does not exist duplicates for that IP
+        NodeData nodeDead
         if ( nodes.size() > 1 ) {
-            nodeFound = nodes.sort { NodeData it -> it.id }.find()
-            log.warn "*** Multiple for ALIVE node for the same addres: $nodeAddress -- ${nodes.collect{'\n' + it.dump()} } -- used one with id: ${nodeFound.id}"
+            nodeDead = nodes.sort { NodeData it -> it.id }.find()
+            log.warn "*** Multiple for ALIVE node for the same addres: $nodeAddress -- ${nodes.collect{'\n' + it.dump()} } -- used one with id: ${nodeDead.id}"
         }
         else {
-            nodeFound = nodes.get(0)
+            nodeDead = nodes.get(0)
         }
 
-        def updatedNode = new NodeData(nodeFound)
-        updatedNode.status = NodeStatus.DEAD    // set the node to dead
-        updatedNode.address = null              // <-- clear the address to avoid node addresses overlapping
 
-        int count = 0
-        // try to update using concurrent replace
-        while( !store.replaceNode(nodeFound, updatedNode) ) {
+        // now update the node -- this may happens concurrently
+        // so the first that is able to set the node status to DEAD
+        // is the one that will recover the missing tasks
+        boolean done = store.updateNode( nodeDead.id ) { NodeData node ->
 
-            // when fails to update the 'current' node, read it again
-            // if the read value is 'DEAD' --> some other node update it to the required status, so skip the operation
-            nodeFound = store.getNode(nodeFound.id)
-            if ( nodeFound.status == NodeStatus.DEAD ) {
-                log.debug "Unable to replace node status to ${NodeStatus.DEAD} for address: ${nodeAddress} -- somebody else done it"
-                return
-            }
-            // re-try to set the node to 'DEAD' status
-            else {
-                updatedNode = new NodeData(nodeFound)
-                updatedNode.status = NodeStatus.DEAD
+            if ( !node.isDead() ) {
+                node.status = NodeStatus.DEAD    // set the node to dead
+                node.address = null              // <-- clear the address to avoid node addresses overlapping
+                node.storeMemberId = null
+                node.queue.clear()
             }
 
-            if( count>10 ) {
-                // something wrong
-                throw new IllegalStateException("Unable to set node with id: ${nodeFound.id} to status ${NodeStatus.DEAD}" )
-            }
         }
 
-        // now record dead
-        recoverDeadTasks(updatedNode.id)
+        if ( done ) {
+            log.debug "Node '${nodeDead.id}' status updated to ${NodeStatus.DEAD}"
+            // now recover dead tasks
+            recoverDeadTasks(nodeDead.id)
+        }
+        else {
+            log.debug "Node '${nodeDead.id}' status NOT updated to ${NodeStatus.DEAD} -- somebody else done, hopefully .."
+        }
 
     }
 
@@ -867,7 +880,7 @@ class NodeMaster extends UntypedActor  {
         List<TaskEntry> tasksToRecover = store.findTasksByOwnerId(nodeId)
         log.debug "Tasks to recover: ${tasksToRecover.size() ?: 'none'}"
 
-        tasksToRecover.each { TaskEntry entry -> manageWorkDone( entry ) }
+        tasksToRecover.each { TaskEntry task -> handleWorkIsDone0(task) }
 
     }
 

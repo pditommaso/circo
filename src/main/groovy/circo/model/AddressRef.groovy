@@ -22,6 +22,7 @@ import akka.actor.Address as AkkaAddress
 import circo.Const
 import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
+
 /**
  * Model a host IP address
  *
@@ -56,6 +57,26 @@ class AddressRef implements Serializable {
 
     }
 
+    AddressRef( InetSocketAddress value ) {
+        this( value.address, value.port )
+    }
+
+    AddressRef( InetAddress value, Integer port = null ) {
+        assert value
+        this.port = port
+        this.host = "${toUInt(value.getAddress()[0])}.${toUInt(value.getAddress()[1])}.${toUInt(value.getAddress()[2])}.${toUInt(value.getAddress()[3])}"
+    }
+
+
+    String toUInt( def value )  {
+        Integer.toString( value as int & 0xFF )
+    }
+
+    /**
+     * Copy constructor
+     *
+     * @param address To address to be copied
+     */
     AddressRef( AkkaAddress address ) {
         assert address
 
@@ -96,11 +117,6 @@ class AddressRef implements Serializable {
     }
 
 
-    String fmtString( Closure formatter ) {
-        formatter.call( host, port )
-    }
-
-
 
     def static AddressRef fromString( String str ) {
 
@@ -138,6 +154,13 @@ class AddressRef implements Serializable {
 
         return new AddressRef(host, port)
 
+    }
+
+    /**
+     * @return The local node IP address
+     */
+    static AddressRef self() {
+        new AddressRef( InetAddress.getLocalHost() )
     }
 
 

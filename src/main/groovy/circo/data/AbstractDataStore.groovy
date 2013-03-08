@@ -18,9 +18,7 @@
  */
 
 package circo.data
-
 import java.util.concurrent.ConcurrentMap
-import java.util.concurrent.TimeoutException
 
 import akka.actor.Address
 import circo.model.Job
@@ -45,28 +43,8 @@ abstract class AbstractDataStore implements DataStore {
 
     protected ConcurrentMap<Integer, NodeData> nodes
 
-    @Deprecated
-    protected ConcurrentMap<TaskId, Boolean> queue
-
     protected Set<TaskId> killList
 
-
-
-    // ------------- Task QUEUE (?) --------------------------------
-
-    TaskId takeFromQueue() {
-
-        DataStoreHelper.takeFromQueue( queue )
-
-    }
-
-    void appendToQueue( TaskId taskId )  {
-        queue.put( taskId, Boolean.TRUE )
-    }
-
-    boolean isEmptyQueue() {
-        queue.isEmpty()
-    }
 
     // -------------- JOB operations ----------------------------
 
@@ -74,28 +52,8 @@ abstract class AbstractDataStore implements DataStore {
         jobs.get(id)
     }
 
-    Job getJob( String requestId ) {
-        assert requestId
 
-        if ( requestId.size() == 36 ) {
-            return getJob( UUID.fromString(requestId) )
-        }
-
-        List result = findJobsByRequestId(requestId)
-        if ( result?.size() == 0 ) {
-            return null
-        }
-        else if ( result.find() == 1 ) {
-            return result.find()
-        }
-        else {
-            throw new IllegalArgumentException('')
-        }
-
-        return null
-    }
-
-    void storeJob( Job job ) {
+    void saveJob( Job job ) {
         assert job
         assert job.requestId
 
@@ -104,15 +62,7 @@ abstract class AbstractDataStore implements DataStore {
 
     boolean updateJob( UUID requestId, Closure updateMethod ) {
         assert requestId
-        DataStoreHelper.update(requestId, jobs, updateMethod)
-    }
-
-    boolean replaceJob( Job oldValue, Job newValue ) {
-        assert oldValue
-        assert newValue
-        assert oldValue.requestId == newValue.requestId
-
-        jobs.replace(oldValue.requestId, oldValue, newValue)
+        DataStoreHelper.update(jobs, requestId, updateMethod)
     }
 
     List<Job> listJobs() {
@@ -143,7 +93,7 @@ abstract class AbstractDataStore implements DataStore {
     // ------------------------- TASKS operation -----------------------------------------
 
     @Override
-    void storeTask( TaskEntry task ) {
+    void saveTask( TaskEntry task ) {
         assert task
         tasks.put( task.id, task )
     }
@@ -155,7 +105,7 @@ abstract class AbstractDataStore implements DataStore {
     }
 
     boolean updateTask( TaskId taskId, Closure closure ) {
-        DataStoreHelper.update(taskId, tasks, closure)
+        DataStoreHelper.update(tasks, taskId, closure)
     }
 
 
@@ -190,19 +140,19 @@ abstract class AbstractDataStore implements DataStore {
     List<TaskEntry> findTasksByStatusString( String status ) {
 
         if( status?.toUpperCase() in ['S','SUCCESS','SUCCESSFUL'] ) {
-            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.success }
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.isSuccess() }
         }
 
         if ( status?.toUpperCase() in ['E','ERROR','FAIL','FAILURE'] ) {
-            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.failed }
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.isFailed() }
         }
 
         if ( status?.toUpperCase() in ['K','KILL','KILLED'] ) {
-            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.killed }
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.isKilled() }
         }
 
         if ( status?.toUpperCase() in ['C','CANCEL','CANCELLED'] ) {
-            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.cancelled }
+            return findTasksByStatus(TaskStatus.TERMINATED).findAll {  TaskEntry it -> it.isCancelled() }
         }
 
         findTasksByStatus(TaskStatus.fromString(status))
@@ -293,53 +243,15 @@ abstract class AbstractDataStore implements DataStore {
     }
 
     @Override
-    void storeNode( NodeData nodeData) {
+    void saveNode( NodeData nodeData) {
         assert nodeData
         nodes.put(nodeData.id, nodeData)
     }
 
-    @Override
-    boolean replaceNode( NodeData oldValue, NodeData newValue ) {
-        assert oldValue
-        assert newValue
-        assert oldValue.id == newValue.id
+    boolean updateNode( int nodeId, Closure closure ) {
+        assert closure
 
-        nodes.replace(oldValue.id, oldValue, newValue)
-    }
-
-    @Deprecated
-    NodeData updateNodeData( NodeData node, Closure closure ) {
-        assert node
-
-        def begin = System.currentTimeMillis()
-        def done = false
-        while( !done ) {
-            // make a copy of the data structure and invoke the closure in it
-            def copy = new NodeData(node)
-            closure.call(copy)
-
-            // try to replace it in the map
-            done = replaceNode(node, copy)
-            if( done ) {
-                // -- OK, return the 'copy'
-                node = copy
-            }
-            // -- the update operation failed
-            //    try it again reloading the 'NodeInfo' from the storage
-            else if( System.currentTimeMillis()-begin < 1000 ) {
-                node = getNode(copy.id)
-                if ( !node ) {
-                    throw new IllegalStateException("Cannot update NodeData item because not entry exists for address ${copy.address}")
-                }
-            }
-            // timeout exceed, throw an exception
-            else {
-                throw new TimeoutException("Unable to apply updates to ${node}")
-            }
-
-        }
-
-        return node
+        DataStoreHelper.update(nodes, nodeId, closure)
     }
 
 
@@ -354,6 +266,7 @@ abstract class AbstractDataStore implements DataStore {
     def List<NodeData> listNodes() {
         nodes.values().toList()
     }
+
 
 
 }

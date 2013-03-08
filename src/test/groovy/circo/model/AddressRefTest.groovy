@@ -17,44 +17,28 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
-import circo.model.Job
-import circo.model.TaskEntry
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
-import groovy.transform.ToString
+package circo.model
+
+import spock.lang.Specification
+
 /**
- * Holds the reply data for the {@code CmdList} command
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+class AddressRefTest extends  Specification {
 
-@ToString(includeNames = true, includePackage = false)
-@InheritConstructors
-class ListReply extends AbstractReply {
+    def 'test create bu InetAddress' () {
 
-    List<JobInfo> jobs
+        expect:
+        new AddressRef( InetAddress.localHost ).toString() == InetAddress.localHost.hostAddress.toString()
+        new AddressRef( InetAddress.localHost, 123 ).toString() == "${InetAddress.localHost.hostAddress.toString()}:123"
 
-    List<TaskEntry> tasks
+    }
 
+    def 'test self' () {
 
-    @SerializeId
-    static class JobInfo implements Serializable {
-
-        JobInfo( Job job ) {
-            this.target = job
-        }
-
-        @Delegate
-        Job target
-
-        String command
-
-        int numOfPendingTasks
-
-        int numOfFailedTasks
-
-        String message
+        expect:
+        AddressRef.self().toString() == InetAddress.localHost.hostAddress.toString()
 
     }
 

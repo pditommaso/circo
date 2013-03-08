@@ -118,20 +118,6 @@ class HzJdbcSinkMapStoreTest extends Specification {
     }
 
 
-    def 'test loadAllKeys' () {
-        setup:
-        def jdbc = new HzJdbcSinkMapStore(sql: sql)
-
-        def req1 = UUID.randomUUID()
-        def req2 = UUID.randomUUID()
-
-        jdbc.store( TaskId.of(1), req1 )
-        jdbc.store( TaskId.of(2), req1 )
-        jdbc.store( TaskId.of(3), req2 )
-
-        expect:
-        jdbc.loadAllKeys().toSet() == [TaskId.of(1), TaskId.of(2), TaskId.of(3) ] as Set
-    }
 
 
 }

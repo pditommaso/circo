@@ -34,22 +34,6 @@ import circo.model.TaskStatus
  */
 interface DataStore {
 
-    /**
-     * Shut-down the underlying data store
-     */
-    void shutdown()
-
-    void withTransaction(Closure closure)
-
-
-    // ------------- tasks queue --------------------------------
-
-    void appendToQueue( TaskId taskId )
-
-    TaskId takeFromQueue()
-
-    boolean isEmptyQueue()
-
 
     // -------------- JOB operations ----------------------------
 
@@ -66,11 +50,9 @@ interface DataStore {
      * @param job
      * @return
      */
-    void storeJob( Job job )
+    void saveJob( Job job )
 
     boolean updateJob( UUID requestId, Closure updateAction )
-
-    boolean replaceJob( Job oldValue, Job newValue )
 
     List<Job> findJobsByRequestId( String requestId )
 
@@ -92,7 +74,7 @@ interface DataStore {
      * @param task A {@code TaskEntry} instance
      * @return {@code true} if {@code job} was created as a new entry, {@code false} when the entry is updated
      */
-    void storeTask( TaskEntry task )
+    void saveTask( TaskEntry task )
 
     /**
      * Get a job with the specified ID
@@ -177,15 +159,15 @@ interface DataStore {
      * Store the specified {@code NodeData} object into the storage
      * @param nodeData The object to be saved
      */
-    void storeNode( NodeData nodeData )
+    void saveNode( NodeData nodeData )
 
     /**
-     * Replace an existing {code NodeData} instance - oldValue - by an updated version
-     * @param oldValue
-     * @param newValue
+     *
+     * @param nodeId
+     * @param update
      * @return
      */
-    boolean replaceNode( NodeData oldValue, NodeData newValue )
+    boolean updateNode( int nodeId, Closure update )
 
     /**
      * Remove the specified {@code NodeData}
@@ -217,12 +199,50 @@ interface DataStore {
      */
     List<NodeData> findNodesByAddressAndStatus( Address address, NodeStatus status )
 
+    /**
+     * Given an item return the partition node where it should be allocated
+     *
+     * @param item A generic item
+     * @return The {@code NodeData} where the item should be allocated
+     */
+    NodeData getPartitionNode( def item )
+
+    /**
+     * Partition a list of entries mapping each to a {@code NodeData} instance
+     *
+     * @param entries A generic list of entries
+     * @param closure A {@code Closure} invoked for each entry mapping the value to the corresponding {@code NodeData} - For example { Object item, NodeData node -> ... }
+     */
+    void partitionNodes( List entries, Closure closure )
+
 
     // ----------------------------- FILES operations -------------------------------------
 
     File getFile( UUID fileId )
 
-    void storeFile( UUID fileId, File file )
+    void saveFile( UUID fileId, File file )
+
+
+    // ------------------------------- other methods --------------------------------------
+
+    /**
+     * Execute the provide code block by wrapping into a transaction
+     * @param closure
+     */
+    void withTransaction(Closure closure)
+
+    /**
+     * Shut-down the underlying data store
+     */
+    void shutdown()
+
+    /**
+     * The storage member unique id to identify the node in the cluster.
+     * See {@code NodeData#storeMemberId}
+     *
+     * @return Currently defined b the pair ( IP, port ) address of the in-memory storage
+     */
+    def localMemberId()
 
 
 }

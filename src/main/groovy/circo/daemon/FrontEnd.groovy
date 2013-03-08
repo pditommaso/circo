@@ -50,6 +50,8 @@ import circo.reply.NodeReply
 import circo.reply.ResultReply
 import circo.reply.SubReply
 import circo.util.CircoHelper
+import com.google.common.collect.LinkedListMultimap
+import com.google.common.collect.Multimap
 import groovy.util.logging.Slf4j
 /**
  *
@@ -71,11 +73,19 @@ class FrontEnd extends UntypedActor {
 
     def Map<Class<? extends AbstractCommand>, Closure> dispatchTable = new HashMap<>()
 
+    /**
+     * The front-end actor constructor
+     * @param store The {@code DataStore} instance
+     * @param nodeId The unique 'node' identifier
+     */
     def FrontEnd( DataStore store, int nodeId = 0 ) {
         this.dataStore = store
         this.nodeId = nodeId
     }
 
+    /**
+     * Initialize the actor creating the {@code NodeMaster} actor
+     */
     def void preStart() {
         setMDCVariables()
         log.debug "++ Starting actor ${getSelf().path()}"
@@ -93,6 +103,9 @@ class FrontEnd extends UntypedActor {
     }
 
 
+    /*
+     * defined the dispatch table that associate the handler method for each command
+     */
     {
         dispatchTable[ CmdSub ] = this.&handleCmdSub
         dispatchTable[ CmdNode ] = this.&handleCmdNode
@@ -101,7 +114,12 @@ class FrontEnd extends UntypedActor {
 
     }
 
-
+    /**
+     * Invokes the associated method handler for each command
+     *
+     * @param message
+     * @return
+     */
     protected boolean dispatch( def message ) {
         assert message
 
@@ -161,6 +179,11 @@ class FrontEnd extends UntypedActor {
         }
     }
 
+    /**
+     * Implements the client 'list' command
+     *
+     * @param command An instance of {@code CmdList} containing the command as entered by the user
+     */
     void handleCmdList( CmdList command ) {
         assert command
 
@@ -168,7 +191,14 @@ class FrontEnd extends UntypedActor {
         /*
          * create the reply object
          */
-        def reply = command.tasks ? processListTasks(command) : processListJobs(command)
+        def reply
+        if ( command.tasks  ) {
+            reply = processListTasks(command)
+        }
+
+        else {
+            reply = processListJobs(command)
+        }
 
         sender().tell(reply, self())
 
@@ -229,9 +259,17 @@ class FrontEnd extends UntypedActor {
             info.command = allTasks.find()?.req?.script
 
             allTasks.each{ TaskEntry task ->
-                info.numOfFailedTasks += (task.failedCount)
-                if ( !task.terminated ) info.numOfPendingTasks++
+
+                if ( !task.isTerminated() ) {
+                    info.numOfPendingTasks++
+                }
+
+                // tot number of failed tasks
+                if( task.isFailed() ) {
+                    info.numOfFailedTasks += 1
+                }
             }
+
         }
 
 
@@ -292,7 +330,7 @@ class FrontEnd extends UntypedActor {
          * The main Job item
          */
         final job = new Job(command.ticket)
-        final result = new SubReply(command.ticket)
+        final reply = new SubReply(command.ticket)
 
         /*
          * create a new task request for each times required
@@ -315,7 +353,7 @@ class FrontEnd extends UntypedActor {
             }
 
             if ( missing ) {
-                result.error << "Unknown context entrie(s): ${missing.join(',')}"
+                reply.error << "Unknown context entrie(s): ${missing.join(',')}"
             }
             else {
                 def index=0
@@ -337,10 +375,10 @@ class FrontEnd extends UntypedActor {
          * reply to the sender with TaskId assigned to the received JobRequest
          */
         if ( getSender()?.path()?.name() != 'deadLetters' ) {
-            result.taskIds = listOfTasks .collect { it.id }
-            result.success = listOfTasks.size()>0
-            log.debug "Send confirmation to client: $result"
-            getSender().tell( result, getSelf() )
+            reply.taskIds = listOfTasks .collect { it.id }
+            reply.success = listOfTasks.size()>0
+            log.debug "Send confirmation to client: $reply"
+            getSender().tell( reply, getSelf() )
         }
 
         if( listOfTasks.isEmpty() ) {
@@ -360,16 +398,41 @@ class FrontEnd extends UntypedActor {
         job.sender = new WorkerRef(getSender())
         job.numOfTasks = listOfTasks.size()
 
-        dataStore.storeJob(job)
+        dataStore.saveJob(job)
 
-        listOfTasks.each { TaskEntry it ->
-            dataStore.storeTask( it )
-            master.tell( new WorkToSpool(it.id), self() )
+
+        /*
+         * partition the tasks by sending a spool message to nodes in the cluster
+         */
+        Multimap<NodeData, TaskId> partitionTasks = LinkedListMultimap.newInstance()
+        dataStore.partitionNodes( listOfTasks )  { TaskEntry task, NodeData partitionNode ->
+
+            if ( !partitionNode ) {
+                log.warn "Cannot find a partition for task: $task -- using current node"
+                partitionNode = dataStore.getNode(nodeId)
+            }
+
+            // -- assign the owner node - and - save the new task
+            task.ownerId = partitionNode.id
+            dataStore.saveTask( task )
+
+            // -- put it task id in the partition list
+            partitionTasks.put(partitionNode, task.id)
+        }
+
+        // finally notify the nodes
+        partitionTasks.keySet().each { NodeData node ->
+            log.debug "Queueing tasks to node: ${node.id} <-- ${partitionTasks.get(node)}"
+            node.master.tell(  new WorkToSpool( partitionTasks.get(node) )  )
         }
 
     }
 
-
+    /**
+     * Define the 'kill' command behavior
+     *
+     * @param command The command as entered by user on client-side
+     */
     protected void handleCmdKill( CmdKill command ) {
         assert command
 

@@ -63,12 +63,9 @@ class HzJdbcTasksMapStoreTest extends Specification {
         store.store(job2.id, job2)
 
         then:
-        store.loadAllKeys().size() != 0
-        store.loadAllKeys().size() == 2
-        store.loadAllKeys() == [ job1.id, job2.id ] as Set
-        store.load( job1.id ) ==  new TaskEntry( '1122', 'Script1' )
+        store.load( job1.id ) ==  job1
         store.load( job1.id ).req.script == 'Script1'
-        store.load( job1.id ) !=  new TaskEntry( '333', 'Script2' )
+        store.load( job1.id ) !=  job2
     }
 
     def 'test StoreAll ' () {
@@ -92,7 +89,6 @@ class HzJdbcTasksMapStoreTest extends Specification {
         println store.loadAllKeys()
 
         then:
-        store.loadAllKeys().size() == 4
         store.load( job1.id ).id == TaskId.of('1122')
         store.load( job1.id ).req.script == 'Script1'
 
@@ -125,7 +121,6 @@ class HzJdbcTasksMapStoreTest extends Specification {
         then:
         store.load( job3.id )  == null
         store.load( job1.id ) == job1
-        store.loadAllKeys().size() == 3
 
     }
 
@@ -149,7 +144,6 @@ class HzJdbcTasksMapStoreTest extends Specification {
         then:
         store.load( job3.id )  == null
         store.load( job2.id ) == job2
-        store.loadAllKeys().size() == 1
     }
 
     def 'test load' () {
@@ -174,27 +168,27 @@ class HzJdbcTasksMapStoreTest extends Specification {
         store.load( TaskId.fromString('777') )  == null
     }
 
-    def 'test allKeys ' () {
-        setup:
-        def store = new HzJdbcTasksMapStore(sql: this.sql)
-        def job1 = new TaskEntry( '1122', 'Script1' )
-        def job2 = new TaskEntry( '4455', 'Script2' )
-        def job3 = new TaskEntry( new TaskId('4455'), 'Script3' )
-        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
-
-        def map = new HashMap<TaskId,TaskEntry>()
-        map[job1.id] = job1
-        map[job2.id] = job2
-        map[job3.id] = job3
-        map[job4.id] = job4
-
-        when:
-        store.storeAll( map )
-
-        then:
-        store.loadAllKeys() == map.keySet()
-
-    }
+//    def 'test allKeys ' () {
+//        setup:
+//        def store = new HzJdbcTasksMapStore(sql: this.sql)
+//        def job1 = new TaskEntry( '1122', 'Script1' )
+//        def job2 = new TaskEntry( '4455', 'Script2' )
+//        def job3 = new TaskEntry( new TaskId('4455'), 'Script3' )
+//        def job4 = new TaskEntry( new TaskId('7788'), 'Script4' )
+//
+//        def map = new HashMap<TaskId,TaskEntry>()
+//        map[job1.id] = job1
+//        map[job2.id] = job2
+//        map[job3.id] = job3
+//        map[job4.id] = job4
+//
+//        when:
+//        store.storeAll( map )
+//
+//        then:
+//        store.loadAllKeys() == map.keySet()
+//
+//    }
 
     def 'test loadAll' () {
         setup:

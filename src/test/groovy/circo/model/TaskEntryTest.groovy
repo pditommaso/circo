@@ -1,5 +1,6 @@
 package circo.model
 
+import org.apache.commons.lang.SerializationUtils
 import spock.lang.Specification
 /**
  *
@@ -7,14 +8,15 @@ import spock.lang.Specification
  */
 class TaskEntryTest extends Specification {
 
-    def testEqualsAndHashCode() {
+    def 'test EqualsAndHashCode'() {
 
         when:
         def val1 = new TaskEntry(new TaskId('1'), new TaskReq(script: 'Hola'))
-        def val2 = new TaskEntry(new TaskId('1'), new TaskReq(script: 'Hola'))
+        def val2 = SerializationUtils.clone( val1 )
 
         then:
         val1 == val2
+        val1.equals( val2 )
         val1.hashCode() == val2.hashCode()
 
     }
@@ -181,7 +183,7 @@ class TaskEntryTest extends Specification {
         // error result - and - max number of attempts met,
         // job FAILED
         when:
-        def job4 = TaskEntry.create(4) { TaskEntry it -> it.req.maxAttempts = 5; it.attempts = 5 }
+        def job4 = TaskEntry.create(4) { TaskEntry it -> it.req.maxAttempts = 5; it.attemptsCount = 5 }
         job4.result = new TaskResult( exitCode: 1 )
 
         then:
@@ -195,7 +197,7 @@ class TaskEntryTest extends Specification {
         // job at last attempt - BUT CANCELLED
         // so it can re retried
         when:
-        def job5 = TaskEntry.create(5) { TaskEntry it -> it.req.maxAttempts = 5; it.attempts = 5 }
+        def job5 = TaskEntry.create(5) { TaskEntry it -> it.req.maxAttempts = 5; it.attemptsCount = 5 }
         job5.result = new TaskResult( exitCode: 1, cancelled: true )
 
         then:
@@ -235,15 +237,17 @@ class TaskEntryTest extends Specification {
 
     }
 
-    def 'test toString' () {
+    def 'test sort ' () {
+        given:
+        def t1 = TaskEntry.create(1)
+        def t2 = TaskEntry.create(2)
+        def t3 = TaskEntry.create(3)
+        def t4 = TaskEntry.create(4)
+        def t5 = TaskEntry.create(5)
+        def tasks = [ t3, t2, t4, t1, t5 ]
 
-        when:
-        def job = new TaskEntry('1','echo x')
-        job.status = TaskStatus.RUNNING
-
-        then:
-        job.toString() == "TaskEntry(id=1, status=RUNNING, hasResult=false, exitCode=-, failure=-, cancelled=-, attemptTimes=0, cancelledTimes=0 )"
-
+        expect:
+        tasks.sort { TaskEntry it -> it.id } == [t1,t2,t3,t4,t5]
     }
 
 

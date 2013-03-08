@@ -80,15 +80,3 @@ class NodeShutdown implements Serializable {
 
 }
 
-@SerializeId
-@TupleConstructor
-@ToString(includePackage = false, includeNames = true)
-class ProcessJobComplete implements  Serializable {
-
-    /**
-     * The task entry that completes the overall job
-     */
-    TaskEntry task
-
-}
-

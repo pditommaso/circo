@@ -19,6 +19,8 @@
 
 package circo.data
 
+import circo.model.NodeData
+
 /**
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
@@ -28,5 +30,39 @@ class LocalDataStoreTest extends AbstractDataStoreTest {
     def void setup() {
         store = new LocalDataStore()
     }
+
+
+    def 'test getNodePartition' () {
+
+        setup:
+        def theNode = new NodeData(id: 1)
+        def otherNode = new NodeData(id: 2)
+        store.saveNode(theNode)
+
+        expect:
+        store.getPartitionNode( 1 )  == theNode
+        store.getPartitionNode( 2 )  == theNode
+        store.getPartitionNode( 3 )  != otherNode
+
+
+    }
+
+    def 'test partitionMap' () {
+        setup:
+        def theNode = new NodeData(id: 1)
+        store.saveNode(theNode)
+
+        when:
+        def map = [:]
+        store.partitionNodes([1,2,3]) { Object item, NodeData node -> map[item]=node }
+
+        then:
+        map[1] == theNode
+        map[2] == theNode
+        map[3] == theNode
+        map.size() == 3
+
+    }
+
 
 }

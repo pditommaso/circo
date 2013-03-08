@@ -94,7 +94,7 @@ class FileRef implements DataRef {
 
         // save in the cluster storage
         if ( file.exists() ) {
-            dataStore.storeFile( fileId, file )
+            dataStore.saveFile( fileId, file )
         }
 
     }

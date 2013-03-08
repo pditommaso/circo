@@ -180,16 +180,13 @@ abstract class AbstractHzJdbcMapStore<K extends Serializable, V extends Serializ
         return result
     }
 
+    /**
+     * Disable entries pre-loading by returning always {@code null}
+     *
+     * return {@code null}
+     */
     @Override
-    Set<K> loadAllKeys() {
-
-        def result = new LinkedHashSet<K>()
-        sql.eachRow("select ID from ${tableName}".toString()) { row ->
-            result << objToKey(row[0])
-        }
-
-        return result
-    }
+    Set<K> loadAllKeys() { null  }
 
 
 

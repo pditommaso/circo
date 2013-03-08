@@ -94,5 +94,15 @@ class TaskIdTest extends Specification {
 
     }
 
+    def 'test sort' () {
+
+        given:
+        def list = [TaskId.of(5),TaskId.of(2),TaskId.of(3),TaskId.of(1),TaskId.of(4)]
+
+        expect:
+        list.sort { it } == [TaskId.of(1),TaskId.of(2),TaskId.of(3),TaskId.of(4),TaskId.of(5)]
+
+    }
+
 
 }

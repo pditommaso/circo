@@ -64,7 +64,6 @@ class HzJdbcJobsMapStoreTest extends Specification {
         jobStore.load(job2.requestId) == job2
         jobStore.load(job1.requestId) != job2
         jobStore.load(UUID.randomUUID()) == null
-        jobStore.loadAllKeys().size() == 2
 
         jobStore.loadAll() as Set == [ job1, job2 ] as Set
 

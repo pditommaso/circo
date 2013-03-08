@@ -50,7 +50,23 @@ class NodeDataTest extends Specification {
 
     }
 
-    def "test copyConstructor" () {
+    def 'test copy constructor 1' () {
+
+        given:
+        def node = new NodeData( id:1, status: NodeStatus.PAUSED, address: TestHelper.addr('1.1.1.1') )
+        def copy = new NodeData(node)
+
+        expect:
+        node == copy
+        node.id == copy.id
+        node.status == copy.status
+        node.address == copy.address
+
+
+
+    }
+
+    def "test copy constructor 2" () {
 
         setup:
         def worker1 = new WorkerRefMock('/w1')
@@ -266,5 +282,36 @@ class NodeDataTest extends Specification {
         if ( closure ) closure.call(result)
 
         return result
+    }
+
+    def 'test status' () {
+
+        when:
+        def node = new NodeData(status: NodeStatus.DEAD)
+
+        then:
+        node.isDead()
+        !node.isAlive()
+        !node.isPaused()
+
+
+        when:
+        node =  new NodeData(status: NodeStatus.ALIVE)
+
+        then:
+        !node.isDead()
+        node.isAlive()
+        !node.isPaused()
+
+        when:
+        node =  new NodeData(status: NodeStatus.PAUSED)
+
+        then:
+        !node.isDead()
+        !node.isAlive()
+        node.isPaused()
+
+
+
     }
 }

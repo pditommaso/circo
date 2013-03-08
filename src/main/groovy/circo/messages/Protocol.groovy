@@ -19,8 +19,10 @@
 
 package circo.messages
 import akka.actor.ActorRef
+import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskResult
+import circo.util.SerializeId
 import groovy.transform.EqualsAndHashCode
 import groovy.transform.ToString
 import groovy.transform.TupleConstructor
@@ -67,9 +69,16 @@ class WorkerRequestsWork implements Serializable {
 @ToString(includePackage = false, includeNames = true)
 class WorkIsDone implements Serializable {
 
+    /**
+     * The task id that which terminate
+     */
+    final TaskId taskId
+
+    /**
+     * The {@code WorkerRef} that managed to complete the work
+     */
     final WorkerRef worker
 
-    final TaskId taskId
 
 }
 
@@ -97,12 +106,19 @@ class WorkComplete implements Serializable {
 
 }
 
-@TupleConstructor
 @EqualsAndHashCode
 @ToString(includePackage = false, includeNames = true)
 class WorkToSpool implements Serializable {
 
-    final TaskId taskId
+    final List<TaskId> taskId
+
+    WorkToSpool( TaskId taskId ) {
+        this([taskId])
+    }
+
+    WorkToSpool( Collection<TaskId> listOfTasks ) {
+        this.taskId = new ArrayList<>(listOfTasks)
+    }
 
     static WorkToSpool of( TaskId taskId )  { new WorkToSpool(taskId) }
 
@@ -137,6 +153,19 @@ class PauseWorker implements Serializable {
 @EqualsAndHashCode
 @ToString(includePackage = false)
 class ResumeWorker implements Serializable {
+
+}
+
+
+@SerializeId
+@TupleConstructor
+@ToString(includePackage = false, includeNames = true)
+class JobFinalize implements  Serializable {
+
+    /**
+     * The task entry that completes the overall job
+     */
+    TaskEntry task
 
 }
 

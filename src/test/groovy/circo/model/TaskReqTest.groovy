@@ -17,45 +17,24 @@
  *    along with Circo.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-package circo.reply
-import circo.model.Job
-import circo.model.TaskEntry
-import circo.util.SerializeId
-import groovy.transform.InheritConstructors
-import groovy.transform.ToString
+package circo.model
+
+import spock.lang.Specification
+
 /**
- * Holds the reply data for the {@code CmdList} command
  *
  * @author Paolo Di Tommaso <paolo.ditommaso@gmail.com>
  */
+class TaskReqTest extends Specification {
 
-@ToString(includeNames = true, includePackage = false)
-@InheritConstructors
-class ListReply extends AbstractReply {
+    def 'test toString' () {
 
-    List<JobInfo> jobs
+        given:
+        def req = new TaskReq(requestId: UUID.randomUUID())
+        print req.toString()
 
-    List<TaskEntry> tasks
-
-
-    @SerializeId
-    static class JobInfo implements Serializable {
-
-        JobInfo( Job job ) {
-            this.target = job
-        }
-
-        @Delegate
-        Job target
-
-        String command
-
-        int numOfPendingTasks
-
-        int numOfFailedTasks
-
-        String message
+        expect:
+        true
 
     }
-
 }

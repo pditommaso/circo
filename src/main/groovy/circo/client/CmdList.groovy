@@ -140,14 +140,14 @@ class CmdList extends AbstractCommand {
             .head('fail', 25)
 
 
-        tasks.sort().each { TaskEntry task ->
+        tasks.sort { TaskEntry entry -> entry.id } .each { TaskEntry task ->
 
             table << (longId ? task.req?.requestId?.toString() : task.req?.shortReqId)
             table << task.id.toString()
             table << task.statusString
             table << task.statusTimeFmt
             table << task.ownerId
-            table << task.attempts
+            table << task.attemptsCount
             table << task.pid
             table << task.result?.exitCode
             table << task.result?.failure?.toString()

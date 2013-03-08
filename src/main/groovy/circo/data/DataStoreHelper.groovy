@@ -65,12 +65,12 @@ class DataStoreHelper {
      *     <p>
      *     The replace is retried until it is able to be fulfilled
      *
+     * @param map The container map
      * @param id The object ID in the map
-     * @param map The map container
      * @param closure The update action
      * @return The updated object stored in the map
      */
-    public static <T extends Serializable> boolean update( def id, ConcurrentMap<?, T> map, Closure<T> closure ) {
+    public static <T extends Serializable> boolean update( ConcurrentMap<?, T> map, def id, Closure<T> closure ) {
 
         int count=0
         def begin = System.currentTimeMillis()

@@ -113,7 +113,7 @@ class WorkerRenderer extends DataHolder {
         this.jobId = TextLabel.of(data.currentTaskId?.toString()).width(5).right()
         this.processed = TextLabel.of(data.processed).number().width(5)
         this.failed = TextLabel.of(data.failed).width(3).number()
-        this.jobAttempts = TextLabel.of(jobEntry?.attempts).number().width(5) << AnsiStyle.error()
+        this.jobAttempts = TextLabel.of(jobEntry?.attemptsCount).number().width(5) << AnsiStyle.error()
     }
 
 

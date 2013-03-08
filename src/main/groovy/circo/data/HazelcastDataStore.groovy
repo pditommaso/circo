@@ -118,8 +118,17 @@ class HazelcastDataStore extends AbstractDataStore {
         init()
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    def localMemberId() {
+        // the pair (IP address, port) is used to identify the node
+        new AddressRef(hazelcast.cluster.localMember.inetSocketAddress)
+    }
 
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
     void shutdown() {
         /*
@@ -392,7 +401,6 @@ class HazelcastDataStore extends AbstractDataStore {
         jobs = hazelcast.getMap('jobs')
         tasks = hazelcast.getMap('tasks')
         nodes = hazelcast.getMap('nodes')
-        queue = hazelcast.getMap('queue')
         killList = hazelcast.getSet('killList')
 
         // since Hazelcast multimap does not support MapStore persistence, when a data-source
@@ -416,8 +424,8 @@ class HazelcastDataStore extends AbstractDataStore {
             localFiles = CacheBuilder .newBuilder() .build()
         }
 
-
     }
+
 
     // -------------------------------- JOBS operation -------------------------------------
 
@@ -430,31 +438,6 @@ class HazelcastDataStore extends AbstractDataStore {
             new ArrayList<>(super.listJobs())
         }
     }
-
-//    List<Job> findJobsByRequestId( String requestId ) {
-//
-//        if( jobsMapStore ) {
-//            return jobsMapStore.findByRequestId( requestId )
-//        }
-//
-//        else {
-//
-//            if ( requestId.size() < 36 ) {
-//                // replace wildcards with SQL wildcards
-//                requestId = requestId.replace("?", "%").replace("*", "%")
-//
-//                // if not wildcard are provided, append by default
-//                if ( !requestId.contains('%') ) {
-//                    requestId += '%'
-//                }
-//            }
-//
-//            def result = (jobs as IMap) .values(new SqlPredicate("requestId.toString() like '${requestId}'"))
-//            return new ArrayList<TaskEntry>(result as Collection<Job>)
-//
-//        }
-//
-//    }
 
 
     // -------------------------------- TASKS operation ------------------------------------
@@ -578,6 +561,44 @@ class HazelcastDataStore extends AbstractDataStore {
         }
     }
 
+    NodeData getPartitionNode( def obj ) {
+
+        NodeData result = null
+        partitionNodes( [obj], { entry, node -> result = node } )
+
+        return result
+    }
+
+    /**
+     * Map each entry in the list to the respective {@code NodeData} object
+     * by the underlying Hazelcast nodes partition
+     *
+     * @param entries
+     * @param closure
+     */
+    void partitionNodes( List entries, Closure closure ) {
+        assert entries != null
+        assert closure != null
+
+        // map all 'alive' nodes to respective address
+        def nodes = listNodes().findAll { NodeData it -> it.isAlive() }
+        Map<Object, NodeData> map = new HashMap<>( nodes.size() )
+        nodes.each { NodeData node -> map[ node.storeMemberId ] = node }
+
+        /*
+         * map each entry to respective {@code NodeData} instance using the Hazelcast partition
+         */
+        entries.each { Object entry ->
+            // get the partition node for this entry
+            def partition = hazelcast.getPartitionService().getPartition( entry )
+            // get the IP address w/o port
+            def address = new AddressRef(partition?.owner?.inetSocketAddress)
+
+            // invoke the closure
+            closure.call( entry, map.get(address) )
+        }
+    }
+
     // ------------------------------------ FILES -------------------------------------------
 
 
@@ -593,7 +614,7 @@ class HazelcastDataStore extends AbstractDataStore {
     }
 
 
-    void storeFile( UUID fileId, File file ) {
+    void saveFile( UUID fileId, File file ) {
         assert fileId
         assert file
 

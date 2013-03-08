@@ -26,10 +26,13 @@ import circo.client.CmdList
 import circo.client.CmdNode
 import circo.client.CmdSub
 import circo.messages.ProcessKill
+import circo.model.AddressRef
 import circo.model.Context
 import circo.model.Job
 import circo.model.JobStatus
+import circo.model.NodeData
 import circo.model.NodeDataTest
+import circo.model.NodeStatus
 import circo.model.TaskEntry
 import circo.model.TaskId
 import circo.model.TaskResult
@@ -50,6 +53,9 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd sub' () {
 
         setup:
+        def node = new NodeData( status: NodeStatus.ALIVE, storeMemberId: new AddressRef(InetAddress.localHost, 7501) )
+        dataStore.saveNode(node)
+
         def sender = newProbe(test.ActorSpecification.system)
         def master = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) {
@@ -103,6 +109,9 @@ class FrontEndTest extends ActorSpecification {
     def 'test cmd sub --each' () {
 
         setup:
+        def node = new NodeData( status: NodeStatus.ALIVE, storeMemberId: new AddressRef(InetAddress.localHost, 7501) )
+        dataStore.saveNode(node)
+
         def sender = newProbe(test.ActorSpecification.system)
         def master = newProbe(test.ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) {
@@ -164,19 +173,19 @@ class FrontEndTest extends ActorSpecification {
         final requestId2 = UUID.randomUUID()
 
         // first request
-        final task1 = TaskEntry.create(1)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello'; it.attempts=1; }
-        final task2 = TaskEntry.create(2)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello'; it.attempts=1; it.status = TaskStatus.TERMINATED }
+        final task1 = TaskEntry.create(1)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello'; it.attemptsCount=1; }
+        final task2 = TaskEntry.create(2)  { TaskEntry it -> it.req.requestId = requestId1; it.req.script = 'Hello'; it.attemptsCount=1; it.status = TaskStatus.TERMINATED }
 
         // second request
-        final task3 = TaskEntry.create(3)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attempts=1; }
-        final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attempts=1; it.status = TaskStatus.TERMINATED }
-        final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attempts=2; it.result = new TaskResult(exitCode: 1) }
+        final task3 = TaskEntry.create(3)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attemptsCount=1; }
+        final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attemptsCount=1; it.status = TaskStatus.TERMINATED }
+        final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.attemptsCount=2; it.result = new TaskResult(exitCode: 1) }
 
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-        dataStore.storeTask(task3)
-        dataStore.storeTask(task4)
-        dataStore.storeTask(task5)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
+        dataStore.saveTask(task4)
+        dataStore.saveTask(task5)
 
 
         /*
@@ -185,8 +194,8 @@ class FrontEndTest extends ActorSpecification {
         final job1 = Job.create(requestId1)
         final job2 = Job.create(requestId2) { Job it -> it.status = JobStatus.ERROR }
 
-        dataStore.storeJob(job1)
-        dataStore.storeJob(job2)
+        dataStore.saveJob(job1)
+        dataStore.saveJob(job2)
 
 
         /*
@@ -243,11 +252,11 @@ class FrontEndTest extends ActorSpecification {
         final task4 = TaskEntry.create(4)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.status = TaskStatus.TERMINATED }
         final task5 = TaskEntry.create(5)  { TaskEntry it -> it.req.requestId = requestId2; it.req.script = 'Ciao'; it.result = new TaskResult(exitCode: 1) }
 
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-        dataStore.storeTask(task3)
-        dataStore.storeTask(task4)
-        dataStore.storeTask(task5)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
+        dataStore.saveTask(task4)
+        dataStore.saveTask(task5)
 
 
         /*
@@ -256,8 +265,8 @@ class FrontEndTest extends ActorSpecification {
         final job1 = Job.create(requestId1)
         final job2 = Job.create(requestId2) { Job it -> it.status = JobStatus.ERROR }
 
-        dataStore.storeJob(job1)
-        dataStore.storeJob(job2)
+        dataStore.saveJob(job1)
+        dataStore.saveJob(job2)
 
 
         /*
@@ -299,8 +308,8 @@ class FrontEndTest extends ActorSpecification {
         def node1 =  NodeDataTest.create(11, 'w1,w2')
         def node2 =  NodeDataTest.create(22, 't0,t1,t2')
 
-        dataStore.storeNode(node1)
-        dataStore.storeNode(node2)
+        dataStore.saveNode(node1)
+        dataStore.saveNode(node2)
 
         def sender = newProbe(ActorSpecification.system)
         def frontend = newTestActor(test.ActorSpecification.system,FrontEnd) { new FrontEnd(test.ActorSpecification.dataStore) }
@@ -325,8 +334,8 @@ class FrontEndTest extends ActorSpecification {
 
         final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
         final job2 = Job.create()
-        dataStore.storeJob(job1)
-        dataStore.storeJob(job2)
+        dataStore.saveJob(job1)
+        dataStore.saveJob(job2)
 
         // job1 has two tasks
         final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId }
@@ -334,9 +343,9 @@ class FrontEndTest extends ActorSpecification {
 
         // job2 has one task
         final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING }
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-        dataStore.storeTask(task3)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
 
 
         // given the job ID to kill
@@ -416,8 +425,8 @@ class FrontEndTest extends ActorSpecification {
 
         final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
         final job2 = Job.create()
-        dataStore.storeJob(job1)
-        dataStore.storeJob(job2)
+        dataStore.saveJob(job1)
+        dataStore.saveJob(job2)
 
         // job1 has two tasks
         final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker1.getRef()) }
@@ -425,9 +434,9 @@ class FrontEndTest extends ActorSpecification {
 
         // job2 has one task
         final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING; ; task.worker = new WorkerRef(worker3.getRef())}
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-        dataStore.storeTask(task3)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
 
         // given the job ID to kill
         // return the set of 'job' and 'tasks' to kill
@@ -469,8 +478,8 @@ class FrontEndTest extends ActorSpecification {
 
         final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
         final job2 = Job.create()
-        dataStore.storeJob(job1)
-        dataStore.storeJob(job2)
+        dataStore.saveJob(job1)
+        dataStore.saveJob(job2)
 
         // job1 has two tasks
         final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker1.getRef()) }
@@ -478,9 +487,9 @@ class FrontEndTest extends ActorSpecification {
 
         // job2 has one task
         final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING; ; task.worker = new WorkerRef(worker3.getRef())}
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-        dataStore.storeTask(task3)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
 
 
         // given the ID of a running tasks
@@ -510,8 +519,8 @@ class FrontEndTest extends ActorSpecification {
 
         final job1 = Job.create() { Job job -> job.status = JobStatus.RUNNING }
         final job2 = Job.create()
-        dataStore.storeJob(job1)
-        dataStore.storeJob(job2)
+        dataStore.saveJob(job1)
+        dataStore.saveJob(job2)
 
         // job1 has two tasks
         final task1 = TaskEntry.create(1) { TaskEntry task -> task.req.requestId = job1.requestId; task.worker = new WorkerRef(worker1.getRef()) }
@@ -519,9 +528,9 @@ class FrontEndTest extends ActorSpecification {
 
         // job2 has one task
         final task3 = TaskEntry.create(3) { TaskEntry task -> task.req.requestId = job2.requestId; task.status = TaskStatus.RUNNING; ; task.worker = new WorkerRef(worker3.getRef())}
-        dataStore.storeTask(task1)
-        dataStore.storeTask(task2)
-        dataStore.storeTask(task3)
+        dataStore.saveTask(task1)
+        dataStore.saveTask(task2)
+        dataStore.saveTask(task3)
 
 
         //

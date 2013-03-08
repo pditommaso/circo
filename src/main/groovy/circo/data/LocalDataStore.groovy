@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentSkipListSet
 import java.util.concurrent.atomic.AtomicInteger
 
+import circo.model.NodeData
 import circo.model.TaskEntry
 import circo.model.TaskId
 import com.google.common.collect.ArrayListMultimap
@@ -47,21 +48,50 @@ class LocalDataStore extends AbstractDataStore {
         jobs = new ConcurrentHashMap<>()
         tasks = new ConcurrentHashMap<>()
         nodes = new ConcurrentHashMap<>()
-        queue = new ConcurrentHashMap<>()
         killList = new ConcurrentSkipListSet<TaskId>()
     }
 
     def void shutdown() { }
 
+    def localMemberId() { null }
+
     def void withTransaction(Closure closure) { closure.call() }
+
 
     // ------------------------------ TASKS ------------------------------------------
 
-    TaskId nextTaskId() { new TaskId( taskIdGen.addAndGet(1) ) }
+    /**
+     * {@inheritDoc}
+     */
+    TaskId nextTaskId() {
+        new TaskId( taskIdGen.addAndGet(1) )
+    }
+
 
     // ------------------------------ NODE -------------------------------------------
 
-    int nextNodeId() { nodeIdGen.addAndGet(1) }
+    /**
+     * {@inheritDoc}
+     */
+    int nextNodeId() {
+        nodeIdGen.addAndGet(1)
+    }
+
+
+    NodeData getPartitionNode( def item ) {
+        return nodes ? nodes.values().first() : null
+    }
+
+    void partitionNodes( List entries, Closure closure ) {
+        assert entries
+        assert closure
+
+        def theNode = nodes ? nodes.values().first() : null
+
+        entries.each {
+            closure.call( it, theNode )
+        }
+    }
 
     // ----------------------------- SINK --------------------------------------------
 
@@ -88,13 +118,15 @@ class LocalDataStore extends AbstractDataStore {
 
     // ----------------------------- FILES -------------------------------------------
 
-    void storeFile( UUID fileId, File file ) {
+    void saveFile( UUID fileId, File file ) {
         files.put(fileId, file)
     }
 
     File getFile( UUID fileId ) {
         files.get(fileId)
     }
+
+
 
 
 }

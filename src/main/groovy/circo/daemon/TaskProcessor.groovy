@@ -195,10 +195,10 @@ class TaskProcessor extends UntypedActor {
         currentTaskId = task.id
 
         // -- increment the 'attempts' counter and save it
-        task.attempts ++
+        task.attemptsCount ++
         task.status = TaskStatus.READY
         task.worker = new WorkerRef(self())
-        store.storeTask(task)
+        store.saveTask(task)
 
         // -- set the job to 'running' status
         final job = store.getJob( task.req.requestId )
@@ -237,13 +237,15 @@ class TaskProcessor extends UntypedActor {
 
         // -- setting the job result update the job flags as well
         task.result = result
-
-        store.storeTask(task)
+        store.saveTask(task)
 
         // -- notify the master of the failure
-        if( task.failed ) {
-            log.debug "-> WorkerFailure to $master"
+        if( task.isFailed() ) {
+            log.debug "Task ${task.id} failed -- ${task.dump()}"
             master.tell( new WorkerFailure(getSelf()), self() )
+        }
+        else {
+            log.debug "Task ${task.id} complete -- ${task.dump()}"
         }
 
         // -- clear the current jobId
@@ -252,12 +254,11 @@ class TaskProcessor extends UntypedActor {
         // -- notify the work is done
         final worker = new WorkerRef(getSelf())
         log.debug "-> WorkIsDone($worker) to $master"
-        master.tell( new WorkIsDone(worker, taskId), self() )
+        master.tell( new WorkIsDone(taskId, worker), self() )
 
         // -- request more work
         log.debug "-> WorkerRequestsWork(${worker}) to master"
         master.tell( new WorkerRequestsWork(worker), self() )
-
 
         // We're idle now
         this.state = State.IDLE

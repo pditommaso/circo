@@ -66,7 +66,6 @@ class HzJdbcNodesMapStoreTest extends Specification {
         nodeStore.load(node2.id) == node2
         nodeStore.load(node2.id) != node3
         nodeStore.load(99) == null
-        nodeStore.loadAllKeys().size() == 4
 
         nodeStore.loadAll() as Set == [ node1, node2, node3, node4 ] as Set
 
