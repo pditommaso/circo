@@ -21,8 +21,8 @@ package circo.client
 
 import circo.model.TaskEntry
 import circo.reply.ListReply
-import circo.ui.TableBuilder
-import circo.ui.TextLabel
+import drops.ui.TableBuilder
+import drops.ui.TextLabel
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
 import groovy.transform.ToString

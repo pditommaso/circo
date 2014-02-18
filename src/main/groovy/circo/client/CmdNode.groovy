@@ -19,7 +19,7 @@
 
 package circo.client
 
-import circo.ui.TableBuilder
+import drops.ui.TableBuilder
 import circo.util.CircoHelper
 import com.beust.jcommander.Parameter
 import com.beust.jcommander.Parameters
